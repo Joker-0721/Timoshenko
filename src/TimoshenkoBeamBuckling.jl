@@ -23,7 +23,7 @@ A = 0.02     # m²
 I = 10e-5    # m⁴
 kappa = 5/6  # Shear correction factor
 L = 10.0     # m
-n_elements = 20
+n_elements = 40
 
 println("=" ^ 60)
 println("Problem 16Buckling: Timoshenko Beam Buckling")

@@ -20,7 +20,7 @@ EI = E * I
 κGA = κ * A * G
 q = 1000.0  # Load (N/m)
 
-n_elements = 20
+n_elements = 40
 n_nodes = n_elements + 1
 ndof = 2 * n_nodes
 
