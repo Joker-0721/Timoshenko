@@ -1,14 +1,14 @@
 # Fdb version 4
-["xdvipdfmx"] 1773911004.39131 ".aux/Timoshenko_Report.xdv" "Timoshenko_Report.pdf" "Timoshenko_Report" 1773911005.98209 0
-  ".aux/Timoshenko_Report.xdv" 1773911004 148372 cf3119ccb8c3823a431245a21ae1fa4d "xelatex"
+["xdvipdfmx"] 1773993250.56186 ".aux/Timoshenko_Report.xdv" "Timoshenko_Report.pdf" "Timoshenko_Report" 1773993251.72844 0
+  ".aux/Timoshenko_Report.xdv" 1773993250 146748 4e7a3619f4357d5363625dead842791e "xelatex"
   (generated)
   "Timoshenko_Report.pdf"
   (rewritten before read)
-["xelatex"] 1773911002.08102 "d:/Joker/Timoshenko/Timoshenko_Report.tex" ".aux/Timoshenko_Report.xdv" "Timoshenko_Report" 1773911005.97764 0
-  ".aux/Timoshenko_Report.aux" 1773911004 4165 e30571606b17c88819106bbfefb4844f "xelatex"
-  "Timoshenko_Report.tex" 1773910997 31305 2934902990ddb3b51f4da548759f76c8 ""
+["xelatex"] 1773993248.71999 "d:/Joker/Timoshenko/Timoshenko_Report.tex" ".aux/Timoshenko_Report.xdv" "Timoshenko_Report" 1773993251.72427 0
+  ".aux/Timoshenko_Report.aux" 1773993250 4165 2b4c61717af9af4858b8eb1ea26ef71d "xelatex"
+  "Timoshenko_Report.tex" 1773993245 31040 4c637cf6f7d401bb94ef11de6762fcc5 ""
   "c:/Windows/Fonts/msyh.ttc" 1752132546 19704352 1e10e74402e59d54499af795caf0b135 ""
-  "d:/Joker/Timoshenko/Timoshenko_Report.tex" 1773910997 31305 2934902990ddb3b51f4da548759f76c8 ""
+  "d:/Joker/Timoshenko/Timoshenko_Report.tex" 1773993245 31040 4c637cf6f7d401bb94ef11de6762fcc5 ""
   "d:/apps/texlive/2025/texmf-dist/fonts/map/fontname/texfonts.map" 1764990459 3524 cb3e574dea2d1052e39280babc910dc8 ""
   "d:/apps/texlive/2025/texmf-dist/fonts/tfm/public/amsfonts/cmextra/cmex7.tfm" 1764989176 1004 54797486969f23fa377b128694d548df ""
   "d:/apps/texlive/2025/texmf-dist/fonts/tfm/public/amsfonts/cmextra/cmex8.tfm" 1764989176 988 bdf658c3bfc2d96d3c8b02cfc1c94c20 ""

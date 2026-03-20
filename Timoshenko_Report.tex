@@ -201,15 +201,6 @@ Timoshenko 樑理論放寬了 Euler-Bernoulli 理論的「平面保持平面且�
 
 $$U = \underbrace{\frac{1}{2}\int_0^L EI\left(\frac{d\theta}{dx}\right)^2 dx}_{U_b} + \underbrace{\frac{1}{2}\int_0^L \kappa AG\left(\frac{dw_0}{dx} - \theta\right)^2 dx}_{U_s}$$
 
-其中：
-\begin{itemize}
-  \item $E$：楊氏模數
-  \item $I$：慣性矩
-  \item $G$：剪力模數
-  \item $A$：截面面積
-  \item $\kappa$：剪力修正係數（值為 $5/6$）
-\end{itemize}
-
 \paragraph{2.2.4 位移公式推導}
 
 由變分原理可得控制方程。對於均布載重 $q$ 作用下的樑，總位移為：
@@ -436,7 +427,7 @@ $$w = w_b + w_s \propto q$$
 \midrule
 \textbf{剪切處理} & 引入剪切修正因子 (Shear factor) & 採用 \textbf{單點高斯積分} (1-point integration) 消除剪力鎖定 \\
 \midrule
-  \textbf{空間離散} & 連續函數 & 將樑劃分為 40 個元素 (41 個節點) \\
+  \textbf{空間離散} & 連續函數 & 將樑劃分為 20 ~ 100 個元素  \\
 \midrule
 \textbf{求解器} & 直接帶入公式 & 調用 Julia \texttt{LinearAlgebra} 與 \texttt{eigvals} 函數 \\
 \bottomrule
@@ -560,8 +551,6 @@ $$w = w_b + w_s \propto q$$
 \textit{注：隨著元素數量增加，位移誤差持續下降，展現良好的收斂性。}
 
 \paragraph{(b) 懸臂樑 (Cantilever)}
-
-\textbf{解析解：} $w = 0.0595609524$ m
 
 \textbf{收斂性分析結果：}
 

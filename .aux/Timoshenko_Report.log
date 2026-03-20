@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999997 (TeX Live 2025) (preloaded format=xelatex 2025.12.6)  19 MAR 2026 17:03
+This is XeTeX, Version 3.141592653-2.6-0.999997 (TeX Live 2025) (preloaded format=xelatex 2025.12.6)  20 MAR 2026 15:54
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -455,8 +455,6 @@ LaTeX Font Info:    Font shape `TU/SimSun(0)/m/sl' in size <12> not available
 
 [7]
 
-[8]
-
 Package fontspec Info: 
 (fontspec)             Could not resolve font "FangSong/BI" (it probably
 (fontspec)             doesn't exist).
@@ -483,29 +481,31 @@ Package fontspec Info:
 (fontspec)             <->"FangSong/OT:script=hani;language=dflt;"
 
 
-Underfull \hbox (badness 1975) in paragraph at lines 441--442
+Underfull \hbox (badness 1975) in paragraph at lines 432--433
 []\TU/SimSun(0)/m/n/12 調 用 \TU/lmr/m/n/12 Julia \TU/lmtt/m/n/12 LinearAlgebra \TU/SimSun(0)/m/n/12 與
  []
 
 
-Overfull \hbox (7.5472pt too wide) in paragraph at lines 431--444
+Overfull \hbox (7.5472pt too wide) in paragraph at lines 422--435
  [] 
  []
 
 Missing character: There is no κ (U+03BA) in font [lmmono12-regular]:!
 
 
+[8]
+
 [9]
 
 [10]
 
 [11]
-Underfull \hbox (badness 7344) in paragraph at lines 631--631
+Underfull \hbox (badness 7344) in paragraph at lines 620--620
 []\TU/SimSun(0)/m/n/12 簡 支 樑 誤 差
  []
 
 
-Underfull \hbox (badness 7344) in paragraph at lines 633--633
+Underfull \hbox (badness 7344) in paragraph at lines 622--622
 []\TU/SimSun(0)/m/n/12 懸 臂 樑 誤 差
  []
 
@@ -534,4 +534,4 @@ Here is how much of TeX's memory you used:
  36 hyphenation exceptions out of 8191
  93i,10n,111p,425b,471s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
-Output written on .aux/Timoshenko_Report.xdv (16 pages, 148372 bytes).
+Output written on .aux/Timoshenko_Report.xdv (16 pages, 146748 bytes).
