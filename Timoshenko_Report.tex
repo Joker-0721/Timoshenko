@@ -1,7 +1,9 @@
-\documentclass[UTF8, a4paper, 12pt]{ctexart}
-\usepackage{amsmath, amssymb, booktabs, geometry}
+﻿\documentclass[UTF8, a4paper, 12pt]{ctexart}
+\usepackage{amsmath, amssymb, booktabs, geometry, graphicx}
+\usepackage{caption}
 \geometry{left=2.5cm, right=2.5cm, top=3cm, bottom=3cm}
 \usepackage{color}
+\usepackage{tikz}
 
 
 
@@ -76,38 +78,111 @@
 \begin{equation}
   U_{s} = \frac{1}{2}\int_{0}^{L}kAG(w_{,x}-\phi)^{2}dx
 \end{equation}
+\begin{center}
+  \centering
+  \begin{tikzpicture}[x=1cm,y=1cm,>=stealth,line cap=round,line join=round]
+    \begin{scope}[shift={(0,0)}]
+      \node[font=\bfseries] at (2.7,3.1) {$U_b$：彎曲};
+      \draw[dashed,gray] (0.2,1.2) -- (5.1,1.2);
+      \node[font=\scriptsize,gray] at (4.45,1.48) {原始軸線};
+      \draw[blue!70!black,thick] (0.2,1.0) .. controls (1.5,0.7) and (3.5,1.8) .. (5.1,1.4);
+      \node[font=\scriptsize,blue!70!black] at (4.15,2.0) {彎曲後軸線};
+      \draw[thick] (1.35,0.25) -- (1.10,1.70);
+      \draw[thick] (3.85,0.70) -- (4.35,2.10);
+      \draw[->] (1.42,1.07) arc[start angle=-10,end angle=18,radius=0.38];
+      \node[font=\scriptsize] at (1.86,1.50) {$\phi$};
+      \draw[->] (4.00,1.28) arc[start angle=-2,end angle=31,radius=0.42];
+      \node[font=\scriptsize] at (4.50,1.78) {$\phi$};
+      \draw[<->] (1.60,2.22) -- (4.00,2.44);
+      \node[font=\scriptsize,fill=white,inner sep=1pt] at (2.80,2.48) {$\phi_{,x}$};
+      \node[font=\scriptsize,align=center] at (2.65,-0.05) {相鄰截面轉角沿 $x$ 改變\\對應彎曲應變能 $U_b$};
+    \end{scope}
+
+    \begin{scope}[shift={(7.0,0)}]
+      \node[font=\bfseries] at (2.7,3.1) {$U_s$：剪力};
+      \draw[dashed,gray] (0.2,1.0) -- (5.0,1.0);
+      \node[font=\scriptsize,gray] at (4.15,1.28) {局部水平參考};
+      \draw[blue!70!black,thick] (0.5,0.85) -- (4.8,1.95);
+      \node[font=\scriptsize,blue!70!black] at (4.05,2.25) {變形後中性軸};
+      \fill (2.55,1.38) circle (0.03);
+      \draw[->,red!75!black,thick] (2.55,1.38) -- (3.75,1.69);
+      \node[font=\scriptsize,red!75!black] at (3.55,1.96) {$w_{,x}$};
+      \draw[->,green!50!black,thick] (2.55,1.38) -- (3.62,1.52);
+      \node[font=\scriptsize,green!40!black] at (3.45,1.24) {$\phi$};
+      \draw[thick] (2.45,0.65) -- (2.65,2.11);
+      \node[font=\scriptsize] at (2.98,2.26) {截面};
+      \draw[->] (3.10,1.45) arc[start angle=7,end angle=15,radius=0.52];
+      \node[font=\scriptsize,align=center] at (2.65,-0.05) {中性軸斜率與截面旋轉不一致\\對應剪力應變能 $U_s$};
+    \end{scope}
+  \end{tikzpicture}
+  \captionof{figure}{彎曲應變能 $U_b$ 與剪力應變能 $U_s$ 的幾何意義示意圖}
+\end{center}
+
 其中，$k$ 為剪力修正係數，$A$ 為截面面積，$G$ 為剪力模數，$w$ 為橫向位移。
-
-\textbf{外力位能：} 軸向壓縮力 $P$ 的位能可視為該力因樑的橫向變形所做的功：
 \begin{equation}
-  V = \frac{1}{2}\int_{0}^{L}Pw_{,x}^{2}dx
+  \gamma = w_{,x}-\phi
 \end{equation}
 
-\textbf{總位能泛函：}
+\medskip
+\noindent\textbf{Engesser 假設}
+
+\textbf{外力位能：}
 \begin{equation}
-  \Pi = \frac{1}{2}\int_{0}^{L}(EI\phi_{,x}^{2}+kAG(w_{,x}-\phi)^{2}-Pw_{,x}^{2})dx
+  V_E = \frac{1}{2}\int_{0}^{L}P w_{,x}^{2}dx
 \end{equation}
 
-%\subsubsection{1.5 變分原理與控制方程}
-
-平衡狀態可由位能駐值原理求得：對任何允許的虛位移，總位能的一次變分必須為零。
+\textbf{總位能：}
 \begin{equation}
-  \delta\Pi = \delta\frac{1}{2}\int_{0}^{L}(EI\phi_{,x}^{2}+kAG(w_{,x}-\phi)^{2}-Pw_{,x}^{2})dx = 0
+  \Pi_E = \frac{1}{2}\int_{0}^{L}\left(EI\phi_{,x}^{2}+kAG(w_{,x}-\phi)^{2}-Pw_{,x}^{2}\right)dx
 \end{equation}
 
-對獨立未知量 $w$ 與 $\phi$ 取變分可得：
+\textbf{位能駐值條件：}
+\begin{equation}
+  \delta\Pi_E = \delta\frac{1}{2}\int_{0}^{L}\left(EI\phi_{,x}^{2}+kAG(w_{,x}-\phi)^{2}-Pw_{,x}^{2}\right)dx = 0
+\end{equation}
 
 \textbf{對 $w$ 的弱式：}
 \begin{equation}
-  \int_{0}^{L}(\delta w_{,x}kAGw_{,x} - \delta w_{,x}kAG\phi - \delta w_{,x}Pw_{,x})dx = 0
+  \int_{0}^{L}\left(\delta w_{,x}kAGw_{,x} - \delta w_{,x}kAG\phi - \delta w_{,x}Pw_{,x}\right)dx = 0
 \end{equation}
 
 \textbf{對 $\phi$ 的弱式：}
 \begin{equation}
-  \int_{0}^{L}(\delta\phi_{,x}EI\phi_{,x} - \delta\phi kAGw_{,x} + \delta\phi kAG\phi)dx = 0
+  \int_{0}^{L}\left(\delta\phi_{,x}EI\phi_{,x} - \delta\phi kAGw_{,x} + \delta\phi kAG\phi\right)dx = 0
+\end{equation}
+
+\medskip
+\noindent\textbf{Haringx 假設}
+
+\textbf{外力位能：}
+\begin{equation}
+  V_H = \frac{1}{2}\int_{0}^{L}P\left(w_{,x}^{2}-\gamma^{2}\right)dx
+\end{equation}
+
+\textbf{總位能：}
+\begin{equation}
+  \Pi_H = \frac{1}{2}\int_{0}^{L}\left(EI\phi_{,x}^{2}+kAG\gamma^{2}-P\left(w_{,x}^{2}-\gamma^{2}\right)\right)dx
+\end{equation}
+
+\textbf{位能駐值條件：}
+\begin{equation}
+  \delta\Pi_H = \delta\frac{1}{2}\int_{0}^{L}\left(EI\phi_{,x}^{2}+kAG\gamma^{2}-P\left(w_{,x}^{2}-\gamma^{2}\right)\right)dx = 0
+\end{equation}
+
+\textbf{對 $w$ 的弱式：}
+\begin{equation}
+  \int_{0}^{L}\delta w_{,x}\left(kAG\,w_{,x}-(kAG+P)\phi\right)dx = 0
+\end{equation}
+
+\textbf{對 $\phi$ 的弱式：}
+\begin{equation}
+  \int_{0}^{L}\left(\delta\phi_{,x}EI\phi_{,x}-\delta\phi (kAG+P)w_{,x}+\delta\phi (kAG+P)\phi\right)dx = 0
 \end{equation}
 
 %\subsubsection{1.6 有限元素近似}
+
+\medskip
+\noindent\textbf{共同的有限元素近似}
 
 將樑域離散成有限元素，並以形狀函數近似場變量 $w$ 與 $\phi$。
 \begin{equation}
@@ -127,46 +202,56 @@
 
 %\subsubsection{1.7 離散後的特徵值問題}
 
-將上述近似代入變分式，即可得到離散後的特徵值問題：
+\medskip
+\noindent\textbf{離散後的特徵值問題}
+
+將上述共同近似分別代入 Engesser 與 Haringx 的弱式，即可得到離散後的特徵值問題：
+
+\textbf{Engesser 幾何剛度形式：}
 \begin{equation}
+  \left[\mathbf{K} - P \mathbf{K}_G^{(E)}\right]\{\mathbf{d}\} = \{\mathbf{0}\},\quad
+  \mathbf{K}_G^{(E)}=
   \begin{bmatrix}
-    K_{ww} & K_{w\phi} \\
-    K_{\phi w} & K_{\phi\phi}
+    \mathbf{K}_{ww}^{G} & \mathbf{0} \\
+    \mathbf{0} & \mathbf{0}
   \end{bmatrix}
+\end{equation}
+
+\textbf{Haringx 幾何剛度形式：}
+\begin{equation}
+  \left[\mathbf{K} - P \mathbf{K}_G^{(H)}\right]\{\mathbf{d}\} = \{\mathbf{0}\},\quad
+  \mathbf{K}_G^{(H)}=
   \begin{bmatrix}
-    d_{w} \\
-    d_{\phi}
+    \mathbf{0} & \mathbf{K}_{w\phi}^{G,H} \\
+    \mathbf{K}_{\phi w}^{G,H} & -\mathbf{K}_{\phi\phi}^{G,H}
   \end{bmatrix}
-  - P
-  \begin{bmatrix}
-    K_{,ww}^{G} & 0 \\
-    0 & 0
-  \end{bmatrix}
-  \begin{bmatrix}
-    d_{w} \\
-    d_{\phi}
-  \end{bmatrix} = \begin{bmatrix} 0 \\ 0 \end{bmatrix}
 \end{equation}
 
 其中各元素剛度子矩陣定義為：
 \begin{equation}
-  K_{ww,IJ} = \int_{0}^{L}(kAGN_{I,x}N_{J,x} - PN_{I,x}N_{J,x})dx
+  K_{ww,IJ} = \int_{0}^{L}kAGN_{I,x}N_{J,x}\,dx
 \end{equation}
 \begin{equation}
   K_{\phi\phi,IJ} = \int_{0}^{L}(EIN_{I,x}N_{J,x} + kAGN_{I}N_{J})dx
 \end{equation}
 \begin{equation}
-  K_{w\phi,IJ} = K_{\phi w,JI} = -\int_{0}^{L}kAGN_{I,x}N_{J}dx
+  K_{w\phi,IJ} = -\int_{0}^{L}kAGN_{I,x}N_{J}\,dx,\quad
+  K_{\phi w,IJ} = -\int_{0}^{L}kAGN_{I}N_{J,x}\,dx
 \end{equation}
 \begin{equation}
-  K_{,ww,IJ}^{G} = \int_{0}^{L}N_{I,x}N_{J,x}dx
+  K_{ww,IJ}^{G} = \int_{0}^{L}N_{I,x}N_{J,x}\,dx
+\end{equation}
+\begin{equation}
+  K_{w\phi,IJ}^{G,H} = \int_{0}^{L}N_{I,x}N_{J}\,dx,\quad
+  K_{\phi w,IJ}^{G,H} = \int_{0}^{L}N_{I}N_{J,x}\,dx,\quad
+  K_{\phi\phi,IJ}^{G,H} = \int_{0}^{L}N_{I}N_{J}\,dx
 \end{equation}
 
 全域剛度矩陣由各元素貢獻組裝而成。臨界屈曲荷載 $P_{cr}$ 是使得總位能的二次變分不再為正定的最小 $P$，因此會導出一個特徵值問題。
 
 \subsection{靜態彎曲位移公式推導}
 
-本節詳細說明 Timoshenko 樑靜態彎曲分析中，總位移公式 $w = w_b + w_s$ 的推導過程及其線性性質。
+本節詳細說明 Timoshenko 樑靜態彎曲分析中，總位移公式 $w = w_b + w_s$ 的推導過程、精確解與有限元素近似階數。
 
 \paragraph{2.2.1 Timoshenko 樑理論的基本假設}
 
@@ -174,63 +259,196 @@ Timoshenko 樑理論放寬了 Euler-Bernoulli 理論的「平面保持平面且�
 
 \begin{itemize}
   \item 截面在變形後仍保持平面，但不一定與中性軸垂直
+  \item 座標與指標記號：空間座標採 $(x,y,z)$，分量指標採 $(k,l)$
   \item 位移場定義為：
   \begin{itemize}
-    \item 軸向位移：$u(x, y) = y \cdot \theta(x)$
-    \item 橫向位移：$w(x, y) = w_0(x)$
+    \item 軸向位移：$u_1(x,y)=u_x(x,y)=y\,\theta(x)$
+    \item 橫向位移：$u_2(x,y)=u_y(x,y)=w(x)$
+    \item 厚度向位移：$u_3(x,y,z)=u_z(x,y,z)=0$
   \end{itemize}
 \end{itemize}
 
-其中 $\theta(x)$ 是截面旋轉角度，$w_0(x)$ 是中性軸的橫向位移。
+其中 $\theta(x)$ 是截面旋轉角度，$w(x)$ 是中性軸的橫向位移。在本小節中，$\theta$ 的角色等同於前文常用的 $\phi$，僅符號記號不同。
 
 \paragraph{2.2.2 應變分析}
 
 由位移場可求得應變：
 
+\begin{equation}
+  \varepsilon_{kl}=\frac{1}{2}\left(u_{k,l}+u_{l,k}\right)
+\end{equation}
+
 \begin{itemize}
-  \item \textbf{彎曲應變（正應變）：}
-  $$\varepsilon_x = \frac{\partial u}{\partial x} = y \frac{d\theta}{dx}$$
+  \item \textbf{彎曲應變（正應變，張量形式）：}
+  $$\varepsilon_{xx}=u_{x,x}=y\,\theta_{,x}$$
   
-  \item \textbf{剪力應變：}
-  $$\gamma_{xy} = \frac{\partial u}{\partial y} + \frac{\partial w}{\partial x} = \theta + \frac{dw_0}{dx}$$
+  \item \textbf{剪力應變（張量形式）：}
+  $$2\varepsilon_{xy}=u_{x,y}+u_{y,x}\equiv\gamma_{xy}=w_{,x}-\theta$$
 \end{itemize}
+
+其中逗號下標表示對座標分量微分（例如 $u_{x,x}$ 表示 $u_x$ 對 $x$ 的偏導）。在本節採用樑理論常用轉角符號慣例，使剪力應變統一寫為 $\gamma_{xy}=w_{,x}-\theta$。
 
 \paragraph{2.2.3 應變能}
 
 總應變能包含彎曲與剪力兩部分。
 
-$$U = \underbrace{\frac{1}{2}\int_0^L EI\left(\frac{d\theta}{dx}\right)^2 dx}_{U_b} + \underbrace{\frac{1}{2}\int_0^L \kappa AG\left(\frac{dw_0}{dx} - \theta\right)^2 dx}_{U_s}$$
+$$U = \underbrace{\frac{1}{2}\int_0^L EI\left(\theta_{,x}\right)^2\,dx}_{U_b} + \underbrace{\frac{1}{2}\int_0^L \kappa AG\left(w_{,x} - \theta\right)^2\,dx}_{U_s}$$
 
-\paragraph{2.2.4 位移公式推導}
+\paragraph{2.2.4 位移分解、精確解與階數}
 
-由變分原理可得控制方程。對於均布載重 $q$ 作用下的樑，總位移為：
+\textbf{(a) FEM 分解插值：}
+為了建立有限元素離散式，本節先以二節點 Timoshenko 樑元素描述 $w_b$、$w_s$ 與形狀函數的關係。令自然座標 $\xi \in [-1,1]$，其線性形狀函數為
+\begin{equation}
+  N_1(\xi)=\frac{1-\xi}{2},\qquad
+  N_2(\xi)=\frac{1+\xi}{2}
+\end{equation}
+完成元素座標映射後，文中亦可簡寫為 $N_1(x),N_2(x)$。對應的元素自由度向量取為
+\begin{equation}
+  \mathbf{d}_e=[w_1,\ \theta_1,\ w_2,\ \theta_2]^T
+\end{equation}
+若將總撓度拆為彎曲與剪切兩部分，則可於元素內寫為
+\begin{equation}
+  w_b^h(x)=N_1(x)w_{b1}+N_2(x)w_{b2}
+\end{equation}
+\begin{equation}
+  w_s^h(x)=N_1(x)w_{s1}+N_2(x)w_{s2}
+\end{equation}
+\begin{equation}
+  w^h(x)=w_b^h(x)+w_s^h(x)
+\end{equation}
+整理後可得
 
-$$w = w_b + w_s$$
+\begin{equation}
+  w^h(x)=N_1(x)(w_{b1}+w_{s1})+N_2(x)(w_{b2}+w_{s2})
+\end{equation}
+\begin{equation}
+  w^h(x)=N_1(x)w_1+N_2(x)w_2,\qquad
+  w_1=w_{b1}+w_{s1},\quad w_2=w_{b2}+w_{s2}
+\end{equation}
+\begin{equation}
+  \theta^h(x)=N_1(x)\theta_1+N_2(x)\theta_2
+\end{equation}
+其中 $w_b^h$ 與 $w_s^h$ 僅用來表示元素內的彎曲與剪切撓度貢獻，並非另外引入新的獨立自由度。其導數近似為
+\begin{equation}
+  w^h_{,x}(x)=N_{1,x}(x)w_1+N_{2,x}(x)w_2
+\end{equation}
+\begin{equation}
+  \theta^h_{,x}(x)=N_{1,x}(x)\theta_1+N_{2,x}(x)\theta_2
+\end{equation}
 
-其中：
-\begin{itemize}
-  \item \textbf{彎曲貢獻 ($w_b$)：} 來源於彎曲應變能 $U_b$，與 Euler-Bernoulli 樑理論相同。
-  \begin{equation}
-    w_b = \frac{qL^4}{8EI} \quad \text{(懸臂樑)} \quad \text{或} \quad w_b = \frac{5qL^4}{384EI} \quad \text{(簡支樑)}
-  \end{equation}
-  
-  \item \textbf{剪切貢獻 ($w_s$)：} 來源於剪力應變能 $U_s$，這是 Timoshenko 理論特有的項。
-  \begin{equation}
-    w_s = \frac{qL^2}{2\kappa GA} \quad \text{(懸臂樑)} \quad \text{或} \quad w_s = \frac{qL^2}{8\kappa GA} \quad \text{(簡支樑)}
-  \end{equation}
-\end{itemize}
+因此元素內的剪應變可寫為
+\begin{equation}
+  \gamma^h(x)=w^h_{,x}(x)-\theta^h(x)
+\end{equation}
+\begin{equation}
+  \gamma^h(x)=
+  \begin{bmatrix}
+    N_{1,x}(x) & -N_1(x) & N_{2,x}(x) & -N_2(x)
+  \end{bmatrix}
+  \mathbf{d}_e
+\end{equation}
 
-\textbf{重要結論：} $w = w_b + w_s$ 是\textbf{線性方程}。
+依此插值，彎曲與剪切對應的能量項分別為
+\begin{equation}
+  U_b=\frac{1}{2}\int_0^L EI\left(\theta^h_{,x}\right)^2\,dx
+\end{equation}
+\begin{equation}
+  U_s=\frac{1}{2}\int_0^L \kappa AG\left(w^h_{,x}-\theta^h\right)^2\,dx
+\end{equation}
 
-證明：在小變形、線彈性假設下（虎克定律成立），位移與載重成正比：
+\textbf{(b) 連續體精確解：}
+在 Ferreira 第10章第10.2節中，均布載重記為 $P$；本報告統一以 $q$ 表示，因此此處採 $P\equiv q$。依據其對應之 Timoshenko 樑精確解，總撓度仍可寫為
+\begin{equation}
+  w(x)=w_b(x)+w_s(x)
+\end{equation}
+其中對於簡支樑（SS），彎曲與剪切分量分別為
+\begin{equation}
+  w_b(x)=\frac{q\,x\left(L^3-2Lx^2+x^3\right)}{24EI}
+\end{equation}
+\begin{equation}
+  w_s(x)=\frac{q\,x(L-x)}{2\kappa GA}
+\end{equation}
+故其精確解可寫為
+\begin{equation}
+  \begin{aligned}
+    w(x)&=\frac{q\,x\left(L^3-2Lx^2+x^3\right)}{24EI}
+    +\frac{q\,x(L-x)}{2\kappa GA}, \\
+    w_{\max}&=w\!\left(\frac{L}{2}\right)
+    =\frac{5qL^4}{384EI}+\frac{qL^2}{8\kappa GA}
+  \end{aligned}
+\end{equation}
+對於懸臂樑（CF），彎曲與剪切分量分別為
+\begin{equation}
+  w_b(x)=\frac{q\,x^2\left(6L^2-4Lx+x^2\right)}{24EI}
+\end{equation}
+\begin{equation}
+  w_s(x)=\frac{q\,x(2L-x)}{2\kappa GA}
+\end{equation}
+故其精確解可寫為
+\begin{equation}
+  \begin{aligned}
+    w(x)&=\frac{q\,x^2\left(6L^2-4Lx+x^2\right)}{24EI}
+    +\frac{q\,x(2L-x)}{2\kappa GA}, \\
+    w_{\max}&=w(L)
+    =\frac{qL^4}{8EI}+\frac{qL^2}{2\kappa GA}
+  \end{aligned}
+\end{equation}
 
-$$w_b = \frac{qL^4}{8EI} \propto q \quad \text{（一次方）}$$
-$$w_s = \frac{qL^2}{2\kappa GA} \propto q \quad \text{（一次方）}$$
+\textbf{(c) 階數說明：}
+需特別區分「精確解」與「二節點 FEM 近似」兩個層次。在連續體精確解中，$w_b(x)$ 為四次多項式，$w_s(x)$ 為二次多項式，因此 $w(x)=w_b(x)+w_s(x)$ 仍由四次項主導，屬四次多項式。相對地，在二節點線性元素內，$N_1(x)$ 與 $N_2(x)$ 均為一次形狀函數，所以 $w_b^h(x)$、$w_s^h(x)$ 與 $w^h(x)$ 在單一元素內皆為一次函數。
 
-因此，
-$$w = w_b + w_s \propto q$$
+\begin{center}
+\begin{tabular}{ccc}
+\toprule
+\textbf{量} & \textbf{精確解階數} & \textbf{二節點 FEM 元素內階數} \\
+\midrule
+$w_b$ & 四次多項式 & 一次函數 \\
+$w_s$ & 二次多項式 & 一次函數 \\
+$w$   & 四次多項式 & 一次函數 \\
+\bottomrule
+\end{tabular}
+\end{center}
 
-這稱為\textbf{疊加原理}——在線性系統中，總位移等於各單獨載重作用下位移的代數和。
+因此，式 $w=w_b+w_s$ 在本節同時具有兩個層次的意義：在連續體層級，它對應彎曲與剪切精確解的疊加；在有限元素層級，它則對應由 $N_1(x),N_2(x)$ 所插值得到的元素內近似場。下文的靜態彎曲基準對比即以這些精確解作為對照基準。
+
+\subsubsection{靜態彎曲基準（表10.1）}
+
+\textbf{誤差定義（表10.1）：}
+本表最後一欄的 Field L2(\%) 採真正的全域場積分誤差。比較時以 FEM 的 $100$ 個元素作為共同分割，在每個元素上使用 5-point Gauss 積分，同時計算解析位移場 $w_{exact}(x)$ 與有限元素位移場 $w_h(x)$，定義為
+\begin{equation}
+  \varepsilon_{L^2}(\%)=
+  \frac{\left(\int_0^L (w_h-w_{exact})^2\,dx\right)^{1/2}}
+  {\left(\int_0^L w_{exact}^2\,dx\right)^{1/2}}\times 100\%
+\end{equation}
+其中 $w_h$ 由二節點線性形狀函數在元素內重建，而 $w_{exact}$ 由閉式公式直接評估。文獻表中的 Exact 與 Present 皆屬單值結果；其中 Present 對應 MATLAB 程式於 $100$ 個元素下的數值結果，因此二者不再納入本表之 Field L2 計算。
+
+\begin{center}
+\begin{tabular}{ccccc}
+\toprule
+\textbf{案例} & \textbf{$h/L$} & \textbf{公式重算} & \textbf{FEM(100元素)} & \textbf{Field L2(\%)} \\
+\midrule
+SS & 0.001 & 1.5625039 & 1.5622539 & 0.024962 \\
+ & 0.01  & 0.00156289 & 0.00156264 & 0.024959 \\
+ & 0.1   & $1.6015\times10^{-6}$ & $1.60125\times10^{-6}$ & 0.024559 \\
+CF & 0.001 & 15.0000156 & 15.0000147 & 0.002741 \\
+ & 0.01  & 0.01500156 & 0.01500156 & 0.002738 \\
+ & 0.1   & $1.5156\times10^{-5}$ & $1.5156\times10^{-5}$ & 0.002695 \\
+\midrule
+\end{tabular}
+\captionof{table}{表10.1：靜態彎曲基準對比（SS/CF，Field L2）}
+\end{center}
+
+其中「同一觀測位置」對簡支樑（SS）為中心位移 $x=L/2$，對懸臂樑（CF）為端點位移 $x=L$。
+
+\begin{center}
+  \centering
+  \includegraphics[width=0.88\textwidth]{figures/2.png}
+  \captionof{figure}{表10.1對應案例示意圖}
+\end{center}
+
+
+
+
 
 \subsection{自由震動分析的解析解推導}
 
@@ -243,54 +461,54 @@ $$w = w_b + w_s \propto q$$
 \begin{itemize}
   \item \textbf{平移動能 ($T_w$)：} 來自橫向位移 $w(x,t)$
   \begin{equation}
-    T_w = \frac{1}{2}\int_0^L \rho A \dot{w}^2 \, dx
+    T_w = \frac{1}{2}\int_0^L \rho A w_{,t}^2 \, dx
   \end{equation}
   
   \item \textbf{旋轉動能 ($T_\phi$)：} 來自截面轉角 $\phi(x,t)$
   \begin{equation}
-    T_\phi = \frac{1}{2}\int_0^L \rho I \dot{\phi}^2 \, dx
+    T_\phi = \frac{1}{2}\int_0^L \rho I \phi_{,t}^2 \, dx
   \end{equation}
 \end{itemize}
 
-其中，$\dot{w} = \partial w/\partial t$，$\dot{\phi} = \partial \phi/\partial t$ 為時間導數，$\rho$ 為密度，$I$ 為慣性矩。
+其中，$\rho$ 為密度，$I$ 為慣性矩，逗號下標表示對對應座標分量微分。
 
 \subparagraph{2.3.2 震動控制方程}
 
 總位能 $U$ 與靜態分析相同：
 \begin{equation}
-  U = \frac{1}{2}\int_0^L \left[ EI\left(\frac{\partial \phi}{\partial x}\right)^2 + \kappa GA\left(\frac{\partial w}{\partial x} - \phi\right)^2 \right] dx
+  U = \frac{1}{2}\int_0^L \left[ EI\left(\phi_{,x}\right)^2 + \kappa GA\left(w_{,x} - \phi\right)^2 \right] dx
 \end{equation}
 
 根據拉格朗日方程，對於廣義坐標 $w$ 和 $\phi$：
 \begin{equation}
-  \frac{d}{dt}\left(\frac{\partial T}{\partial \dot{w}}\right) - \frac{\partial T}{\partial w} + \frac{\partial U}{\partial w} = 0
+  \left(T_{,w_{,t}}\right)_{,t} - T_{,w} + U_{,w} = 0
 \end{equation}
 \begin{equation}
-  \frac{d}{dt}\left(\frac{\partial T}{\partial \dot{\phi}}\right) - \frac{\partial T}{\partial \phi} + \frac{\partial U}{\partial \phi} = 0
+  \left(T_{,\phi_{,t}}\right)_{,t} - T_{,\phi} + U_{,\phi} = 0
 \end{equation}
 
 代入動能和位能表達式，可得 Timoshenko 樑的自由震動控制方程：
 \begin{equation}
-  \kappa GA \left( \frac{\partial^2 w}{\partial x^2} - \frac{\partial \phi}{\partial x} \right) = \rho A \frac{\partial^2 w}{\partial t^2}
+  \kappa GA \left( w_{,xx} - \phi_{,x} \right) = \rho A w_{,tt}
 \end{equation}
 \begin{equation}
-  EI \frac{\partial^2 \phi}{\partial x^2} + \kappa GA \left( \frac{\partial w}{\partial x} - \phi \right) = \rho I \frac{\partial^2 \phi}{\partial t^2}
+  EI \phi_{,xx} + \kappa GA \left( w_{,x} - \phi \right) = \rho I \phi_{,tt}
 \end{equation}
 
 \subparagraph{2.3.3 頻率方程的推導}
 
 對於簡諧震動，假設解的形式為：
 \begin{equation}
-  w(x,t) = W(x) e^{i\omega t}, \quad \phi(x,t) = \Phi(x) e^{i\omega t}
+  w(x,t) = \tilde{w}(x) e^{i\omega t}, \quad \phi(x,t) = \tilde{\phi}(x) e^{i\omega t}
 \end{equation}
 其中 $\omega$ 為圓頻率。
 
 代入控制方程，得到特徵值問題：
 \begin{equation}
-  \kappa GA \left( W'' - \Phi' \right) + \rho A \omega^2 W = 0
+  \kappa GA \left( \tilde{w}_{,xx} - \tilde{\phi}_{,x} \right) + \rho A \omega^2 \tilde{w} = 0
 \end{equation}
 \begin{equation}
-  EI \Phi'' + \kappa GA (W' - \Phi) + \rho I \omega^2 \Phi = 0
+  EI \tilde{\phi}_{,xx} + \kappa GA (\tilde{w}_{,x} - \tilde{\phi}) + \rho I \omega^2 \tilde{\phi} = 0
 \end{equation}
 
 經過數學整理，可得 Timoshenko 樑的頻率方程。對於懸臂樑（固定端 $x=0$，自由端 $x=L$），特徵值 $\beta$ 滿足：
@@ -314,7 +532,7 @@ $$w = w_b + w_s \propto q$$
   \omega_n = \beta_n^2 \sqrt{\frac{EI}{\rho A L^4}} \cdot \sqrt{\frac{1}{1 + (\gamma + \alpha)\beta_n^2}}
 \end{equation}
 
-其中 $\beta_n = n\pi$（簡支樑）或由超越方程決定（懸臂樑）。
+其中 $\beta_n$ 由對應邊界條件的特徵方程求根決定；簡支樑可得到 $\beta_n=n\pi$ 的特例。
 
 \textbf{重要結論：} Timoshenko 理論考慮了旋轉慣量效應，導致頻率低於 Euler-Bernoulli 理論的預測值。這個效應在高頻模態和厚樑中特別顯著。
 
@@ -331,19 +549,19 @@ $$w = w_b + w_s \propto q$$
 
 動能離散化為：
 \begin{equation}
-  T = \frac{1}{2} \dot{d}^T M \dot{d}
+  T = \frac{1}{2} \mathbf{{d}}^T \mathbf{M} \mathbf{{d}}
 \end{equation}
 
-其中 $\dot{d} = [\dot{w}_1, \dot{\phi}_1, \dots, \dot{w}_n, \dot{\phi}_n]^T$ 為廣義速度向量，$M$ 為總質量矩陣。
+其中 $\mathbf{d} = [w_1, \phi_1, \dots, w_n, \phi_n]^T$ 為廣義位移向量，$\mathbf{M}$ 為總質量矩陣。
 
 \subparagraph{2.4.2 元素質量矩陣}
 
 對於兩節點 Timoshenko 樑元素，質量矩陣為：
 \begin{equation}
-  M_e = 
+  \mathbf{M}_e = 
   \begin{bmatrix}
-    M_{ww} & M_{w\phi} \\
-    M_{\phi w} & M_{\phi\phi}
+    \mathbf{M}_{ww} & \mathbf{M}_{w\phi} \\
+    \mathbf{M}_{\phi w} & \mathbf{M}_{\phi\phi}
   \end{bmatrix}
 \end{equation}
 
@@ -380,427 +598,415 @@ $$w = w_b + w_s \propto q$$
 
 \subparagraph{2.4.3 離散後的特徵值問題}
 
-將位能離散化後，總質量矩陣組裝為全域矩陣 $M$。自由震動問題的平衡方程為：
+將位能離散化後，質量矩陣與剛度矩陣均需由元素層級組裝為全域矩陣。此處 $\mathbf{M}$ 與 $\mathbf{K}$ 分別表示全域質量矩陣與全域剛度矩陣，而非單一元素矩陣 $\mathbf{M}_e,\;\mathbf{K}_e$：
 \begin{equation}
-  M \ddot{d} + K d = 0
+  \mathbf{M}=\sum_{e} \mathbf{A}_e^{T} \mathbf{M}_e \mathbf{A}_e,\qquad
+  \mathbf{K}=\sum_{e} \mathbf{A}_e^{T} \mathbf{K}_e \mathbf{A}_e
+\end{equation}
+其中 $\mathbf{A}_e$ 為組裝算子，二節點 Timoshenko 樑元素自由度向量可寫為
+\begin{equation}
+  \mathbf{d}_e=[w_1,\ \phi_1,\ w_2,\ \phi_2]^T
 \end{equation}
 
-代入諧波假設 $d(t) = d_0 e^{i\omega t}$，得到標準特徵值問題：
+元素質量矩陣可分解為平移與旋轉兩部分：
 \begin{equation}
-  (K - \omega^2 M) \{d\} = \{0\}
-\end{equation}
-
-求解此特徵值問題即可得到系統的自然頻率 $\omega$ 和振型 $\{d\}$。
-
-\subparagraph{2.4.4 FEM 與解析解的對比}
-
-有限元素法通過求解廣義特徵值問題獲得頻率，而解析法則直接求解超越方程。兩種方法的對比：
-
-\begin{center}
-\begin{tabular}{p{3cm}p{5cm}p{5cm}}
-\toprule
-\textbf{特性} & \textbf{解析法} & \textbf{有限元素法} \\
-\midrule
-\textbf{數學本質} & 超越方程求解 & 矩陣特徵值求解 \\
-\midrule
-\textbf{網格依賴} & 無 & 網格細化收斂 \\
-\midrule
-\textbf{計算效率} & 單一模態快速 & 一次計算多模態 \\
-\midrule
-\textbf{幾何複雜度} & 僅限簡單邊界 & 可處理複雜幾何 \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-本報告採用 $20\sim100$ 個元素進行收斂性分析，驗證 FEM 結果的正確性。
-
-\subsection{ 核心公式運用 (Timoshenko Formulas)}
-
-下表彙整了本專案中使用的兩種計算途徑：
-
-\begin{center}
-\begin{tabular}{p{3cm}p{6cm}p{6cm}}
-\toprule
-\textbf{特性} & \textbf{解析計算 (Analytical)} & \textbf{本專案測試方法 (FEM)} \\
-\midrule
-\textbf{數學本質} & 封閉解公式 (Closed-form) & 矩陣位移法與特徵值求解 \\
-\midrule
-\textbf{剪切處理} & 引入剪切修正因子 (Shear factor) & 採用 \textbf{單點高斯積分} (1-point integration) 消除剪力鎖定 \\
-\midrule
-  \textbf{空間離散} & 連續函數 & 將樑劃分為 20 ~ 100 個元素  \\
-\midrule
-\textbf{求解器} & 直接帶入公式 & 調用 Julia \texttt{LinearAlgebra} 與 \texttt{eigvals} 函數 \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\subsection{ 程式碼實現說明}
-
-根據本專案開發的 Julia 檔案，以下為 Timoshenko 理論在程式碼中的具體實作方式：
-
-\begin{itemize}
-  \item \textbf{剛度矩陣構造：}
-  在 \texttt{TimoshenkoBeam.jl} 中，剛度矩陣被拆分為彎曲部分 $K_b$ 與剪力部分 $K_s$。剪力部分使用了 \texttt{(κGA * le) * (B\_s * B\_s')}，這正是 Timoshenko 理論中剪力剛度的數值呈現。
-  
-  \item \textbf{消除剪力鎖定 (Shear Locking)：}
-  程式碼中特別採用「單點積分」(1-point integration)。這是 Timoshenko 樑有限元素分析中的關鍵技術，若使用標準積分會導致樑在變薄時剛度過大，無法得到準確的解析對比值。
-
-\subparagraph{單點積分與完整積分的比較}
-
-本專案同時實現了兩種積分方式，用於對比分析：
-
-\textbf{1. 單點積分（Reduced Integration / 1-point Gauss）：}
-\begin{itemize}
-  \item 對剪力剛度矩陣使用 1 個高斯點進行數值積分
-  \item 高斯點位置：$\xi = 0$（元素中心）
-  \item 權重：$w = 2$
-  \item \textbf{優點：} 有效消除剪力鎖定問題，計算效率高
-  \item \textbf{缺點：} 可能導致零能量模式（hourglassing），但可通過適當的網格設計避免
-\end{itemize}
-
-\textbf{2. 完整積分（Full Integration / 2-point Gauss）：}
-\begin{itemize}
-  \item 對剪力剛度矩陣使用 2 個高斯點進行數值積分
-  \item 高斯點位置：$\xi = \pm 1/\sqrt{3}$
-  \item 權重：$w = 1$（每個點）
-  \item \textbf{優點：} 精確積分，無零能量模式
-  \item \textbf{缺點：} 會產生剪力鎖定問題，導致結構過度剛硬
-\end{itemize}
-
-\textbf{為什麼 2 個高斯點是「完整」積分？}
-
-對於兩節點 Timoshenko 樑元素：
-\begin{itemize}
-  \item 位移場使用線性形狀函數（1階多項式）
-  \item 剪切應變矩陣 $B_s$ 包含形狀函數的導數，為常數（0階）
-  \item 被積分函數為 2 階多項式（兩個常數相乘）
-\end{itemize}
-
-要精確積分 $n$ 階多項式，需要至少 $n/2 + 1$ 個高斯點。因此對於 2 階多項式，2 個高斯點就是完整積分。
-
-\textbf{數學表達：}
-\begin{equation}
-  \text{單點積分：} \quad \int_{-1}^{1} f(\xi) d\xi \approx f(0) \cdot 2
+  \mathbf{M}_e=\mathbf{M}_e^{(w)}+\mathbf{M}_e^{(\phi)}
 \end{equation}
 \begin{equation}
-  \text{完整積分：} \quad \int_{-1}^{1} f(\xi) d\xi \approx \sum_{i=1}^{2} f(\xi_i) \cdot w_i, \quad \xi_i = \pm\frac{1}{\sqrt{3}}, w_i = 1
+  \mathbf{M}_e^{(w)}=\frac{\rho A l_e}{6}
+  \begin{bmatrix}
+    2&0&1&0\\
+    0&0&0&0\\
+    1&0&2&0\\
+    0&0&0&0
+  \end{bmatrix},\qquad
+  \mathbf{M}_e^{(\phi)}=\frac{\rho I l_e}{6}
+  \begin{bmatrix}
+    0&0&0&0\\
+    0&2&0&1\\
+    0&0&0&0\\
+    0&1&0&2
+  \end{bmatrix}
 \end{equation}
 
-本專案採用單點積分版本的 \texttt{TimoshenkoBeam.jl} 作為主要實現，並提供完整積分版本 \texttt{TimoshenkoBeamFullIntegration.jl} 用於教學對比。
-
-  \item \textbf{幾何剛度與質量矩陣：}
-  \begin{itemize}
-    \item \textbf{屈曲}：\texttt{TimoshenkoBeamBuckling.jl} 構造了幾何剛度矩陣 \texttt{KG\_local}，用來捕捉軸向力對橫向剛度的影響。
-    \item \textbf{震動}：\texttt{TimoshenkoBeamVibrations.jl} 在質量矩陣 \texttt{M\_local} 中同時包含了平移質量 (\texttt{rho * A}) 與旋轉質量 (\texttt{rho * I})，這完全符合 Timoshenko 對高頻模態的描述。
-  \end{itemize}
-\end{itemize}
-
-\section{有限元素法結果與解析解對比 (Results Comparison)}
-
-以下展示有限元素法（FEM）網格收斂性分析，元素數量由 20 至 100，比較 FEM 結果與解析解的誤差。
-
-\subsection{靜態彎曲分析 (Static Bending Analysis)}
-
-\textbf{解析解公式：}
-彎曲位移與剪力位移之和為 Timoshenko 樑的總位移：
+元素剛度矩陣可寫為
 \begin{equation}
-  w = w_b + w_s
+  \mathbf{K}_e=\mathbf{K}_b+\mathbf{K}_s
 \end{equation}
-
-其中彎曲貢獻為：
 \begin{equation}
-  w_b = \frac{qL^4}{8EI} \quad \text{(懸臂樑)} \quad \text{或} \quad w_b = \frac{5qL^4}{384EI} \quad \text{(簡支樑)}
+  \mathbf{K}_b=\frac{EI}{l_e}
+  \begin{bmatrix}
+    0&0&0&0\\
+    0&1&0&-1\\
+    0&0&0&0\\
+    0&-1&0&1
+  \end{bmatrix}
 \end{equation}
-
-剪力貢獻為：
+若採用
 \begin{equation}
-  w_s = \frac{qL^2}{2\kappa GA} \quad \text{(懸臂樑)} \quad \text{或} \quad w_s = \frac{qL^2}{8\kappa GA} \quad \text{(簡支樑)}
+  \mathbf{B}_s=\begin{bmatrix}-1/l_e&-1/2&1/l_e&-1/2\end{bmatrix}
 \end{equation}
-
-\textbf{FEM 代碼實現：}
-\begin{itemize}
-  \item \textbf{彎曲剛度矩陣：}
-  \begin{equation}
-    K_b = \frac{EI}{l_e} \begin{bmatrix} 0 & 0 & 0 & 0 \\ 0 & 1 & 0 & -1 \\ 0 & 0 & 0 & 0 \\ 0 & -1 & 0 & 1 \end{bmatrix}
-  \end{equation}
-  \item \textbf{剪力剛度矩陣（1-point 積分）：}
-  \begin{equation}
-    K_s = \kappa GA \cdot l_e \cdot B_s B_s^T, \quad B_s = \begin{bmatrix} -\frac{1}{l_e} & -\frac{1}{2} & \frac{1}{l_e} & -\frac{1}{2} \end{bmatrix}
-  \end{equation}
-  \item \textbf{總剛度矩陣：} $K = K_b + K_s$
-\end{itemize}
-
-\paragraph{(a) 簡支樑 (Simply-supported)}
-
-\textbf{收斂性分析結果：}
-
-\begin{center}
-\begin{tabular}{cccc}
-\toprule
-\textbf{元素數} & \textbf{FEM (m)} & \textbf{解析解 (m)} & \textbf{誤差 (\%)} \\
-\midrule
-20 & 0.00618488 & 0.00620968 & 0.3994 \\
-30 & 0.00619866 & 0.00620968 & 0.1775 \\
-40 & 0.00620348 & 0.00620968 & 0.0999 \\
-50 & 0.00620571 & 0.00620968 & 0.0640 \\
-100 & 0.00620869 & 0.00620968 & 0.0160 \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\textit{注：隨著元素數量增加，位移誤差持續下降，展現良好的收斂性。}
-
-\paragraph{(b) 懸臂樑 (Cantilever)}
-
-\textbf{收斂性分析結果：}
-
-\begin{center}
-\begin{tabular}{cccc}
-\toprule
-\textbf{元素數} & \textbf{FEM (m)} & \textbf{解析解 (m)} & \textbf{誤差 (\%)} \\
-\midrule
-20 & 0.0595609524 & 0.0595609524 & $0$ \\
-30 & 0.0595609524 & 0.0595609524 & $0$ \\
-40 & 0.0595609524 & 0.0595609524 & $0$ \\
-50 & 0.0595609524 & 0.0595609524 & $0$ \\
-100 & 0.0595609524 & 0.0595609524 & $0$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\textit{注：解析解與 FEM 結果完全吻合，驗證了程式實現的正確性。}
-
-\subparagraph{(c) 完整積分（Full Integration）對比}
-
-本節展示使用完整積分（2-point Gauss）時的 FEM 結果，與解析解進行對比，以說明剪力鎖定問題的影響。完整積分使用 2 個高斯點（$\xi = \pm 1/\sqrt{3}$）進行數值積分。
-
-\textbf{簡支樑收斂性分析結果：}
-
-\begin{center}
-\begin{tabular}{cccc}
-\toprule
-\textbf{元素數} & \textbf{FEM (m)} & \textbf{解析解 (m)} & \textbf{誤差 (\%)} \\
-\midrule
-20 & 0.00168694 & 0.00620968 & 72.8338 \\
-30 & 0.00283461 & 0.00620968 & 54.3518 \\
-40 & 0.00371878 & 0.00620968 & 40.1132 \\
-50 & 0.00434585 & 0.00620968 & 30.0149 \\
-100 & 0.00560565 & 0.00620968 & 9.7273 \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\textbf{懸臂樑收斂性分析結果：}
-
-\begin{center}
-\begin{tabular}{cccc}
-\toprule
-\textbf{元素數} & \textbf{FEM (m)} & \textbf{解析解 (m)} & \textbf{誤差 (\%)} \\
-\midrule
-20 & 0.01623344 & 0.05956095 & 72.7448 \\
-30 & 0.02723463 & 0.05956095 & 54.2744 \\
-40 & 0.03570998 & 0.05956095 & 40.0446 \\
-50 & 0.04172088 & 0.05956095 & 29.9526 \\
-100 & 0.05379684 & 0.05956095 & 9.6777 \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\textit{注：完整積分（2-point Gauss）導致嚴重的剪力鎖定問題。即使增加到 100 個元素，誤差仍有約 10\%，無法像單點積分那樣收斂到精確解。這是因為完整積分高估了結構的剪切剛度，導致位移被嚴重低估。}
-
-\subparagraph{單點積分與完整積分對比總結}
-
-\begin{center}
-\begin{tabular}{p{2.5cm}p{4cm}p{4cm}}
-\toprule
-\textbf{項目} & \textbf{單點積分 (1-point)} & \textbf{完整積分 (2-point)} \\
-\midrule
-高斯點數量 & 1 個 ($\xi = 0$) & 2 個 ($\xi = \pm 1/\sqrt{3}$) \\
-\midrule
-簡支樑誤差 (100 元素) & 0.0160\% & 9.7273\% \\
-\midrule
-懸臂樑誤差 (100 元素) & 0\% & 9.6777\% \\
-\midrule
-收斂特性 & 良好收斂 & 收斂緩慢，無法完全收斂 \\
-\midrule
-剪力鎖定 & 無 & 嚴重 \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\textbf{結論：} 單點積分有效消除剪力鎖定問題，是 Timoshenko 樑有限元素分析的首選數值積分方法。完整積分雖然看起來更「精確」，但實際上會導致嚴重的數值問題。
-
-\subsection{屈曲分析 (Buckling Analysis)}
-
-\textbf{解析解公式：}
-屈曲分析的臨界載重由 Euler 公式經 Timoshenko 修正得到。
+則
 \begin{equation}
-  P_{cr} = \frac{P_{cr}^{Euler}}{1 + \frac{P_{cr}^{Euler}}{\kappa AG}}
+  \mathbf{K}_s=\kappa GA\,l_e\,(\mathbf{B}_s^T \mathbf{B}_s)
 \end{equation}
 
-其中 Euler 臨界載重為：
+因此自由震動問題的平衡方程為
 \begin{equation}
-  P_{cr}^{Euler} = \frac{\pi^2 EI}{L^2} \quad \text{(雙端鉸接)} \quad \text{或} \quad P_{cr}^{Euler} = \frac{\pi^2 EI}{4L^2} \quad \text{(懸臂樑)}
+  \mathbf{M} \mathbf{\ddot{d}} + \mathbf{K} \mathbf{d} = 0
 \end{equation}
 
-\textbf{FEM 代碼實現：}
-\begin{itemize}
-  \item \textbf{幾何剛度矩陣：}
-  \begin{equation}
-    K_G = \frac{1}{l_e} \begin{bmatrix} 1 & 0 & -1 & 0 \\ 0 & 0 & 0 & 0 \\ -1 & 0 & 1 & 0 \\ 0 & 0 & 0 & 0 \end{bmatrix}
-  \end{equation}
-  \item \textbf{特徵值問題：}
-  \begin{equation}
-    [K - P K_G] \{u\} = \{0\}
-  \end{equation}
-  其中 $P$ 為特徵值（臨界載重）。
-\end{itemize}
-
-\subparagraph{(a) 雙端鉸接 (Pinned-Pinned)}
-
-\textbf{收斂性分析結果：}
-
-\begin{center}
-\begin{tabular}{cccc}
-\toprule
-\textbf{元素數} & \textbf{FEM (N)} & \textbf{解析解 (N)} & \textbf{誤差 (\%)} \\
-\midrule
-20 & $2.078\times10^6$ & $2.069\times10^6$ & 0.4120 \\
-30 & $2.073\times10^6$ & $2.069\times10^6$ & 0.1828 \\
-40 & $2.072\times10^6$ & $2.069\times10^6$ & 0.1027 \\
-50 & $2.071\times10^6$ & $2.069\times10^6$ & 0.0657 \\
-100 & $2.070\times10^6$ & $2.069\times10^6$ & 0.0164 \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\subparagraph{(b) 懸臂樑 (Cantilever)}
-
-\textbf{收斂性分析結果：}
-
-\begin{center}
-\begin{tabular}{cccc}
-\toprule
-\textbf{元素數} & \textbf{FEM (N)} & \textbf{解析解 (N)} & \textbf{誤差 (\%)} \\
-\midrule
-20 & $5.188\times10^5$ & $5.180\times10^5$ & 0.1029 \\
-30 & $5.192\times10^5$ & $5.180\times10^5$ & 0.0457 \\
-40 & $5.188\times10^5$ & $5.180\times10^5$ & 0.0257 \\
-50 & $5.180\times10^5$ & $5.180\times10^5$ & 0.0164 \\
-100 & $5.180\times10^5$ & $5.180\times10^5$ & 0.0041 \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\textit{注：屈曲臨界載重隨著網格細化趨近解析解，展現穩定收斂特性。}
-
-\subsection{自由震動分析 (Free Vibrations)}
-
-\textbf{解析解公式：}
-自然頻率由 Euler-Bernoulli 理論給出：
+代入諧波假設 $\mathbf{d}(t) = \mathbf{d}_0 e^{i\omega t}$，得到標準特徵值問題：
 \begin{equation}
-  \omega_n = \beta_n^2 \sqrt{\frac{EI}{\rho A}} \cdot \frac{1}{L^2}
+  (\mathbf{K} - \omega^2 \mathbf{M}) \{\mathbf{d}\} = \{0\}
 \end{equation}
 
-其中 $\beta_n$ 為懸臂樑的特徵值：
+求解此特徵值問題即可得到系統的自然頻率 $\omega$ 和振型 $\{\mathbf{d}\}$。
+
+\subsubsection{自由震動基準（表10.2--表10.4）}
+
+\textbf{模態（Mode）是什麼？}
+在自由震動中，模態代表結構在某一固有頻率下的振動形狀。模態1是最低頻、形狀最平滑的第一振型；模態2、模態3等屬高階振型，通常具有更多節點與更高曲率。
+
+\textbf{誤差定義（表10.2--表10.4）：}
+本節不再將單一特徵值誤差稱為 $L2$，而是直接對模態場做真正的全域積分比較。對任一參考場與有限元素場，先分別做
 \begin{equation}
-  \beta = [1.8751,\ 4.6941,\ 7.8548,\ 10.9955,\dots]
+  \hat{w}=\frac{w}{\left(\int_0^L w^2\,dx\right)^{1/2}}, \qquad
+  \hat{\phi}=\frac{\phi}{\left(\int_0^L \phi^2\,dx\right)^{1/2}}
+\end{equation}
+再定義
+\begin{equation}
+\begin{aligned}
+  \varepsilon^{(w)}_{L^2}(\%)&=
+  \left(\int_0^L (\hat{w}_h-\hat{w}_{ref})^2\,dx\right)^{1/2}\times 100\%, \\
+  \varepsilon^{(\phi)}_{L^2}(\%)&=
+  \left(\int_0^L (\hat{\phi}_h-\hat{\phi}_{ref})^2\,dx\right)^{1/2}\times 100\%
+\end{aligned}
+\end{equation}
+其中 $w_h,\phi_h$ 由二節點 Timoshenko 梁元素在元素內重建，$w_{ref},\phi_{ref}$ 由連續理論重建，並在與 FEM 相同的元素分割上逐元素使用 16-point Gauss 積分。表10.2每列使用各自的元素分割；表10.3與表10.4固定使用 $40$ 個元素作為共同分割。文獻 PDF 中的 Exact、Present 與 40-element 數值僅保留為背景資訊，不再作為本節 Field L2 的積分基準。
+
+\subparagraph{(a) 表10.2：懸臂薄樑（模態1）}
+
+\begin{center}
+\begin{tabular}{ccccc}
+\toprule
+\textbf{元素數} & \textbf{公式重算($\bar{\omega}$)} & \textbf{FEM($\bar{\omega}$)} & \textbf{Field $L2_w$(\%)} & \textbf{Field $L2_\phi$(\%)} \\
+\midrule
+1  & 3.516012 & 3.464099 & 17.1842 & 21.0912 \\
+2  & 3.516012 & 3.591812 & 5.9951  & 6.7889 \\
+5  & 3.516012 & 3.532401 & 1.0178  & 1.1475 \\
+10 & 3.516012 & 3.520258 & 0.2561  & 0.2890 \\
+50 & 3.516012 & 3.516185 & 0.0103  & 0.0116 \\
+\bottomrule
+\end{tabular}
+\captionof{table}{表10.2(a)：懸臂薄樑模態1之連續場對比}
+\end{center}
+
+\subparagraph{(b) 表10.2：懸臂薄樑（模態2）}
+
+\begin{center}
+\begin{tabular}{ccccc}
+\toprule
+\textbf{元素數} & \textbf{公式重算($\bar{\omega}$)} & \textbf{FEM($\bar{\omega}$)} & \textbf{Field $L2_w$(\%)} & \textbf{Field $L2_\phi$(\%)} \\
+\midrule
+1  & 22.034369 & $5.883488\times10^6$ & 129.8296 & 72.0518 \\
+2  & 22.034369 & 40.407496 & 15.4117 & 56.3273 \\
+5  & 22.034369 & 24.312587 & 5.4844  & 6.7706 \\
+10 & 22.034369 & 22.583125 & 1.3270  & 1.6242 \\
+50 & 22.034369 & 22.056049 & 0.0524  & 0.0641 \\
+\bottomrule
+\end{tabular}
+\captionof{table}{表10.2(b)：懸臂薄樑模態2之連續場對比}
+\end{center}
+
+\begin{center}
+  \centering
+  \includegraphics[width=0.92\textwidth]{figures/ch10_compare_10_2.png}
+  \captionof{figure}{表10.2：公式重算與 FEM 特徵值對比}
+\end{center}
+
+\begin{center}
+  \centering
+  \includegraphics[width=0.88\textwidth]{figures/ch10_field_l2_10_2.png}
+  \captionof{figure}{表10.2：Field $L2_w$ 與 Field $L2_\phi$ 隨元素數變化}
+\end{center}
+
+\subparagraph{(c) 表10.3：固定-固定樑（連續模態場對比 FEM 模態場）}
+
+\textbf{說明：} 固定-固定邊界在高階模態下會出現明顯分支交換，特別是厚樑與高模態時，特徵值雖仍可排序，但對應之連續場與離散場相似度會快速下降，因此 Field L2 會在模態10與模態15顯著增大。
+
+\subparagraph{表10.3子表（$h/L=0.002$）}
+
+\begin{center}
+\begin{tabular}{ccccc}
+\toprule
+\textbf{模態} & \textbf{公式重算($\beta$)} & \textbf{FEM($\beta$)} & \textbf{Field $L2_w$(\%)} & \textbf{Field $L2_\phi$(\%)} \\
+\midrule
+1  & 4.7300 & 4.7345 & 0.0890 & 0.1408 \\
+2  & 7.8530 & 7.8736 & 0.2093 & 0.2961 \\
+5  & 17.2766 & 17.4888 & 0.8725 & 1.0861 \\
+10 & 32.9704 & 34.4748 & 3.9232 & 4.3260 \\
+15 & 39.6014 & 53.7410 & 137.0637 & 150.4077 \\
+\bottomrule
+\end{tabular}
+\captionof{table}{表10.3（$h/L=0.002$）：固定-固定樑模態場對比}
+\end{center}
+
+\begin{center}
+  \centering
+  \includegraphics[width=0.78\textwidth]{figures/ch10_mode_shapes_10_3_h0p002.png}
+  \captionof{figure}{表10.3模態形狀（$h/L=0.002$，前4模態，FEM 橫向位移場）}
+\end{center}
+
+\subparagraph{表10.3子表（$h/L=0.01$）}
+
+\begin{center}
+\begin{tabular}{ccccc}
+\toprule
+\textbf{模態} & \textbf{公式重算($\beta$)} & \textbf{FEM($\beta$)} & \textbf{Field $L2_w$(\%)} & \textbf{Field $L2_\phi$(\%)} \\
+\midrule
+1  & 4.7284 & 4.7330 & 0.0889 & 0.1408 \\
+2  & 7.8469 & 7.8675 & 0.2089 & 0.2960 \\
+5  & 17.2246 & 17.4342 & 0.8678 & 1.0833 \\
+10 & 39.0629 & 34.0944 & 136.0264 & 145.2058 \\
+15 & 40.9006 & 52.3517 & 131.8768 & 147.2959 \\
+\bottomrule
+\end{tabular}
+\captionof{table}{表10.3（$h/L=0.01$）：固定-固定樑模態場對比}
+\end{center}
+
+\subparagraph{表10.3子表（$h/L=0.1$）}
+
+\begin{center}
+\begin{tabular}{ccccc}
+\toprule
+\textbf{模態} & \textbf{公式重算($\beta$)} & \textbf{FEM($\beta$)} & \textbf{Field $L2_w$(\%)} & \textbf{Field $L2_\phi$(\%)} \\
+\midrule
+1  & 4.5795 & 4.5835 & 0.0827 & 0.1414 \\
+2  & 7.3312 & 7.3468 & 0.1821 & 0.2841 \\
+5  & 14.2324 & 14.3386 & 0.6946 & 1.0955 \\
+10 & 22.5735 & 23.0358 & 2.5862 & 4.3323 \\
+15 & 27.5690 & 27.3449 & 141.4214 & 141.4214 \\
+\bottomrule
+\end{tabular}
+\captionof{table}{表10.3（$h/L=0.1$）：固定-固定樑模態場對比}
+\end{center}
+
+\begin{center}
+  \centering
+  \includegraphics[width=0.88\textwidth]{figures/ch10_compare_10_3.png}
+  \captionof{figure}{表10.3：公式重算與 FEM 特徵值對比（按 $h/L$ 分組）}
+\end{center}
+
+\subparagraph{(d) 表10.4：簡支樑（連續模態場對比 FEM 模態場）}
+
+\textbf{說明：} 簡支樑之低至中階模態仍可維持很小的場誤差；但厚樑且高模態時，同樣會受到高階分支與 reduced-integration 元素頻譜差異影響，因此模態15在 $h/L=0.1$ 會出現明顯場差異。
+
+\subparagraph{表10.4子表（$h/L=0.002$）}
+
+\begin{center}
+\begin{tabular}{ccccc}
+\toprule
+\textbf{模態} & \textbf{公式重算($\beta$)} & \textbf{FEM($\beta$)} & \textbf{Field $L2_w$(\%)} & \textbf{Field $L2_\phi$(\%)} \\
+\midrule
+1  & 3.1416 & 3.1428 & 0.0230 & 0.0230 \\
+2  & 6.2831 & 6.2928 & 0.0922 & 0.0922 \\
+5  & 15.7066 & 15.8596 & 0.5853 & 0.5853 \\
+10 & 31.4053 & 32.6672 & 2.4702 & 2.4702 \\
+15 & 47.0880 & 51.5816 & 6.0551 & 6.0551 \\
+\bottomrule
+\end{tabular}
+\captionof{table}{表10.4（$h/L=0.002$）：簡支樑模態場對比}
+\end{center}
+
+\subparagraph{表10.4子表（$h/L=0.01$）}
+
+\begin{center}
+\begin{tabular}{ccccc}
+\toprule
+\textbf{模態} & \textbf{公式重算($\beta$)} & \textbf{FEM($\beta$)} & \textbf{Field $L2_w$(\%)} & \textbf{Field $L2_\phi$(\%)} \\
+\midrule
+1  & 3.1413 & 3.1425 & 0.0230 & 0.0230 \\
+2  & 6.2811 & 6.2908 & 0.0922 & 0.0922 \\
+5  & 15.6749 & 15.8267 & 0.5853 & 0.5853 \\
+10 & 31.1568 & 32.3806 & 2.4702 & 2.4702 \\
+15 & 46.2769 & 50.4566 & 6.0551 & 6.0551 \\
+\bottomrule
+\end{tabular}
+\captionof{table}{表10.4（$h/L=0.01$）：簡支樑模態場對比}
+\end{center}
+
+\subparagraph{表10.4子表（$h/L=0.1$）}
+
+\begin{center}
+\begin{tabular}{ccccc}
+\toprule
+\textbf{模態} & \textbf{公式重算($\beta$)} & \textbf{FEM($\beta$)} & \textbf{Field $L2_w$(\%)} & \textbf{Field $L2_\phi$(\%)} \\
+\midrule
+1  & 3.1157 & 3.1169 & 0.0230 & 0.0230 \\
+2  & 6.0907 & 6.0993 & 0.0922 & 0.0922 \\
+5  & 13.6132 & 13.7089 & 0.5853 & 0.5853 \\
+10 & 22.4441 & 22.9117 & 2.4702 & 2.4702 \\
+15 & 28.8437 & 26.8779 & 141.4214 & 141.4214 \\
+\bottomrule
+\end{tabular}
+\captionof{table}{表10.4（$h/L=0.1$）：簡支樑模態場對比}
+\end{center}
+
+\begin{center}
+  \centering
+  \includegraphics[width=0.88\textwidth]{figures/ch10_compare_10_4.png}
+  \captionof{figure}{表10.4：公式重算與 FEM 特徵值對比（按 $h/L$ 分組）}
+\end{center}
+
+\subsection{屈曲臨界特徵值推導}
+
+\textbf{(a) FEM 臨界屈曲特徵值推導}
+
+在屈曲問題中，除材料剛度外，尚需考慮軸力引致之幾何剛度。對二節點元素而言，
+屈曲分岔前採與 2.4.3 相同之元素剛度矩陣：
+\begin{equation}
+  \mathbf{K}_e=\mathbf{K}_b+\mathbf{K}_s,\qquad
+  \mathbf{K}_s=\kappa GA\,l_e\,(\mathbf{B}_s^T\mathbf{B}_s)
+\end{equation}
+其中 $\mathbf{K}_b$ 為元素彎曲剛度矩陣，可寫為
+\begin{equation}
+  \mathbf{K}_b=\frac{EI}{l_e}
+  \begin{bmatrix}
+    0&0&0&0\\
+    0&1&0&-1\\
+    0&0&0&0\\
+    0&-1&0&1
+  \end{bmatrix}
+\end{equation}
+其非零項集中於轉角自由度子塊，反映彎曲能主要由截面轉角差所貢獻。
+
+屈曲分析的近似場變量與元素自由度向量採
+\begin{equation}
+  w^h(x)=\sum_I N_I(x)w_I,\qquad
+  \phi^h(x)=\sum_I N_I(x)\phi_I,\qquad
+  \mathbf{d}_e=[w_1,\ \phi_1,\ w_2,\ \phi_2]^T
 \end{equation}
 
-\textbf{FEM 代碼實現：}
-\begin{itemize}
-  \item \textbf{平移質量矩陣：}
-  \begin{equation}
-    M_w = \frac{\rho A \cdot l_e}{6} \begin{bmatrix} 2 & 0 & 1 & 0 \\ 0 & 0 & 0 & 0 \\ 1 & 0 & 2 & 0 \\ 0 & 0 & 0 & 0 \end{bmatrix}
-  \end{equation}
-  \item \textbf{旋轉質量矩陣：}
-  \begin{equation}
-    M_\theta = \frac{\rho I \cdot l_e}{6} \begin{bmatrix} 0 & 0 & 0 & 0 \\ 0 & 2 & 0 & 1 \\ 0 & 0 & 0 & 0 \\ 0 & 1 & 0 & 2 \end{bmatrix}
-  \end{equation}
-  \item \textbf{總質量矩陣：} $M = M_w + M_\theta$
-  \item \textbf{特徵值問題：} $[K - \omega^2 M] \{u\} = \{0\}$
-\end{itemize}
+本文屈曲 benchmark 採 Engesser 的 $ww$ 幾何剛度口徑（避免與 Haringx 幾何塊混淆），
+其元素幾何剛度矩陣定義為
+\begin{equation}
+  \mathbf{K}_{G,e}=\int_0^{l_e}\mathbf{B}_g^T\mathbf{B}_g\,dx,\qquad
+  \mathbf{B}_g=\begin{bmatrix}N_{1,x}&0&N_{2,x}&0\end{bmatrix}
+\end{equation}
+對線性二節點元素可得閉式 4x4 形式
+\begin{equation}
+  \mathbf{K}_{G,e}=\frac{1}{l_e}
+  \begin{bmatrix}
+    1&0&-1&0\\
+    0&0&0&0\\
+    -1&0&1&0\\
+    0&0&0&0
+  \end{bmatrix}
+\end{equation}
 
-\subparagraph{Mode 1 收斂性分析：}
+元素層級可寫為 $\mathbf{K}_e$ 與 $\mathbf{K}_{G,e}$，組裝後得到全域矩陣
+\begin{equation}
+  \mathbf{K}=\sum_{e}\mathbf{A}_e^{T}\mathbf{K}_e\mathbf{A}_e,\qquad
+  \mathbf{K}_G=\sum_{e}\mathbf{A}_e^{T}\mathbf{K}_{G,e}\mathbf{A}_e
+\end{equation}
+
+因此，屈曲平衡方程可寫為廣義特徵值問題
+\begin{equation}
+  \left(\mathbf{K}-P\,\mathbf{K}_G\right)\mathbf{d}=\mathbf{0}
+\end{equation}
+其非零解條件為
+\begin{equation}
+  \det\!\left(\mathbf{K}-P\,\mathbf{K}_G\right)=0
+\end{equation}
+
+由上式求得特徵值序列 $P_1<P_2<\cdots$，其中最小正根 $P_1$ 定義為 FEM 臨界屈曲特徵值：
+\begin{equation}
+  P_{cr}^{FEM}=P_1
+\end{equation}
+
+\textbf{(b) PDF 參考臨界值推導（Euler 有效長度 + 無因次口徑）}
+
+依工程基準之有效長度寫法，PDF 參考臨界屈曲特徵值採
+\begin{equation}
+  P_{cr}^{PDF}=\frac{\pi^2 EI}{(K L)^2}
+\end{equation}
+其中 $K$ 為有效長度係數。常見邊界條件為
+\begin{equation}
+  \text{pinned-pinned: }K=1,\qquad
+  \text{fixed-fixed: }K=0.5
+\end{equation}
+
+同一結果亦可寫成無因次特徵值形式
+\begin{equation}
+  \bar{P}_{cr}=\frac{P_{cr}L^2}{EI}=\beta_n^2
+\end{equation}
+故實際臨界值可由無因次值回推為
+\begin{equation}
+  P_{cr}=\bar{P}_{cr}\frac{EI}{L^2}
+\end{equation}
+
+綜上，表10.5中之 pinned-pinned 與 fixed-fixed 參考臨界值可分別由上述
+$P_{cr}^{PDF}$ 口徑取得，並與 FEM 求得之 $P_{cr}^{FEM}$ 進行同一尺度比較。
+
+\subsubsection{屈曲基準（表10.5）}
+
+\textbf{說明：} 表10.5的 Field L2 僅對第一屈曲模態定義，因為主表本來只列第一臨界載重。參考場使用連續公式
+\begin{equation}
+  P_{cr}=\frac{EI\lambda^2}{1+\dfrac{EI\lambda^2}{\kappa GA}}
+\end{equation}
+其中 pinned-pinned 取 $\lambda=\pi/L$，fixed-fixed 取 $\lambda=2\pi/L$；轉角場則由
+\begin{equation}
+  \phi_{ref}(x)=\left(1-\frac{P_{cr}}{\kappa GA}\right)w'_{ref}(x)
+\end{equation}
+重建。
+
+\subparagraph{(e) 表10.5A：pinned-pinned}
 
 \begin{center}
-\begin{tabular}{cccc}
+\begin{tabular}{ccccc}
 \toprule
-\textbf{元素數} & \textbf{FEM (rad/s)} & \textbf{解析解 (rad/s)} & \textbf{誤差 (\%)} \\
+\textbf{$L/h$} & \textbf{公式重算($P_{cr}$)} & \textbf{FEM($P_{cr}$)} & \textbf{Field $L2_w$(\%)} & \textbf{Field $L2_\phi$(\%)} \\
 \midrule
-20 & 1139.12 & 1139.31 & 0.0170 \\
-30 & 1138.93 & 1139.31 & 0.0339 \\
-40 & 1138.86 & 1139.31 & 0.0398 \\
-50 & 1138.83 & 1139.31 & 0.0425 \\
-100 & 1138.79 & 1139.31 & 0.0462 \\
+10   & 8013.7567 & 8021.7911 & 0.0230 & 0.0230 \\
+100  & 8.2225    & 8.2310    & 0.0230 & 0.0230 \\
+1000 & 0.0082246 & 0.0082331 & 0.0230 & 0.0230 \\
 \bottomrule
 \end{tabular}
+\captionof{table}{表10.5A：pinned-pinned 第一屈曲模態對比}
 \end{center}
 
-\subparagraph{Mode 2 收斂性分析：}
+\subparagraph{(f) 表10.5B：fixed-fixed}
 
 \begin{center}
-\begin{tabular}{cccc}
+\begin{tabular}{ccccc}
 \toprule
-\textbf{元素數} & \textbf{FEM (rad/s)} & \textbf{解析解 (rad/s)} & \textbf{誤差 (\%)} \\
+\textbf{$L/h$} & \textbf{公式重算($P_{cr}$)} & \textbf{FEM($P_{cr}$)} & \textbf{Field $L2_w$(\%)} & \textbf{Field $L2_\phi$(\%)} \\
 \midrule
-20 & 7159.96 & 7140.02 & 0.2792 \\
-30 & 7135.66 & 7140.02 & 0.0611 \\
-40 & 7127.17 & 7140.02 & 0.1799 \\
-50 & 7123.25 & 7140.02 & 0.2349 \\
-100 & 7118.02 & 7140.02 & 0.3081 \\
+10   & 29765.1337 & 29876.2238 & 0.1105 & 0.0922 \\
+100  & 32.8641    & 32.9996    & 0.1105 & 0.0922 \\
+1000 & 0.0328983  & 0.0330341  & 0.1105 & 0.0922 \\
 \bottomrule
 \end{tabular}
+\captionof{table}{表10.5B：fixed-fixed 第一屈曲模態對比}
 \end{center}
-
-\subparagraph{Mode 3 收斂性分析：}
-
-\begin{center}
-\begin{tabular}{cccc}
-\toprule
-\textbf{元素數} & \textbf{FEM (rad/s)} & \textbf{解析解 (rad/s)} & \textbf{誤差 (\%)} \\
-\midrule
-20 & 20184.54 & 19992.40 & 0.9611 \\
-30 & 19989.48 & 19992.40 & 0.0146 \\
-40 & 19921.78 & 19992.40 & 0.3532 \\
-50 & 19890.54 & 19992.40 & 0.5095 \\
-100 & 19848.99 & 19992.40 & 0.7173 \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\subparagraph{Mode 4 收斂性分析：}
-
-\begin{center}
-\begin{tabular}{cccc}
-\toprule
-\textbf{元素數} & \textbf{FEM (rad/s)} & \textbf{解析解 (rad/s)} & \textbf{誤差 (\%)} \\
-\midrule
-20 & 39990.04 & 39176.41 & 2.0768 \\
-30 & 39217.83 & 39176.41 & 0.1057 \\
-40 & 38952.32 & 39176.41 & 0.5720 \\
-50 & 38830.25 & 39176.41 & 0.8836 \\
-100 & 38668.30 & 39176.41 & 1.2970 \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\textit{注：震動頻率誤差不隨元素增加而持續下降，這是因為 Timoshenko 理論考慮剪力變形與旋轉慣量，導致頻率略低於 Euler-Bernoulli 解析解。此差異為理論本身固有特性，非網格細化所能消除。高模態（Mode 3、4）在較少元素時誤差較大，需要較細的網格才能收斂。}
 
 \section{結論}
 
-本報告成功實現了 Timoshenko 樑的有限元素分析，並通過與解析解的對比驗證了程式碼的正確性。主要結論如下：
+本報告以 Ferreira (2009) 第10章表10.1--表10.5為文獻基準，完成 Timoshenko 樑有限元素結果對比。主要結論如下：
 
 \begin{enumerate}
-  \item \textbf{靜態彎曲分析：} FEM 結果與解析解高度吻合，誤差不超過 0.4\%，展現良好的收斂性。
-  
-  \item \textbf{屈曲分析：} 臨界載重計算結果穩定收斂至解析解，驗證了几何剛度矩陣實現的正確性。
-  
-  \item \textbf{自由震動分析：} 低階模態的頻率預測準確，高階模態與 Euler-Bernoulli 理論存在固有差異，這正是 Timoshenko 理論考慮剪力變形與旋轉慣量的體現。
-  
-  \item \textbf{數值技巧：} 採用單點積分有效消除剪力鎖定問題，保證了薄樑分析的準確性。
+  \item \textbf{靜態彎曲（表10.1）：} 本章已改用真正的 Field L2 場誤差，在與 FEM 相同的 100-element 分割上，以解析位移場對比有限元素位移場；SS 與 CF 兩類案例的整體場誤差均維持在低量級。
+
+  \item \textbf{自由震動（表10.2--表10.4）：} 本章改以連續模態場對比有限元素模態場，並分別報告 Field $L2_w$ 與 Field $L2_\phi$。低至中階模態下，場誤差隨網格加密而快速下降；但在厚樑與高階模態下，連續頻譜分支與 reduced-integration 元素頻譜之差異會造成明顯場誤差。
+
+  \item \textbf{屈曲（表10.5）：} 表10.5 現以第一屈曲模態的連續場作為基準，除了比較臨界載重 $P_{cr}$ 之外，也補充了第一模態的 Field $L2_w$ 與 Field $L2_\phi$；兩種邊界條件下的第一模態場誤差皆維持在低量級。
 \end{enumerate}
 
 本專案開發的 Julia 程式碼可作為 Timoshenko 樑有限元素分析的參考實現，適用於工程實踐與學術研究。
 
 \end{document}
+
+
+
+
