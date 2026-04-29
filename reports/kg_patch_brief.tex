@@ -1,6 +1,6 @@
 \documentclass[UTF8,a4paper,12pt]{ctexart}
 \usepackage[left=2.4cm,right=2.4cm,top=2.6cm,bottom=2.6cm]{geometry}
-\usepackage{amsmath,booktabs,array}
+\usepackage{amsmath,booktabs,array,graphicx}
 \usepackage{caption}
 
 \title{\textbf{Patch Test 加入 $K_g$ 後的簡要匯報}}
@@ -45,18 +45,14 @@ K_g=
 0 & G_{ww}
 \end{bmatrix},
 \end{equation}
+
+\begin{center}
+\includegraphics[width=0.88\linewidth]{code2.png}
+\captionof{figure}{$K_g$ 公式程式碼（code2.png）}
+\end{center}
+
 對應程式是：
 \begin{itemize}
-  \item 宣告幾何剛度矩陣 \texttt{G\_ww}
-  \item 加入幾何剛度 operator
-  \item 組成
-  \begin{equation*}
-  K_g=
-  \begin{bmatrix}
-  0 & 0\\
-  0 & G_{ww}
-  \end{bmatrix}
-  \end{equation*}
   \item 將求解式由
   \begin{equation*}
   Kd=f
@@ -66,6 +62,11 @@ K_g=
   (K-K_g)d=f
   \end{equation*}
 \end{itemize}
+
+\begin{center}
+\includegraphics[width=0.88\linewidth]{code1.png}
+\captionof{figure}{矩陣計算程式碼（code1.png）}
+\end{center}
 
 \section*{3. 結果對比如何}
 
@@ -88,10 +89,5 @@ K_g=
   \item 加入 $K_g$ 後，$\phi$ 的誤差由 $8.91\times 10^{-6}$ 降到 $7.91\times 10^{-6}$，也有小幅改善。
   \item 因此這次加入 $K_g$ 之後，對 patch test 的結果整體是正向的，尤其對撓度 $w$ 的改善最明顯。
 \end{itemize}
-
-\section*{簡短結論}
-
-這次 patch test 的重點是：\textbf{在原本的材料剛度矩陣 $K$ 之外，加入了幾何剛度矩陣 $K_g$，並將求解式改成 $(K-K_g)d=f$。}  
-從誤差比較來看，加入 $K_g$ 後，$w$ 與 $\phi$ 的誤差都有下降，其中 $w$ 的改善最明顯，表示加入 $K_g$ 後結果較接近理論解。
 
 \end{document}
