@@ -246,6 +246,72 @@ $$
 
 $$
 \begin{aligned}
+a_s
+&\equiv K_s\bigl((\delta w,\delta\phi),(w,\phi)\bigr)\\
+&=
+\sum_{IJ}
+\delta\mathbf d_J^{T}
+\mathbf K_{JI}^{s}
+\mathbf d_I
+\end{aligned}
+$$
+
+$$
+\mathbf d_I=
+\begin{bmatrix}
+w_I\\
+\phi_{1I}\\
+\phi_{2I}
+\end{bmatrix},
+\qquad
+\delta\mathbf d_J=
+\begin{bmatrix}
+\delta w_J\\
+\delta\phi_{1J}\\
+\delta\phi_{2J}
+\end{bmatrix}
+$$
+
+$$
+\boldsymbol{\gamma}
+=
+\begin{bmatrix}
+\gamma_1\\
+\gamma_2
+\end{bmatrix}
+=
+\sum_I
+\mathbf B_I^s\mathbf d_I,
+\qquad
+\delta\boldsymbol{\gamma}
+=
+\sum_J
+\mathbf B_J^s\delta\mathbf d_J
+$$
+
+$$
+\mathbf B_I^s
+=
+\begin{bmatrix}
+N_{I,1} & -N_I & 0\\
+N_{I,2} & 0 & -N_I
+\end{bmatrix},
+\qquad
+\mathbf S=[S_{\alpha\beta}]_{\alpha,\beta=1}^{2}
+$$
+
+$$
+\mathbf K_{JI}^{s}
+=
+\int_{\Omega}
+\left(\mathbf B_J^s\right)^T
+\mathbf S
+\mathbf B_I^s
+\,d\Omega
+$$
+
+$$
+\begin{aligned}
 K_g(\delta w,w)
 &=
 \int_{\Omega}
