@@ -41,11 +41,11 @@ try
         elements = getElements(nodes, entities["Ω"])
         prescribe!(elements, :EI => EI, :kGA => kGA)
         set∇𝝭!(elements)
-        (ApproxOperator.Timoshenko.∫wwdΩ => elements)(kʷʷ)
-        (ApproxOperator.Timoshenko.∫φwdΩ => elements)(kᵠʷ)
-        (ApproxOperator.Timoshenko.∫κκdΩ => elements)(kᵠᵠ)
-        (ApproxOperator.Timoshenko.∫φφdΩ => elements)(kᵠᵠ)
-        (ApproxOperator.Timoshenko.∫wwGdΩ => elements)(kgʷʷ)
+        (∫wwdΩ => elements)(kʷʷ)
+        (∫φwdΩ => elements)(kᵠʷ)
+        (∫κκdΩ => elements)(kᵠᵠ)
+        (∫φφdΩ => elements)(kᵠᵠ)
+        (∫wwGdΩ => elements)(kgʷʷ)
     end
 
     @timeit to "assemble boundary penalty on w" begin
@@ -56,7 +56,7 @@ try
         set𝝭!(elements_1)
         set𝝭!(elements_2)
         Γ = elements_1 ∪ elements_2
-        (ApproxOperator.Timoshenko.∫αwwdΓ => Γ)(kʷʷ, fʷ)
+        (∫αwwdΓ => Γ)(kʷʷ, fʷ)
     end
 
     @timeit to "solve buckling EVP (Engesser)" begin

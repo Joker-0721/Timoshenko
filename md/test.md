@@ -1,7 +1,15 @@
-## 1. 运动学
+# Mindlin 板线性屈曲有限元分析
 
-考虑一块厚板 $\Omega$，厚度为 $h$，中面位移为 $u_\alpha$（$\alpha=1,2$），横向挠度为 $w$，法线转角为 $\phi_\alpha$。则任意点的位移可表示为：
 
+## 一、基本假设
+
+板中面为 $x_3 = 0$，厚度 $h$ 常数。  
+中面上任一点 $(x_1,x_2)$ 有 5 个独立位移场：
+- 中面内位移：$u_\alpha(x_1,x_2)$，$\alpha=1,2$
+- 横向挠度：$w(x_1,x_2)$
+- 转角：$\phi_\alpha(x_1,x_2)$
+
+板内任意一点 $(x_1,x_2,x_3)$ 的位移：
 $$
 \bar{u}_{\alpha}(x_1,x_2,x_3) = u_{\alpha}(x_1,x_2) - x_3\phi_{\alpha},\qquad \bar{u}_3 = w
 $$
@@ -25,278 +33,249 @@ $$
 \gamma_{\alpha} = 2\epsilon_{\alpha3} = w_{,\alpha} - \phi_{\alpha}
 $$
 
-## 2. 本构关系
+---
 
-对于各向同性线弹性材料（平面应力状态，$\sigma_{33}=0$），应力-应变关系为：
+## 二、本构关系
 
+由于板很薄，忽略厚度方向正应力：$\sigma_{33}=0$。  
+各向同性线弹性材料的平面应力本构：
 $$
-\sigma_{\alpha\beta} = D_{\alpha\beta\gamma\eta}\,\epsilon_{\gamma\eta},\qquad
-\tau_{3\alpha} = G\,\gamma_{\alpha}
+\sigma_{\alpha\beta} = C_{\alpha\beta\gamma\eta}\; \varepsilon_{\gamma\eta},
 $$
-
-其中弹性张量 $D_{\alpha\beta\gamma\eta}$ 和剪切模量 $G$ 分别为：
-
-$$
-D_{\alpha\beta\gamma\eta} = \frac{E}{1-\nu^2}\Big(\nu\delta_{\alpha\beta}\delta_{\gamma\eta} + \frac{1-\nu}{2}(\delta_{\alpha\gamma}\delta_{\beta\eta}+\delta_{\alpha\eta}\delta_{\beta\gamma})\Big)
-$$
-
-$$
-G = \frac{E}{2(1+\nu)}
-$$
-
-## 3. 合力（内力素）
-
-沿厚度积分得到膜力、弯矩和剪力：
-
-$$
-{N}_{\alpha\beta} = \int_{-h/2}^{h/2}\sigma_{\alpha\beta}dx_3 = hD_{\alpha\beta\gamma\eta}\,\varepsilon_{\gamma\eta}
-$$
-
-$$
-M_{\alpha\beta} = \int_{-h/2}^{h/2}x_3\sigma_{\alpha\beta}dx_3 = \frac{h^3}{12}D_{\alpha\beta\gamma\eta}\,\kappa_{\gamma\eta}
-$$
-
-$$
-Q_{\alpha} = k\int_{-h/2}^{h/2}\tau_{3\alpha}dx_3 = kGh\,\gamma_{\alpha}
-$$
-
-其中 $k$ 为剪切修正系数（通常取 $5/6$）。
-
-## 4. 平衡方程与边界条件（强形式）
-
-考虑初始面内力 $P_{\alpha\beta}$ 的几何效应（屈曲分析），总势能的一阶变分为零给出：
-
-$$
-\delta\Pi = \int_{\Omega}\Big(M_{\alpha\beta}\,\delta\kappa_{\alpha\beta}+Q_{\alpha}\,\delta\gamma_{\alpha}-P_{\alpha\beta}\,w_{,\alpha}\delta w_{,\beta}\Big)d\Omega = 0
-$$
-
-对上述变分方程进行分部积分（忽略边界项推导细节），得到域内平衡方程：
-
-$$
-\begin{aligned}
-& M_{\alpha\beta,\beta} - Q_{\alpha} = 0 \quad \text{在 } \Omega \text{ 内}, \\
-& Q_{\alpha,\alpha} - (P_{\alpha\beta} w_{,\beta})_{,\alpha} = 0 \quad \text{在 } \Omega \text{ 内}
-\end{aligned}
-$$
-
-
-## 5. Galerkin 弱形式（详细推导）
-
-### 5.1 从强形式出发
-
-将强形式中的每个平衡方程乘以对应的虚位移（测试函数），并在全域 $\Omega$ 上积分：
-
-$$
-\int_{\Omega} (M_{\alpha\beta,\beta} - Q_{\alpha})\,\delta\phi_\alpha \,d\Omega = 0,\qquad
-\int_{\Omega} \bigl( Q_{\alpha,\alpha} - (P_{\alpha\beta} w_{,\beta})_{,\alpha} \bigr)\,\delta w \,d\Omega = 0
-$$
-
-### 5.2 分部积分（转移导数）
-
-对第一个方程中的 $M_{\alpha\beta,\beta}$ 项使用散度定理：
-
-$$
-\int_{\Omega} M_{\alpha\beta,\beta}\,\delta\phi_\alpha \,d\Omega = \int_{\Gamma} M_{\alpha\beta} n_{\beta}\,\delta\phi_\alpha \,d\Gamma - \int_{\Omega} M_{\alpha\beta}\,\delta\phi_{\alpha,\beta} \,d\Omega
-$$
-
-于是第一个方程变为：
-
-$$
-\int_{\Gamma} M_{\alpha\beta} n_{\beta}\,\delta\phi_\alpha \,d\Gamma - \int_{\Omega} M_{\alpha\beta}\,\delta\phi_{\alpha,\beta} \,d\Omega - \int_{\Omega} Q_{\alpha}\,\delta\phi_\alpha \,d\Omega = 0 \tag{1}
-$$
-
-对第二个方程中的两项分别分部积分：
-
-$$
-\int_{\Omega} Q_{\alpha,\alpha}\,\delta w \,d\Omega = \int_{\Gamma} Q_{\alpha} n_{\alpha}\,\delta w \,d\Gamma - \int_{\Omega} Q_{\alpha}\,\delta w_{,\alpha} \,d\Omega
-$$
-
-$$
--\int_{\Omega} (P_{\alpha\beta} w_{,\beta})_{,\alpha}\,\delta w \,d\Omega = -\int_{\Gamma} P_{\alpha\beta} w_{,\beta} n_{\alpha}\,\delta w \,d\Gamma + \int_{\Omega} P_{\alpha\beta} w_{,\beta}\,\delta w_{,\alpha} \,d\Omega
-$$
-
-将这两部分相加，得到第二个方程的展开式：
-
-$$
-\int_{\Gamma} Q_{\alpha} n_{\alpha}\,\delta w \,d\Gamma - \int_{\Omega} Q_{\alpha}\,\delta w_{,\alpha} \,d\Omega - \int_{\Gamma} P_{\alpha\beta} w_{,\beta} n_{\alpha}\,\delta w \,d\Gamma + \int_{\Omega} P_{\alpha\beta} w_{,\beta}\,\delta w_{,\alpha} \,d\Omega = 0 \tag{2}
-$$
-
-### 5.3 整理域积分与边界积分
-
-将方程 (1) 和 (2) 相加，把所有域积分项移到等式左边，边界积分项移到右边，得到：
-
-$$
-\begin{aligned}
-& \int_{\Omega} \Bigl( - M_{\alpha\beta}\,\delta\phi_{\alpha,\beta} - Q_{\alpha}\,\delta\phi_\alpha - Q_{\alpha}\,\delta w_{,\alpha} + P_{\alpha\beta} w_{,\beta}\,\delta w_{,\alpha} \Bigr) d\Omega \\
-= & -\int_{\Gamma} M_{\alpha\beta} n_{\beta}\,\delta\phi_\alpha \,d\Gamma - \int_{\Gamma} Q_{\alpha} n_{\alpha}\,\delta w \,d\Gamma + \int_{\Gamma} P_{\alpha\beta} w_{,\beta} n_{\alpha}\,\delta w \,d\Gamma
-\end{aligned}
-$$
-
-两边乘以 $-1$ 并重新整理，使内力虚功项为正：
-
-$$
-\int_{\Omega} \Bigl( M_{\alpha\beta}\,\delta\phi_{\alpha,\beta} + Q_{\alpha}\,\delta\phi_\alpha + Q_{\alpha}\,\delta w_{,\alpha} - P_{\alpha\beta} w_{,\beta}\,\delta w_{,\alpha} \Bigr) d\Omega = \int_{\Gamma} M_{\alpha\beta} n_{\beta}\,\delta\phi_\alpha \,d\Gamma + \int_{\Gamma} Q_{\alpha} n_{\alpha}\,\delta w \,d\Gamma - \int_{\Gamma} P_{\alpha\beta} w_{,\beta} n_{\alpha}\,\delta w \,d\Gamma
-$$
-
-利用自然边界条件 $M_{\alpha\beta}n_{\beta} = \bar{M}_\alpha$（在 $\Gamma_M$ 上）和 $(Q_{\alpha} - P_{\alpha\beta} w_{,\beta})n_{\alpha} = \bar{Q}$（在 $\Gamma_Q$ 上），边界积分可合并为：
-
-$$
-\int_{\Gamma_M} \bar{M}_\alpha\,\delta\phi_\alpha \,d\Gamma + \int_{\Gamma_Q} \bar{Q}\,\delta w \,d\Gamma
-$$
-
-因此弱形式可写为：
-
-$$
-\boxed{
-\int_{\Omega} \Bigl( M_{\alpha\beta}\,\delta\phi_{\alpha,\beta} + Q_{\alpha}\,\delta\phi_\alpha + Q_{\alpha}\,\delta w_{,\alpha} - P_{\alpha\beta} w_{,\beta}\,\delta w_{,\alpha} \Bigr) d\Omega = \int_{\Gamma_M} \bar{M}_\alpha\,\delta\phi_\alpha \,d\Gamma + \int_{\Gamma_Q} \bar{Q}\,\delta w \,d\Gamma
-} \tag{3}
-$$
-
-$$
-\int_{\Omega} \Bigl( M_{\alpha\beta}\,\delta\kappa_{\alpha\beta} + Q_{\alpha}\,\delta\gamma_{\alpha} - P_{\alpha\beta} w_{,\alpha}\,\delta w_{,\beta} \Bigr) d\Omega = \int_{\Gamma_M} \bar{M}_\alpha\,\delta\phi_\alpha \,d\Gamma + \int_{\Gamma_Q} \bar{Q}\,\delta w \,d\Gamma
-$$
-
-$$
-\boxed{\int_{\Omega}\Bigl(M_{\alpha\beta}\,\delta\kappa_{\alpha\beta} + Q_{\alpha}\,\delta\gamma_{\alpha} - P_{\alpha\beta}\, w_{,\alpha}\,\delta w_{,\beta} \Bigr) d\Omega = 0}
-$$
-
-记弯曲刚度贡献的虚功为 $a_b$，剪切刚度贡献的虚功为 $a_s$，几何刚度贡献的虚功为 $a_g$，则上式可简记为：
-
-$$
-a_b + a_s - a_g = 0
-$$
-
-## 6. 有限元离散
-
-采用标准等参单元，形函数为 $N_K(x)$，节点自由度为 $w_K, \phi_{\alpha K}$：
-
-$$
-w^h(x) = \sum_{K} N_K(x) w_K,\qquad
-\phi_{\alpha}^h (x)= \sum_{R} N_R(x) \phi_{\alpha R}
-$$
-
-相应的离散曲率、剪切应变和挠度梯度为：
-
-$$
-\kappa_{\alpha\beta R} = -\frac{1}{2}\bigl(N_{R,\beta}\phi_{\alpha R}+N_{R,\alpha}\phi_{\beta R}\bigr),\qquad
-\gamma_{\alpha K} = N_{K,\alpha} w_K - N_K \phi_{\alpha K},\qquad
-w_{,\alpha K} = N_{K,\alpha} w_K
-$$
-
-### 6.1 弯曲刚度部分
-
-$$
-a_b = \int_{\Omega} \frac{h^3}{12} D_{\alpha\beta\gamma\eta} \, \kappa_{\alpha\beta}^h \, \delta\kappa_{\gamma\eta}^h \, d\Omega
-$$
-
-将 $\kappa_{\alpha\beta}^h$ 的表达式代入，得到离散形式：
-
-$$
-a_b = \sum_{R,S} \delta\phi_{iR}
-\left( \int_{\Omega} \frac{h^3}{48} D_{\alpha\beta\gamma\eta}
-\bigl( N_{R,\beta}\delta_{\alpha i} + N_{R,\alpha}\delta_{\beta i} \bigr)
-\bigl( N_{S,\eta}\delta_{\gamma j} + N_{S,\gamma}\delta_{\eta j} \bigr)
-d\Omega \right) \phi_{jS}
-$$
-
-定义弯曲刚度子矩阵：
-
-$$
-K^b_{RS} = \frac{h^3}{48} \int_{\Omega} D_{\alpha\beta\gamma\eta}
-\bigl( N_{R,\beta}\delta_{\alpha i} + N_{R,\alpha}\delta_{\beta i} \bigr)
-\bigl( N_{S,\eta}\delta_{\gamma j} + N_{S,\gamma}\delta_{\eta j} \bigr)
-d\Omega
+其中
 $$
-
-因此
-
-$$
-a^b = \sum_{K,L} \begin{bmatrix} \delta\phi_{1K} & \delta\phi_{2K} \end{bmatrix} \mathbf{K}^b_{KL} \begin{bmatrix} \phi_{1L} \\ \phi_{2L} \end{bmatrix}
-$$
-
-### 6.2 剪切刚度部分
-
-$$
-a_s = \int_{\Omega} k G h \, \gamma_{\alpha}^h \, \delta\gamma_{\alpha}^h \, d\Omega
-$$
-
-展开后得到：
-
-$$
-\begin{aligned}
-a_s = \sum_{K,L} \Bigg[ &\delta w_K \left( \int_{\Omega} k G h \, N_{K,\alpha} N_{L,\alpha} \, d\Omega \right) w_L \\
-+ &\delta w_K \left( \int_{\Omega} -k G h \, N_{K,\alpha} N_L \, d\Omega \right) \phi_{\alpha L} \\
-+ &\delta\phi_{\alpha K} \left( \int_{\Omega} -k G h \, N_K N_{L,\alpha} \, d\Omega \right) w_L \\
-+ &\delta\phi_{\alpha K} \left( \int_{\Omega} k G h \, N_K N_L \, \delta_{\alpha\beta} \, d\Omega \right) \phi_{\beta L} \Bigg]
-\end{aligned}
-$$
-
-剪切刚度子矩阵为：
-
-$$
-\mathbf{K}^s_{KL} = kGh \int_{\Omega}
-\begin{bmatrix}
-N_{K,\alpha}N_{L,\alpha} & -N_{K,\alpha}N_L \\
--N_K N_{L,\beta} & N_K N_L\,\delta_{\alpha\beta}
-\end{bmatrix} d\Omega
-$$
-
-于是
-
-$$
-a_s = \sum_{K,L}
-\begin{bmatrix}
-\delta w_K & \delta\phi_{\alpha K}
-\end{bmatrix}
-\mathbf{K}^s_{KL}
-\begin{bmatrix}
-w_L \\
-\phi_{\beta L}
-\end{bmatrix}
-$$
-
-### 6.3 几何刚度部分
-
-$$
-a_g = P_{\alpha\beta}\int_{\Omega} w_{,\alpha}\,\delta w_{,\beta}\,d\Omega
-$$
-
-离散后：
-
-$$
-a_g = \sum_{K,L} \delta w_K \left(P_{\alpha\beta}\int_{\Omega} \, N_{K,\alpha} N_{L,\beta} \, d\Omega \right) w_L
-$$
-
-几何刚度子矩阵：
-
-$$
-\mathbf{K}_{KL}^g = P_{\alpha\beta}\int_{\Omega} \, N_{K,\alpha} N_{L,\beta} \, d\Omega
+C_{\alpha\beta\gamma\eta} = \frac{E}{1-\nu^2}\Bigl[ \nu\,\delta_{\alpha\beta}\delta_{\gamma\eta} + \frac{1-\nu}{2}(\delta_{\alpha\gamma}\delta_{\beta\eta}+\delta_{\alpha\eta}\delta_{\beta\gamma}) \Bigr].
 $$
 
-### 6.4 总体离散方程
-
-将上述刚度矩阵组装，得到屈曲特征值问题的有限元方程：
-
+横向剪切应力：
 $$
-\left(
-\begin{bmatrix}
-\mathbf{K}_{ww}^{s} & \mathbf{K}_{w\phi}^{s} \\
-\mathbf{K}_{\phi w}^{s} & \mathbf{K}^{b}+\mathbf{K}_{\phi\phi}^{s}
-\end{bmatrix}
--
-\begin{bmatrix}
-\mathbf{K}_{ww}^{g} & 0 \\
-0 & 0
-\end{bmatrix}
-\right)
-\begin{bmatrix}
-\mathbf{d}_w \\
-\mathbf{d}_\phi
-\end{bmatrix} = \mathbf{0}
+\sigma_{\alpha3} = G \,\gamma_\alpha,\qquad G = \frac{E}{2(1+\nu)}.
 $$
-
-该方程用于求解临界载荷参数（隐含在 $P_{\alpha\beta}$ 中）。
 
 ---
 
-以上即为完整的中文翻译与第 5 节的详细推导替换。
+## 三、弱形式
+
+对于处于平衡的弹性体，虚功方程：
+$$
+\delta W_{\text{int}} = \delta W_{\text{ext}}.
+$$
+
+三维内虚功：
+$$
+\delta W_{\text{int}} = \int_V \sigma_{ij}\,\delta\varepsilon_{ij}\,dV
+= \int_V \bigl( \sigma_{\alpha\beta}\,\delta\varepsilon_{\alpha\beta} + \sigma_{\alpha3}\,\delta\gamma_\alpha \bigr) dV.
+$$
+
+将体积分沿厚度方向积分，并代入应变分解 $\delta\varepsilon_{\alpha\beta} = \delta\varepsilon_{\alpha\beta}^{(0)} + x_3\delta\kappa_{\alpha\beta}$，得：
+$$
+\delta W_{\text{int}} = \int_{\Omega} \Bigl(\underbrace{\int_{-h/2}^{h/2}\sigma_{\alpha\beta}x_3dx_3}_{M_{\alpha\beta}} \delta\kappa_{\alpha\beta}
++ \underbrace{\int_{-h/2}^{h/2}\sigma_{\alpha3}dx_3}_{Q_\alpha} \delta\gamma_\alpha \Bigr) d\Omega.
+$$
+
+将本构关系 $\sigma_{\alpha\beta}=C_{\alpha\beta\gamma\eta}(\varepsilon_{\gamma\eta}^{(0)}+x_3\kappa_{\gamma\eta})$ 代入积分，$k=\frac56$：
+$$
+\begin{aligned}
+M_{\alpha\beta} &= \frac{h^3}{12}C_{\alpha\beta\gamma\eta}\,\kappa_{\gamma\eta} \equiv D_{\alpha\beta\gamma\eta}\,\kappa_{\gamma\eta},\\
+Q_{\alpha} &= k G h \,\gamma_\alpha \equiv S_{\alpha\beta}\,\gamma_\beta,\quad S_{\alpha\beta}=kGh\delta_{\alpha\beta}
+\end{aligned}
+$$
+
+代入虚功表达式，得到 **仅含中面应变和曲率的双线性形式**：
+$$
+\delta W_{\text{int}} = \int_{\Omega} \Bigl(\delta\kappa_{\alpha\beta} D_{\alpha\beta\gamma\eta}\,\kappa_{\gamma\eta}
++ \delta\gamma_\alpha S_{\alpha\beta}\,\gamma_\beta \Bigr) d\Omega.
+$$
+
+此即为有限元离散的弱形式基础。
+
+---
+
+## 四、几何刚度
+
+### 4.1 实际载荷与载荷因子
+实际面内载荷为 $P = \lambda P_{\text{ref}}$，则实际应力为：
+$$
+\sigma_{\alpha\beta}^0 = \lambda \,\sigma_{\alpha\beta}^{\text{ref}}.
+$$
+$\lambda$ 是一个无量纲的**载荷因子**.
+
+### 4.2 几何刚度的来源（非线性应变）
+当板已经存在面内应力 $\sigma_{\alpha\beta}^0$ 时，在横向挠曲过程中，非线性应变$\frac12 w_{,\alpha} w_{,\beta}$ 会使初始应力做虚功。此虚功的一阶变分为：
+$$
+\delta W_{\text{nl}} = \int_{\Omega} \sigma_{\alpha\beta}^0 \; w_{,\alpha}\,\delta w_{,\beta} \, d\Omega.
+$$
+将 $\sigma_{\alpha\beta}^0 = \lambda \sigma_{\alpha\beta}^{\text{ref}}$ 代入，得：
+$$
+\delta W_{\text{nl}} = \lambda \int_{\Omega} \sigma_{\alpha\beta}^{\text{ref}} \; w_{,\alpha}\,\delta w_{,\beta} \, d\Omega.
+$$
+
+### 4.3 屈曲时的总虚功平衡
+在线性屈曲分析中，忽略外载荷的横向分量（即 $\delta W_{\text{ext}}=0$），并假设屈曲发生时横向位移为任意小的扰动。总内虚功包含线性部分（弯曲+剪切）和几何非线性部分：
+$$
+\delta W_{\text{int,lin}} + \delta W_{\text{nl}} = 0.
+$$
+即：
+$$
+\int_{\Omega} \Bigl(\delta\kappa_{\alpha\beta} D_{\alpha\beta\gamma\eta}\,\kappa_{\gamma\eta}
++ \delta\gamma_\alpha S_{\alpha\beta}\,\gamma_\beta \Bigr) d\Omega
++ \lambda \int_{\Omega} \sigma_{\alpha\beta}^{\text{ref}} \; w_{,\alpha}\,\delta w_{,\beta} \, d\Omega = 0.
+$$
+
+---
+
+## 五、有限元離散（雙線性形式）
+
+
+
+$$
+w_{,\alpha}=\sum_I N_{I,\alpha}w_I,\qquad
+\delta w_{,\beta}=\sum_J N_{J,\beta}\delta w_J
+$$
+
+$$
+\phi_{\alpha,\beta}=\sum_K N_{K,\beta}\phi_{\alpha K},\qquad
+\delta\phi_{\alpha,\beta}=\sum_L N_{L,\beta}\delta\phi_{\alpha L}
+$$
+
+$$
+\begin{aligned}
+0
+={}&
+\int_{\Omega}
+\Bigl(
+\delta\kappa_{\alpha\beta}D_{\alpha\beta\gamma\eta}\kappa_{\gamma\eta}
++\delta\gamma_\alpha S_{\alpha\beta}\gamma_\beta
+\Bigr)d\Omega
++\lambda\int_{\Omega}
+\sigma_{\alpha\beta}^{\mathrm{ref}}
+w_{,\alpha}\delta w_{,\beta}\,d\Omega
+\end{aligned}
+$$
+
+$$
+\boxed{
+K_b(\delta\phi,\phi)
++K_s\bigl((\delta w,\delta\phi),(w,\phi)\bigr)
++\lambda K_g(\delta w,w)
+=0
+}
+$$
+
+$$
+\begin{aligned}
+K_b(\delta\phi,\phi)
+&=
+D_{\alpha\beta\gamma\eta}\int_{\Omega}
+\delta\kappa_{\alpha\beta}
+
+\kappa_{\gamma\eta}\,d\Omega
+\\
+&=
+\frac14
+D_{\alpha\beta\gamma\eta}\sum_{IJ}
+\int_{\Omega}
+\left(
+N_{J,\beta}\delta\phi_{\alpha J}
++N_{J,\alpha}\delta\phi_{\beta J}
+\right)
+
+\left(
+N_{I,\eta}\phi_{\gamma I}
++N_{I,\gamma}\phi_{\eta I}
+\right)d\Omega
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+K_s\bigl((\delta w,\delta\phi),(w,\phi)\bigr)
+&=
+S_{\alpha\beta}\int_{\Omega}
+\delta\gamma_\alpha
+
+\gamma_\beta\,d\Omega
+\\
+&=
+K_s^{ww}(\delta w,w)
++K_s^{\psi\psi}(\delta\phi,\phi)
++K_s^{w\psi}\bigl((\delta w,\delta\phi),(w,\phi)\bigr)
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+K_s^{ww}(\delta w,w)
+&=
+S_{\alpha\beta}\sum_{IJ}
+\int_{\Omega}
+N_{J,\alpha}\delta w_J\,
+
+N_{I,\beta}w_I\,d\Omega
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+K_s^{\psi\psi}(\delta\phi,\phi)
+&=
+S_{\alpha\beta}\sum_{IJ}
+\int_{\Omega}
+N_J\delta\phi_{\alpha J}\,
+N_I\phi_{\beta I}\,d\Omega
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+K_s^{w\psi}\bigl((\delta w,\delta\phi),(w,\phi)\bigr)
+&=
+-S_{\alpha\beta}\sum_{IJ}
+\int_{\Omega}
+N_{J,\alpha}\delta w_J\,
+
+N_I\phi_{\beta I}\,d\Omega
+\\
+&\quad
+-S_{\alpha\beta}\sum_{IJ}
+\int_{\Omega}
+N_J\delta\phi_{\alpha J}\,
+N_{I,\beta}w_I\,d\Omega
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+K_g(\delta w,w)
+&=
+\int_{\Omega}
+\sigma_{\alpha\beta}^{\mathrm{ref}}
+w_{,\alpha}\delta w_{,\beta}\,d\Omega
+\\
+&=
+\sum_{IJ}
+\int_{\Omega}
+\sigma_{\alpha\beta}^{\mathrm{ref}}
+N_{I,\alpha}N_{J,\beta}
+w_I\delta w_J\,d\Omega
+\end{aligned}
+$$
+
+### 總體離散方程
+
+$$
+\boxed{
+
+\left[
+K_b
++K_s^{ww}
++K_s^{\psi\psi}
++K_s^{w\psi}
++\lambda K_g
+\right]
+=0
+}
+$$
+
+
+---
