@@ -62,7 +62,7 @@ $$
 
 其中 $k$ 为剪切修正系数（通常取 $5/6$）。
 
-## 4. 平衡方程与边界条件（强形式）
+## 4. 弱形式
 
 考虑初始面内力 $P_{\alpha\beta}$ 的几何效应（屈曲分析），总势能的一阶变分为零给出：
 
@@ -79,86 +79,16 @@ $$
 \end{aligned}
 $$
 
-
-## 5. Galerkin 弱形式（详细推导）
-
-### 5.1 从强形式出发
-
-将强形式中的每个平衡方程乘以对应的虚位移（测试函数），并在全域 $\Omega$ 上积分：
-
-$$
-\int_{\Omega} (M_{\alpha\beta,\beta} - Q_{\alpha})\,\delta\phi_\alpha \,d\Omega = 0,\qquad
-\int_{\Omega} \bigl( Q_{\alpha,\alpha} - (P_{\alpha\beta} w_{,\beta})_{,\alpha} \bigr)\,\delta w \,d\Omega = 0
 $$
 
-### 5.2 分部积分（转移导数）
-
-对第一个方程中的 $M_{\alpha\beta,\beta}$ 项使用散度定理：
-
-$$
-\int_{\Omega} M_{\alpha\beta,\beta}\,\delta\phi_\alpha \,d\Omega = \int_{\Gamma} M_{\alpha\beta} n_{\beta}\,\delta\phi_\alpha \,d\Gamma - \int_{\Omega} M_{\alpha\beta}\,\delta\phi_{\alpha,\beta} \,d\Omega
-$$
-
-于是第一个方程变为：
-
-$$
-\int_{\Gamma} M_{\alpha\beta} n_{\beta}\,\delta\phi_\alpha \,d\Gamma - \int_{\Omega} M_{\alpha\beta}\,\delta\phi_{\alpha,\beta} \,d\Omega - \int_{\Omega} Q_{\alpha}\,\delta\phi_\alpha \,d\Omega = 0 \tag{1}
-$$
-
-对第二个方程中的两项分别分部积分：
-
-$$
-\int_{\Omega} Q_{\alpha,\alpha}\,\delta w \,d\Omega = \int_{\Gamma} Q_{\alpha} n_{\alpha}\,\delta w \,d\Gamma - \int_{\Omega} Q_{\alpha}\,\delta w_{,\alpha} \,d\Omega
+\int_{\Omega} \Bigl( M_{\alpha\beta}\,\delta\phi_{\alpha,\beta} + Q_{\alpha}\,\delta\phi_\alpha + Q_{\alpha}\,\delta w_{,\alpha} - P_{\alpha\beta} w_{,\beta}\,\delta w_{,\alpha} \Bigr) d\Omega = 0
+ \tag{3}
 $$
 
 $$
--\int_{\Omega} (P_{\alpha\beta} w_{,\beta})_{,\alpha}\,\delta w \,d\Omega = -\int_{\Gamma} P_{\alpha\beta} w_{,\beta} n_{\alpha}\,\delta w \,d\Gamma + \int_{\Omega} P_{\alpha\beta} w_{,\beta}\,\delta w_{,\alpha} \,d\Omega
+\int_{\Omega} \Bigl( M_{\alpha\beta}\,\delta\kappa_{\alpha\beta} + Q_{\alpha}\,\delta\gamma_{\alpha} - P_{\alpha\beta} w_{,\alpha}\,\delta w_{,\beta} \Bigr) d\Omega = 0
 $$
 
-将这两部分相加，得到第二个方程的展开式：
-
-$$
-\int_{\Gamma} Q_{\alpha} n_{\alpha}\,\delta w \,d\Gamma - \int_{\Omega} Q_{\alpha}\,\delta w_{,\alpha} \,d\Omega - \int_{\Gamma} P_{\alpha\beta} w_{,\beta} n_{\alpha}\,\delta w \,d\Gamma + \int_{\Omega} P_{\alpha\beta} w_{,\beta}\,\delta w_{,\alpha} \,d\Omega = 0 \tag{2}
-$$
-
-### 5.3 整理域积分与边界积分
-
-将方程 (1) 和 (2) 相加，把所有域积分项移到等式左边，边界积分项移到右边，得到：
-
-$$
-\begin{aligned}
-& \int_{\Omega} \Bigl( - M_{\alpha\beta}\,\delta\phi_{\alpha,\beta} - Q_{\alpha}\,\delta\phi_\alpha - Q_{\alpha}\,\delta w_{,\alpha} + P_{\alpha\beta} w_{,\beta}\,\delta w_{,\alpha} \Bigr) d\Omega \\
-= & -\int_{\Gamma} M_{\alpha\beta} n_{\beta}\,\delta\phi_\alpha \,d\Gamma - \int_{\Gamma} Q_{\alpha} n_{\alpha}\,\delta w \,d\Gamma + \int_{\Gamma} P_{\alpha\beta} w_{,\beta} n_{\alpha}\,\delta w \,d\Gamma
-\end{aligned}
-$$
-
-两边乘以 $-1$ 并重新整理，使内力虚功项为正：
-
-$$
-\int_{\Omega} \Bigl( M_{\alpha\beta}\,\delta\phi_{\alpha,\beta} + Q_{\alpha}\,\delta\phi_\alpha + Q_{\alpha}\,\delta w_{,\alpha} - P_{\alpha\beta} w_{,\beta}\,\delta w_{,\alpha} \Bigr) d\Omega = \int_{\Gamma} M_{\alpha\beta} n_{\beta}\,\delta\phi_\alpha \,d\Gamma + \int_{\Gamma} Q_{\alpha} n_{\alpha}\,\delta w \,d\Gamma - \int_{\Gamma} P_{\alpha\beta} w_{,\beta} n_{\alpha}\,\delta w \,d\Gamma
-$$
-
-利用自然边界条件 $M_{\alpha\beta}n_{\beta} = \bar{M}_\alpha$（在 $\Gamma_M$ 上）和 $(Q_{\alpha} - P_{\alpha\beta} w_{,\beta})n_{\alpha} = \bar{Q}$（在 $\Gamma_Q$ 上），边界积分可合并为：
-
-$$
-\int_{\Gamma_M} \bar{M}_\alpha\,\delta\phi_\alpha \,d\Gamma + \int_{\Gamma_Q} \bar{Q}\,\delta w \,d\Gamma
-$$
-
-因此弱形式可写为：
-
-$$
-\boxed{
-\int_{\Omega} \Bigl( M_{\alpha\beta}\,\delta\phi_{\alpha,\beta} + Q_{\alpha}\,\delta\phi_\alpha + Q_{\alpha}\,\delta w_{,\alpha} - P_{\alpha\beta} w_{,\beta}\,\delta w_{,\alpha} \Bigr) d\Omega = \int_{\Gamma_M} \bar{M}_\alpha\,\delta\phi_\alpha \,d\Gamma + \int_{\Gamma_Q} \bar{Q}\,\delta w \,d\Gamma
-} \tag{3}
-$$
-
-$$
-\int_{\Omega} \Bigl( M_{\alpha\beta}\,\delta\kappa_{\alpha\beta} + Q_{\alpha}\,\delta\gamma_{\alpha} - P_{\alpha\beta} w_{,\alpha}\,\delta w_{,\beta} \Bigr) d\Omega = \int_{\Gamma_M} \bar{M}_\alpha\,\delta\phi_\alpha \,d\Gamma + \int_{\Gamma_Q} \bar{Q}\,\delta w \,d\Gamma
-$$
-
-$$
-\boxed{\int_{\Omega}\Bigl(M_{\alpha\beta}\,\delta\kappa_{\alpha\beta} + Q_{\alpha}\,\delta\gamma_{\alpha} - P_{\alpha\beta}\, w_{,\alpha}\,\delta w_{,\beta} \Bigr) d\Omega = 0}
-$$
 
 记弯曲刚度贡献的虚功为 $a_b$，剪切刚度贡献的虚功为 $a_s$，几何刚度贡献的虚功为 $a_g$，则上式可简记为：
 
