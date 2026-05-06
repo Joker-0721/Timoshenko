@@ -2,8 +2,7 @@ using ApproxOperator
 using LinearAlgebra
 import Gmsh: gmsh
 import ApproxOperator.GmshImport: getPhysicalGroups, get𝑿ᵢ, getElements
-import ApproxOperator.MindlinPlate: ∫κκdΩ, ∫wwdΩ, ∫φφdΩ, ∫φwdΩ
-import ApproxOperator.Timoshenko: ∫wwGdΩ2D
+import ApproxOperator.Timoshenko: ∫wwGdΩ2D, ∫κκdΩ, ∫wwdΩ, ∫φφdΩ, ∫φwdΩ
 
 # Mindlin-Reissner 方板材料參數。
 E = 1.0e8

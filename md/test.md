@@ -244,170 +244,90 @@ $$
 
 **彎曲雙線性形式 $a_b$**：
 $$
-\begin{aligned}
-a_b(\delta\phi,\phi)
-&:=
-\int_{\Omega}
-\delta\kappa_{\alpha\beta}
-D^b_{\alpha\beta\gamma\eta}
-\kappa_{\gamma\eta}\,d\Omega
-\\
-&=
-\sum_{IJ}
-\delta\boldsymbol\phi_J^{T}
-\mathbf K^{b}_{JI}
-\boldsymbol\phi_I
-\end{aligned}
+a_b = \int_{\Omega} \frac{h^3}{12} D_{\alpha\beta\gamma\eta} \, \kappa_{\alpha\beta}^h \, \delta\kappa_{\gamma\eta}^h \, d\Omega
 $$
 
+将 $\kappa_{\alpha\beta}^h$ 的表达式代入，得到离散形式：
 
 $$
-\begin{aligned}
-a_b(\delta\phi,\phi)
-&=
-\int_{\Omega}
-\left[-\frac12\left(\delta\phi_{\alpha,\beta}+\delta\phi_{\beta,\alpha}\right)\right]
-D^b_{\alpha\beta\gamma\eta}
-\left[-\frac12\left(\phi_{\gamma,\eta}+\phi_{\eta,\gamma}\right)\right]d\Omega
-\\
-&=
-\frac14\int_{\Omega}
-\left(\delta\phi_{\alpha,\beta}+\delta\phi_{\beta,\alpha}\right)
-D^b_{\alpha\beta\gamma\eta}
-\left(\phi_{\gamma,\eta}+\phi_{\eta,\gamma}\right)d\Omega
-\\
-&=
-\frac14\sum_{I,J}\int_{\Omega}
-\left(N_{J,\beta}\delta\phi_{\alpha J}+N_{J,\alpha}\delta\phi_{\beta J}\right)
-D^b_{\alpha\beta\gamma\eta}
-\left(N_{I,\eta}\phi_{\gamma I}+N_{I,\gamma}\phi_{\eta I}\right)d\Omega \\
-&=
-\sum_{I,J}\delta\boldsymbol\phi_J^{T}
-\mathbf K^b_{JI}
-\boldsymbol\phi_I
-\end{aligned}
+a_b = \sum_{R,S} \delta\phi_{iR}
+\left( \int_{\Omega} \frac{h^3}{48} D_{\alpha\beta\gamma\eta}
+\bigl( N_{R,\beta}\delta_{\alpha i} + N_{R,\alpha}\delta_{\beta i} \bigr)
+\bigl( N_{S,\eta}\delta_{\gamma j} + N_{S,\gamma}\delta_{\eta j} \bigr)
+d\Omega \right) \phi_{jS}
 $$
 
-矩陣形式：
+定义弯曲转角子矩阵 $\mathbf{K}_{\phi\phi,R S}^b$ 为：
+
 $$
-\mathbf K_{JI}^{b}
-=
-\int_{\Omega}
-\left(\mathbf B_J^b\right)^T
-\mathbf D^b
-\mathbf B_I^b\,d\Omega
+\bigl(\mathbf{K}_{\phi\phi,R S}^b\bigr)_{ij}
+= \frac{h^3}{48} \int_{\Omega} D_{\alpha\beta\gamma\eta}
+\bigl( N_{R,\beta}\delta_{\alpha i} + N_{R,\alpha}\delta_{\beta i} \bigr)
+\bigl( N_{S,\eta}\delta_{\gamma j} + N_{S,\gamma}\delta_{\eta j} \bigr)
+d\Omega
 $$
 
-$\mathbf B_I^b$：
+将其嵌入节点总自由度后，弯曲刚度块矩阵可写为：
+
 $$
-\left(\mathbf B_I^b\boldsymbol\phi_I\right)_{\alpha\beta}
-=
--\frac12
-\left(
-N_{I,\beta}\phi_{\alpha I}
-+N_{I,\alpha}\phi_{\beta I}
-\right).
+\mathbf{K}_{RS}^b =
+\begin{bmatrix}
+0 & \mathbf{0}_{1\times 2} \\
+\mathbf{0}_{2\times 1} & \mathbf{K}_{\phi\phi,R S}^b
+\end{bmatrix}
+$$
+
+因此
+
+$$
+a_b = \sum_{R,S} \delta\mathbf{d}_R^{T}\,\mathbf{K}_{RS}^b\,\mathbf{d}_S
 $$
 
 **剪切雙線性形式 $a_s$**：
 $$
-\begin{aligned}
-a_s\bigl((\delta w,\delta\phi),(w,\phi)\bigr)
-&:=
-\int_{\Omega}
-\delta\gamma_\alpha
-S_{\alpha\beta}
-\gamma_\beta\,d\Omega
-\\
-&=
-\sum_{IJ}
-\delta\mathbf d_J^{T}
-\mathbf K^{s}_{JI}
-\mathbf d_I
-\end{aligned}
+a_s = \int_{\Omega} k G h \, \gamma_{\alpha}^h \, \delta\gamma_{\alpha}^h \, d\Omega
+$$
+
+展开后可按 $ww$、$w\phi$ 和 $\phi\phi$ 三个独立区块整理为：
+
+$$
+K_{ww,KL}^s = kGh \int_{\Omega} N_{K,\alpha} N_{L,\alpha} \, d\Omega
 $$
 
 $$
-\begin{aligned}
-a_s\bigl((\delta w,\delta\phi),(w,\phi)\bigr)
-&=
-\int_{\Omega}
-\left(\delta w_{,\alpha}-\delta\phi_{\alpha}\right)
-S_{\alpha\beta}
-\left(w_{,\beta}-\phi_{\beta}\right)\,d\Omega
-\\
-&=
-\int_{\Omega}
-\left[\left(\sum_J N_{J,\alpha}\delta w_J\right)-\left(\sum_J N_J\delta\phi_{\alpha J}\right)\right]
-S_{\alpha\beta}
-\left[\left(\sum_I N_{I,\beta}w_I\right)-\left(\sum_I N_I\phi_{\beta I}\right)\right]d\Omega
-\\
-&=
-\sum_{I,J}\int_{\Omega}
-\left(N_{J,\alpha}\delta w_J-N_J\delta\phi_{\alpha J}\right)
-S_{\alpha\beta}
-\left(N_{I,\beta}w_I-N_I\phi_{\beta I}\right)d\Omega
-\\
-&=:
-a_s^{ww}(\delta w,w)
-+a_s^{\phi\phi}(\delta\phi,\phi)
-+a_s^{w\phi}\bigl((\delta w,\delta\phi),(w,\phi)\bigr)
-\\
-
-a_s^{ww}(\delta w,w)
-&=
-\sum_{I,J}S_{\alpha\beta}\,\int_{\Omega}
-N_{J,\alpha}\,N_{I,\beta}
-\,\delta w_J w_I\,d\Omega
-\\
-a_s^{\phi\phi}(\delta\phi,\phi)
-&=
-\sum_{I,J}\int_{\Omega}
-N_J\,S_{\alpha\beta}\,N_I
-\,\delta\phi_{\alpha J}\phi_{\beta I}\,d\Omega
-\\
-a_s^{w\phi}\bigl((\delta w,\delta\phi),(w,\phi)\bigr)
-&=
--\sum_{I,J}\int_{\Omega}
-N_{J,\alpha}\,S_{\alpha\beta}\,N_I
-\,\delta w_J\phi_{\beta I}\,d\Omega
-\\
-&\quad
--\sum_{I,J}\int_{\Omega}
-N_J\,S_{\alpha\beta}\,N_{I,\beta}
-\,\delta\phi_{\alpha J}w_I\,d\Omega
-\\
-&=
-\sum_{I,J}
-\delta\mathbf d_J^{T}
-\mathbf K^{s}_{JI}
-\mathbf d_I
-\end{aligned}
-$$
-
-
-$$
-\mathbf K_{JI}^{s}
-=
-\int_{\Omega}
-\left(\mathbf B_J^s\right)^T
-\mathbf S
-\mathbf B_I^s\,d\Omega
-$$
-
-$\mathbf B_I^s$：
-$$
-\mathbf B_I^s=
+\mathbf{K}_{w\phi,KL}^s
+= -kGh \int_{\Omega}
 \begin{bmatrix}
-N_{I,1} & -N_I & 0\\
-N_{I,2} & 0 & -N_I
-\end{bmatrix},
-\qquad
-\mathbf S=k_sGh
+N_{K,1}N_L & N_{K,2}N_L
+\end{bmatrix}
+d\Omega
+$$
+
+$$
+\mathbf{K}_{\phi\phi,KL}^s
+= kGh \int_{\Omega} N_K N_L\,\mathbf{I}_2 \, d\Omega
+$$
+
+相应地，
+
+$$
+\mathbf{K}_{\phi w,KL}^s = \left(\mathbf{K}_{w\phi,LK}^s\right)^T
+$$
+
+因此节点 $(K,L)$ 的剪切刚度块矩阵为：
+
+$$
+\mathbf{K}_{KL}^s =
 \begin{bmatrix}
-1 & 0\\
-0 & 1
-\end{bmatrix}.
+K_{ww,KL}^s & \mathbf{K}_{w\phi,KL}^s \\
+\mathbf{K}_{\phi w,KL}^s & \mathbf{K}_{\phi\phi,KL}^s
+\end{bmatrix}
+$$
+
+从而
+
+$$
+a_s = \sum_{K,L} \delta\mathbf{d}_K^{T}\,\mathbf{K}_{KL}^s\,\mathbf{d}_L
 $$
 
 **幾何刚度 $K_g$**：
