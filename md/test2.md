@@ -44,7 +44,7 @@ $$
 G = \frac{E}{2(1+\nu)}
 $$
 
-## 3. 合力（内力素）
+## 3. 合力
 
 沿厚度积分得到弯矩和剪力：
 
@@ -191,7 +191,7 @@ $\mathbf{I}_2$ 是 $2\times 2$ 单位矩阵，表示 $\phi_x$ 和 $\phi_y$ 的�
 
 #### 第一项：
 $$
-a_{s}^{w\delta\phi}(w,\delta\phi) = -kGh \int_{\Omega} w_{,\alpha} \,\delta\phi_\alpha \, d\Omega.
+a_{s}^{w\phi}(w,\delta\phi) = -kGh \int_{\Omega} w_{,\alpha} \,\delta\phi_\alpha \, d\Omega.
 $$
 离散后给出子矩阵 $\mathbf{K}_{w\phi}^s$（从 $w$ 到 $\delta\phi$）：
 $$
@@ -201,7 +201,7 @@ $$
 
 #### 第二项：
 $$
-a_{s}^{\phi\delta w}(\phi,\delta w) = -kGh \int_{\Omega} \phi_\alpha \,\delta w_{,\alpha} \, d\Omega.
+a_{s}^{\phi w}(\phi,\delta w) = -kGh \int_{\Omega} \phi_\alpha \,\delta w_{,\alpha} \, d\Omega.
 $$
 离散后给出子矩阵 $\mathbf{K}_{\phi w}^s$（从 $\phi$ 到 $\delta w$）：
 $$
@@ -229,23 +229,23 @@ $$
 
 将所有双线性形式相加，并令总虚功为零，得到：
 $$
-a_b(\phi,\delta\phi) + a_s^{ww}(w,\delta w) + a_s^{\phi\phi}(\phi,\delta\phi) + a_s^{w\phi}(w,\phi,\delta w,\delta\phi) - a_g(w,\delta w) = 0.
+a_b(\boldsymbol{\phi},\delta\boldsymbol{\phi}) + a_s^{ww}(\mathbf{w},\delta\mathbf{w}) + a_s^{\phi\phi}(\boldsymbol{\phi},\delta\boldsymbol{\phi}) + a_s^{w\phi}(\boldsymbol{\phi},\delta\mathbf{w}) + a_s^{w\phi}(\mathbf{w},\delta\boldsymbol{\phi}) - a_g(\mathbf{w},\delta\mathbf{w}) = 0.
 $$
 
 按自由度分组，写成矩阵形式：
 则矩阵形式为：
 $$
 \begin{bmatrix}
-K_{ww}^{s} & K_{w\phi1}^{s} & K_{w\phi2}^{s} \\
-K_{\phi1 w}^{s} & K_{\phi1\phi1}^{b}+K_{\phi1\phi1}^{s} & K_{\phi1\phi2}^{b}+K_{\phi1\phi2}^{s} \\
-K_{\phi2 w}^{s} & K_{\phi2\phi1}^{b}+K_{\phi2\phi1}^{s} & K_{\phi2\phi2}^{b}+K_{\phi2\phi2}^{s}
+\mathbf{K}_{ww}^{s} & \mathbf{K}_{w\phi1}^{s} & \mathbf{K}_{w\phi2}^{s} \\
+\mathbf{K}_{\phi1 w}^{s} & \mathbf{K}_{\phi1\phi1}^{b}+\mathbf{K}_{\phi1\phi1}^{s} & \mathbf{K}_{\phi1\phi2}^{b}+\mathbf{K}_{\phi1\phi2}^{s} \\
+\mathbf{K}_{\phi2 w}^{s} & \mathbf{K}_{\phi2\phi1}^{b}+\mathbf{K}_{\phi2\phi1}^{s} & \mathbf{K}_{\phi2\phi2}^{b}+\mathbf{K}_{\phi2\phi2}^{s}
 \end{bmatrix}
 \begin{bmatrix}
 \mathbf{d}_w \\ \mathbf{d}_{\phi1} \\ \mathbf{d}_{\phi2}
 \end{bmatrix}
 -
 \begin{bmatrix}
-K_{ww}^{g} & 0 & 0 \\
+\mathbf{K}_{ww}^{g} & 0 & 0 \\
 0 & 0 & 0 \\
 0 & 0 & 0
 \end{bmatrix}
@@ -255,22 +255,22 @@ K_{ww}^{g} & 0 & 0 \\
 = \mathbf{0}.
 $$
 
-令整体线性刚度矩阵 $K$ 和几何刚度矩阵 $K_g$ 为：
+令整体线性刚度矩阵 $\mathbf{K}$ 和几何刚度矩阵 $\mathbf{K}_g$ 为：
 $$
-K =
+\mathbf{K} =
 \begin{bmatrix}
-K_{ww}^{s} & K_{w\phi}^{s} \\
-K_{\phi w}^{s} & K_{\phi\phi}^{b} + K_{\phi\phi}^{s}
+\mathbf{K}_{ww}^{s} & \mathbf{K}_{w\phi}^{s} \\
+\mathbf{K}_{\phi w}^{s} & \mathbf{K}_{\phi\phi}^{b} + \mathbf{K}_{\phi\phi}^{s}
 \end{bmatrix},\qquad
-K_g =
+\mathbf{K}_g =
 \begin{bmatrix}
-K_{ww}^{g} & 0 \\
+\mathbf{K}_{ww}^{g} & 0 \\
 0 & 0
 \end{bmatrix}.
 $$
 则特征方程写为：
 $$
-[\,K - K_g\,]\,\mathbf{d} = \mathbf{0}.
+[\,\mathbf{K} - \mathbf{K}_g\,]\,\mathbf{d} = \mathbf{0}.
 $$
 
 
