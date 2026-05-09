@@ -1,0 +1,7 @@
+[deps]
+ApproxOperator = "6dcad7c1-d118-4fbd-9616-5407c5210a62"
+BenchmarkExample = "25d4f335-63cd-41ef-b5b3-e3a5b7c0762b"
+Gmsh = "705231aa-382f-11e9-3f0c-b7cb4346fdeb"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
+XLSX = "fdbf4ff8-1666-58a4-91e7-1b58723a45e0"
