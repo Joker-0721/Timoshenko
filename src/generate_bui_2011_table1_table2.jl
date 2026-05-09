@@ -9,6 +9,7 @@ import ApproxOperator.MindlinPlate: ∫wwGdΩ2D, ∫κκdΩ, ∫wwdΩ, ∫φφd�
 
 using LinearAlgebra
 using Printf
+using TimerOutputs
 using XLSX
 import Gmsh: gmsh
 
@@ -18,6 +19,8 @@ const BUI_NU = 0.3
 const BUI_B = 1.0
 const BUI_OUTPUT_XLSX = normpath(joinpath(@__DIR__, "..", "results", "bui_2011_table1_table2.xlsx"))
 const BUI_NODE_PATTERNS = (7, 9, 11, 13, 15, 17)
+const BUI_MSH_DIR = normpath(joinpath(@__DIR__, "..", "msh"))
+const to = TimerOutput()
 
 const BUI_EXACT = Dict(
     "CCCC" => 10.070,
@@ -41,62 +44,26 @@ const BUI_BOUNDARIES = ("CCCC", "CSCS", "SCSC", "SSSS", "FSCS", "FSSS")
 
 struct BuiCase
     boundary::String
-    internal_boundary::String
-    mesh_n::Int
-end
-
-function bui_boundary_to_internal(boundary::String)
-    length(boundary) == 4 || error("Bui boundary must have four letters.")
-    b = collect(boundary)
-    # Bui: Γ1=bottom, Γ2=right, Γ3=top, Γ4=left.
-    # Internal order: left, right, top, bottom.
-    return String([b[4], b[2], b[3], b[1]])
+    nodes_per_side::Int
 end
 
 function bending_rigidity(E, ν, h)
     return E*h^3/(12.0*(1.0 - ν^2))
 end
 
-function generate_square_mesh!(nodes_per_side::Int)
-    gmsh.clear()
-    gmsh.model.add("bui_2011_square")
-
-    p1 = gmsh.model.geo.addPoint(0.0, 0.0, 0.0)
-    p2 = gmsh.model.geo.addPoint(BUI_B, 0.0, 0.0)
-    p3 = gmsh.model.geo.addPoint(BUI_B, BUI_B, 0.0)
-    p4 = gmsh.model.geo.addPoint(0.0, BUI_B, 0.0)
-
-    bottom = gmsh.model.geo.addLine(p1, p2)
-    right = gmsh.model.geo.addLine(p2, p3)
-    top = gmsh.model.geo.addLine(p3, p4)
-    left = gmsh.model.geo.addLine(p4, p1)
-    loop = gmsh.model.geo.addCurveLoop([bottom, right, top, left])
-    surface = gmsh.model.geo.addPlaneSurface([loop])
-
-    gmsh.model.geo.mesh.setTransfiniteCurve(bottom, nodes_per_side)
-    gmsh.model.geo.mesh.setTransfiniteCurve(right, nodes_per_side)
-    gmsh.model.geo.mesh.setTransfiniteCurve(top, nodes_per_side)
-    gmsh.model.geo.mesh.setTransfiniteCurve(left, nodes_per_side)
-    gmsh.model.geo.mesh.setTransfiniteSurface(surface)
-    gmsh.model.geo.mesh.setRecombine(2, surface)
-    gmsh.model.geo.synchronize()
-
-    for (name, entity) in (("left", left), ("right", right), ("top", top), ("bottom", bottom))
-        group = gmsh.model.addPhysicalGroup(1, [entity])
-        gmsh.model.setPhysicalName(1, group, name)
-    end
-    domain = gmsh.model.addPhysicalGroup(2, [surface])
-    gmsh.model.setPhysicalName(2, domain, "domain")
-
-    gmsh.model.mesh.generate(2)
+function mesh_file(nodes_per_side::Int)
+    return joinpath(BUI_MSH_DIR, "bui_2011_square_$(nodes_per_side)x$(nodes_per_side).msh")
 end
 
-function constrained_nodes(nodes, entities, internal_boundary::String)
-    side_names = ("left", "right", "top", "bottom")
+function constrained_nodes(nodes, entities, boundary::String)
+    length(boundary) == 4 || error("Bui boundary must have four letters.")
+    side_names = ("Γ¹", "Γ²", "Γ³", "Γ⁴")
     fixed_w = Set{Int}()
     fixed_phi = Set{Int}()
 
-    for (bc, side) in zip(collect(internal_boundary), side_names)
+    # Bui boundary order: Γ¹=bottom, Γ²=right, Γ³=top, Γ⁴=left.
+    # PatchTest.generateMsh writes the same physical group names, so no side reordering is needed here.
+    for (bc, side) in zip(collect(boundary), side_names)
         bc == 'F' && continue
         elements = getElements(nodes, entities[side])
         side_nodes = collect(node.𝐼 for element in elements for node in element.𝓒)
@@ -106,7 +73,7 @@ function constrained_nodes(nodes, entities, internal_boundary::String)
             union!(fixed_w, side_nodes)
             union!(fixed_phi, side_nodes)
         else
-            error("unsupported boundary code '$bc' in $internal_boundary")
+            error("unsupported boundary code '$bc' in $boundary")
         end
     end
 
@@ -125,12 +92,16 @@ function positive_finite_eigenvalues(k, kg)
 end
 
 function solve_bui_case(case::BuiCase)
-    generate_square_mesh!(case.mesh_n + 1)
+    filepath = mesh_file(case.nodes_per_side)
+    isfile(filepath) || error("mesh file not found: $filepath. Run src/generatePatchtest.jl first.")
 
     h = BUI_H_OVER_B*BUI_B
     D = bending_rigidity(BUI_E, BUI_NU, h)
-    entities = getPhysicalGroups()
-    nodes = get𝑿ᵢ()
+
+    gmsh.clear()
+    @timeit to "open msh file" gmsh.open(filepath)
+    @timeit to "get entities" entities = getPhysicalGroups()
+    @timeit to "get nodes" nodes = get𝑿ᵢ()
 
     nʷ = length(nodes)
     nᵠ = length(nodes)
@@ -139,18 +110,27 @@ function solve_bui_case(case::BuiCase)
     kᵠʷ = zeros(2*nᵠ, nʷ)
     kgʷʷ = zeros(nʷ, nʷ)
 
-    elements = getElements(nodes, entities["domain"])
-    prescribe!(elements, :E=>BUI_E, :ν=>BUI_NU, :h=>h)
-    set∇𝝭!(elements)
-    (∫wwdΩ => elements)(kʷʷ)
-    (∫φwdΩ => elements)(kᵠʷ)
-    ([∫φφdΩ => elements, ∫κκdΩ => elements])(kᵠᵠ)
+    @timeit to "calculate ∫κκdΩ, ∫wwdΩ, ∫φφdΩ, ∫wφdΩ, ∫wwGdΩ2D" begin
+        @timeit to "get elements" elements = getElements(nodes, entities["Ω"])
+        prescribe!(elements, :E=>BUI_E, :ν=>BUI_NU, :h=>h)
+        @timeit to "calculate shape functions" set∇𝝭!(elements)
+        𝑎ʷʷ = ∫wwdΩ=>elements
+        𝑎ᵠʷ = ∫φwdΩ=>elements
+        𝑎ᵠᵠ = [
+            ∫φφdΩ=>elements,
+            ∫κκdΩ=>elements,
+        ]
+        @timeit to "assemble" 𝑎ʷʷ(kʷʷ)
+        @timeit to "assemble" 𝑎ᵠʷ(kᵠʷ)
+        @timeit to "assemble" 𝑎ᵠᵠ(kᵠᵠ)
 
-    N₁₁(x,y,z) = 1.0
-    N₂₂(x,y,z) = 0.0
-    N₁₂(x,y,z) = 0.0
-    prescribe!(elements, :σ₁₁=>N₁₁, :σ₂₂=>N₂₂, :σ₁₂=>N₁₂)
-    (∫wwGdΩ2D => elements)(kgʷʷ)
+        N₁₁(x,y,z) = 1.0
+        N₂₂(x,y,z) = 0.0
+        N₁₂(x,y,z) = 0.0
+        prescribe!(elements, :σ₁₁=>N₁₁, :σ₂₂=>N₂₂, :σ₁₂=>N₁₂)
+        𝑎ᴳʷʷ = ∫wwGdΩ2D=>elements
+        @timeit to "assemble" 𝑎ᴳʷʷ(kgʷʷ)
+    end
 
     K = [kᵠᵠ kᵠʷ; kᵠʷ' kʷʷ]
     KG = [
@@ -158,7 +138,7 @@ function solve_bui_case(case::BuiCase)
         zeros(nʷ, 2*nᵠ) kgʷʷ
     ]
 
-    fixed_w_nodes, fixed_phi_nodes = constrained_nodes(nodes, entities, case.internal_boundary)
+    fixed_w_nodes, fixed_phi_nodes = constrained_nodes(nodes, entities, case.boundary)
     fixed_phi_dofs = reduce(vcat, ([2*i - 1, 2*i] for i in fixed_phi_nodes), init=Int[])
     fixed_w_dofs = 2*nᵠ .+ fixed_w_nodes
     fixed_dofs = sort!(unique!(vcat(fixed_phi_dofs, fixed_w_dofs)))
@@ -197,16 +177,15 @@ function table1_rows()
     values_by_boundary = Dict{String, Dict{Int, Float64}}()
 
     for boundary in BUI_BOUNDARIES
-        internal_boundary = bui_boundary_to_internal(boundary)
         row_values = Any[boundary]
         values_by_boundary[boundary] = Dict{Int, Float64}()
         for nodes_per_side in BUI_NODE_PATTERNS
-            case = BuiCase(boundary, internal_boundary, nodes_per_side - 1)
+            case = BuiCase(boundary, nodes_per_side)
             result = solve_bui_case(case)
             values_by_boundary[boundary][nodes_per_side] = result.k_num
             push!(row_values, result.k_num)
-            @printf("%-4s %2dx%-2d internal=%-4s k=%12.6f nodes=%d\n",
-                boundary, nodes_per_side, nodes_per_side, internal_boundary, result.k_num, result.nnodes)
+            @printf("%-4s %2dx%-2d mesh=%s k=%12.6f nodes=%d\n",
+                boundary, nodes_per_side, nodes_per_side, basename(mesh_file(nodes_per_side)), result.k_num, result.nnodes)
         end
         push!(row_values, BUI_EXACT[boundary])
         push!(rows, row_values)
@@ -264,6 +243,7 @@ function main()
         table2 = table2_rows(values_by_boundary)
         write_workbook(table1, table2)
         println("Excel output: ", BUI_OUTPUT_XLSX)
+        println(to)
     finally
         gmsh.finalize()
     end

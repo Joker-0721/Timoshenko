@@ -1,5 +1,44 @@
 \begin{table}[htbp]
 \centering
+\caption{Bui et al. (2011) Table 1: uniaxial buckling load factor of a square plate}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{cccccccc}
+\hline
+Boundary & 7x7 & 9x9 & 11x11 & 13x13 & 15x15 & 17x17 & Exact [1] \\
+\hline
+CCCC & 951.2794 & 536.2115 & 346.6046 & 244.1826 & 182.5804 & 142.6401 & 10.07 \\
+CSCS & 684.8616 & 397.6406 & 260.9281 & 185.4208 & 139.3923 & 109.285 & 7.69 \\
+SCSC & 620.2962 & 350.169 & 226.9719 & 160.2938 & 120.0986 & 93.9836 & 6.75 \\
+SSSS & 377.7068 & 225.6285 & 150.5352 & 108.1273 & 81.8756 & 64.5065 & 4 \\
+FSCS & 178.7335 & 102.9857 & 67.2599 & 47.6294 & 35.7002 & 27.9128 & 1.7 \\
+FSSS & 141.8823 & 82.3535 & 54.0382 & 38.3929 & 28.8474 & 22.5972 & 1.44 \\
+\hline
+\end{tabular}%
+}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Bui et al. (2011) Table 2: critical uniaxial buckling load factor comparison}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{ccccccccccc}
+\hline
+Boundary & Exact [1] & FEM [45] & BEM [45] & DRM [45] & SFSM [34] & SFSM [33] & RPIM [70] & DQEM [42] & DSC [58] & Present \\
+\hline
+CCCC & 10.07 & 10.392 & 10.387 & 10.142 & 10.109 & 10.08 & 10.308 & 10.052 & 10.31 & 244.1826 \\
+CSCS & 7.69 & 7.796 & 7.757 & 7.683 & 7.712 & 7.7 &  &  & 7.681 & 185.4208 \\
+SCSC & 6.75 & 6.882 & 6.972 & 6.781 &  &  &  &  &  & 160.2938 \\
+SSSS & 4 & 4.011 & 4.041 & 3.999 & 4 & 4 & 4.017 & 3.9977 & 4.011 & 108.1273 \\
+FSCS & 1.7 & 1.718 & 1.724 & 1.712 &  &  &  &  &  & 47.6294 \\
+FSSS & 1.44 & 1.422 & 1.417 & 1.428 &  &  &  &  &  & 38.3929 \\
+\hline
+\end{tabular}%
+}
+\end{table}
+
+
+\begin{table}[htbp]
+\centering
 \caption{Uniaxial compression, SSSS rectangular plates}
 \begin{tabular}{ccccc}
 \hline
@@ -70,3 +109,6 @@ $\sigma/\tau$ & nodes & Reference $k$ & Present $k$ & Error (\%) \\
 \hline
 \end{tabular}
 \end{table}
+
+
+

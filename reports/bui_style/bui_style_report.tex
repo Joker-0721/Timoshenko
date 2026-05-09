@@ -1,0 +1,384 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[margin=24mm]{geometry}
+\usepackage{fontspec}
+\usepackage{xeCJK}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{array}
+\usepackage{caption}
+\usepackage{hyperref}
+
+\setmainfont{Microsoft JhengHei}
+\setCJKmainfont{Microsoft JhengHei}
+\graphicspath{{./}}
+\sloppy
+
+\title{Bui Table 1/2 屈曲算例重現}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{計算目的與設定}
+
+本報告使用 Bui Table 1/2 的幾何、邊界、節點與載重設定，但 Present 欄位改用本專案公式重新計算。目的不是直接複製文獻數值，而是在相同測試條件下檢查本文 Mindlin 板屈曲弱式所得到的臨界屈曲係數。
+
+Table 1/2 採方板：
+\[
+a=b,\qquad \frac{h}{b}=0.01,\qquad E=200\times10^9,\qquad \nu=0.3,\qquad k_s=\frac{5}{6}.
+\]
+Bui 邊界順序依 \(\Gamma_1,\Gamma_2,\Gamma_3,\Gamma_4\) 表示，本文程式轉換為
+\[
+\Gamma_1=\text{bottom},\qquad
+\Gamma_2=\text{right},\qquad
+\Gamma_3=\text{top},\qquad
+\Gamma_4=\text{left}.
+\]
+
+\section{本文使用的屈曲公式}
+
+本節依 \texttt{md/test2.md} 的寫法整理。Mindlin 板位移場為
+\[
+\bar{u}_{\alpha}(x_1,x_2,x_3)
+=u_{\alpha}(x_1,x_2)-x_3\phi_{\alpha},
+\qquad
+\bar{u}_3=w .
+\]
+應變、曲率與剪切應變為
+\[
+\epsilon_{\alpha\beta}
+=\varepsilon_{\alpha\beta}+x_3\kappa_{\alpha\beta},
+\qquad
+\varepsilon_{\alpha\beta}
+=\frac{1}{2}(u_{\alpha,\beta}+u_{\beta,\alpha}),
+\]
+\[
+\kappa_{\alpha\beta}
+=-\frac{1}{2}(\phi_{\alpha,\beta}+\phi_{\beta,\alpha}),
+\qquad
+\gamma_\alpha=2\epsilon_{\alpha3}=w_{,\alpha}-\phi_\alpha .
+\]
+
+材料關係與厚度積分後的合力為
+\[
+\sigma_{\alpha\beta}
+=D_{\alpha\beta\gamma\eta}\epsilon_{\gamma\eta},
+\qquad
+\tau_{3\alpha}=G\gamma_\alpha ,
+\]
+\[
+D_{\alpha\beta\gamma\eta}
+=\frac{E}{1-\nu^2}\left[
+\nu\delta_{\alpha\beta}\delta_{\gamma\eta}
++\frac{1-\nu}{2}
+(\delta_{\alpha\gamma}\delta_{\beta\eta}
++\delta_{\alpha\eta}\delta_{\beta\gamma})
+\right],
+\qquad
+G=\frac{E}{2(1+\nu)},
+\]
+\[
+M_{\alpha\beta}
+=\int_{-h/2}^{h/2}x_3\sigma_{\alpha\beta}\,dx_3
+=\frac{h^3}{12}D_{\alpha\beta\gamma\eta}\kappa_{\gamma\eta},
+\qquad
+Q_\alpha=k_sGh\,\gamma_\alpha .
+\]
+
+考慮初始面內力 \(P_{\alpha\beta}\) 的幾何效應，弱式為
+\[
+\int_{\Omega}
+\left(
+M_{\alpha\beta}\delta\kappa_{\alpha\beta}
++Q_\alpha\delta\gamma_\alpha
+-P_{\alpha\beta}w_{,\alpha}\delta w_{,\beta}
+\right)d\Omega=0 .
+\]
+也就是
+\[
+a_b(\boldsymbol\phi,\delta\boldsymbol\phi)
++a_s((w,\boldsymbol\phi),(\delta w,\delta\boldsymbol\phi))
+-a_g(w,\delta w)=0 .
+\]
+
+形函數離散採
+\[
+w^h=\sum_KN_Kw_K,\qquad
+\phi_x^h=\sum_KN_K\phi_{xK},\qquad
+\phi_y^h=\sum_KN_K\phi_{yK}.
+\]
+
+
+彎曲剛度只作用在轉角自由度：
+\[
+a_b(\boldsymbol\phi,\delta\boldsymbol\phi)
+=\int_{\Omega}\frac{h^3}{12}
+D_{\alpha\beta\gamma\eta}
+\kappa_{\alpha\beta}\delta\kappa_{\gamma\eta}\,d\Omega
+=\sum_{R,S}\delta\phi_{iR}
+\left(K_{\phi\phi,RS}^b\right)_{ij}\phi_{jS}.
+\]
+其子矩陣為
+\[
+\begin{aligned}
+\left(K_{\phi\phi,RS}^b\right)_{11}
+&=\frac{h^3}{12}\int_{\Omega}
+\left(D_{1111}N_{R,x}N_{S,x}
++D_{1212}N_{R,y}N_{S,y}\right)d\Omega,\\
+\left(K_{\phi\phi,RS}^b\right)_{12}
+&=\frac{h^3}{12}\int_{\Omega}
+\left(D_{1122}N_{R,x}N_{S,y}
++D_{1212}N_{R,y}N_{S,x}\right)d\Omega,\\
+\left(K_{\phi\phi,RS}^b\right)_{21}
+&=\frac{h^3}{12}\int_{\Omega}
+\left(D_{1122}N_{R,y}N_{S,x}
++D_{1212}N_{R,x}N_{S,y}\right)d\Omega,\\
+\left(K_{\phi\phi,RS}^b\right)_{22}
+&=\frac{h^3}{12}\int_{\Omega}
+\left(D_{1212}N_{R,x}N_{S,x}
++D_{1111}N_{R,y}N_{S,y}\right)d\Omega .
+\end{aligned}
+\]
+
+剪切剛度由
+\[
+a_s((w,\boldsymbol\phi),(\delta w,\delta\boldsymbol\phi))
+=\int_\Omega k_sGh\,\gamma_\alpha\delta\gamma_\alpha\,d\Omega
+\]
+展開成四個區塊：
+\[
+K_{ww,KL}^s
+=k_sGh\int_{\Omega}
+\left(N_{K,x}N_{L,x}+N_{K,y}N_{L,y}\right)d\Omega,
+\]
+\[
+K_{\phi\phi,KL}^s
+=k_sGh\int_{\Omega}N_KN_L\,d\Omega\,I_2,
+\]
+\[
+\left(K_{w\phi,KL}^s\right)_1
+=-k_sGh\int_{\Omega}N_{K,x}N_L\,d\Omega,
+\qquad
+\left(K_{w\phi,KL}^s\right)_2
+=-k_sGh\int_{\Omega}N_{K,y}N_L\,d\Omega,
+\]
+\[
+\left(K_{\phi w,KL}^s\right)_1
+=-k_sGh\int_{\Omega}N_KN_{L,x}\,d\Omega,
+\qquad
+\left(K_{\phi w,KL}^s\right)_2
+=-k_sGh\int_{\Omega}N_KN_{L,y}\,d\Omega .
+\]
+
+幾何剛度只作用於 \(w\) 區塊：
+\[
+a_g(w,\delta w)
+=P_{\alpha\beta}\int_{\Omega}
+w_{,\alpha}\delta w_{,\beta}\,d\Omega,
+\qquad
+K_{ww,KL}^g
+=P_{\alpha\beta}\int_{\Omega}
+N_{K,\alpha}N_{L,\beta}\,d\Omega .
+\]
+
+因此整體分塊矩陣為
+\[
+\begin{bmatrix}
+K_{ww}^{s} & K_{w\phi}^{s} \\
+K_{\phi w}^{s} & K_{\phi\phi}^{b}+K_{\phi\phi}^{s}
+\end{bmatrix}
+\begin{bmatrix}
+d_w\\ d_{\phi}
+\end{bmatrix}
+-
+\begin{bmatrix}
+K_{ww}^{g} & 0\\
+0 & 0
+\end{bmatrix}
+\begin{bmatrix}
+d_w\\ d_{\phi}
+\end{bmatrix}
+=0 .
+\]
+
+屈曲特徵值計算寫為
+\[
+K\boldsymbol d=\lambda K_g\boldsymbol d,
+\qquad
+K=K^b+K^s .
+\]
+Table 1/2 的單軸壓縮使用
+\[
+P_{11}=1,\qquad P_{22}=0,\qquad P_{12}=0,
+\]
+最後轉成無因次屈曲係數
+\[
+k=\frac{\lambda_{cr}b^2}{\pi^2D},
+\qquad
+D=\frac{Eh^3}{12(1-\nu^2)}.
+\]
+
+\section{Table 1：邊界與節點密度}
+
+這組資料用來檢查單軸壓縮方板在不同邊界條件與節點密度下的收斂情形。條件為 \(a/b=1\)、\(h/b=0.01\)、\(E=200\times10^9\)、\(\nu=0.3\)、\(k_s=5/6\)，載重為 \(P_{11}=1\)、\(P_{22}=P_{12}=0\)，節點配置由 \(7\times7\) 增加到 \(17\times17\)。
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{table1.png}
+    \caption{Table 1 原始截圖。}
+\end{figure}
+
+下表採用相同測試規格，Present 數值由本文公式重新計算；Exact [1] 保留作為參考。
+
+\begin{table}[H]
+\centering
+\caption{Table 1 規格重新計算結果}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{cccccccc}
+\toprule
+Boundary & 7x7 & 9x9 & 11x11 & 13x13 & 15x15 & 17x17 & Exact [1] \\
+\midrule
+CCCC & 951.2794 & 536.2115 & 346.6046 & 244.1826 & 182.5804 & 142.6401 & 10.07 \\
+CSCS & 684.8616 & 397.6406 & 260.9281 & 185.4208 & 139.3923 & 109.285 & 7.69 \\
+SCSC & 620.2962 & 350.169 & 226.9719 & 160.2938 & 120.0986 & 93.9836 & 6.75 \\
+SSSS & 377.7068 & 225.6285 & 150.5352 & 108.1273 & 81.8756 & 64.5065 & 4 \\
+FSCS & 178.7335 & 102.9857 & 67.2599 & 47.6294 & 35.7002 & 27.9128 & 1.7 \\
+FSSS & 141.8823 & 82.3535 & 54.0382 & 38.3929 & 28.8474 & 22.5972 & 1.44 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\section{Table 2：文獻方法比較}
+
+這組資料用來把本文 Present 結果放進原表的比較欄位中。條件為 \(a/b=1\)、\(h/b=0.01\)、\(E=200\times10^9\)、\(\nu=0.3\)、\(k_s=5/6\)，載重同樣為 \(P_{11}=1\)、\(P_{22}=P_{12}=0\)，Present 固定使用 \(13\times13\) 節點結果。
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{table2.png}
+    \caption{Table 2 原始截圖。}
+\end{figure}
+
+下表保留原表的參考方法欄位，只有 Present 欄位改由本文公式重新計算；空白表示原表未提供該數值。
+
+\begin{table}[H]
+\centering
+\caption{Table 2 規格重新計算與參考方法比較}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{ccccccccccc}
+\toprule
+Boundary & Exact [1] & FEM [45] & BEM [45] & DRM [45] & SFSM [34] & SFSM [33] & RPIM [70] & DQEM [42] & DSC [58] & Present \\
+\midrule
+CCCC & 10.07 & 10.392 & 10.387 & 10.142 & 10.109 & 10.08 & 10.308 & 10.052 & 10.31 & 244.1826 \\
+CSCS & 7.69 & 7.796 & 7.757 & 7.683 & 7.712 & 7.7 &  &  & 7.681 & 185.4208 \\
+SCSC & 6.75 & 6.882 & 6.972 & 6.781 &  &  &  &  &  & 160.2938 \\
+SSSS & 4 & 4.011 & 4.041 & 3.999 & 4 & 4 & 4.017 & 3.9977 & 4.011 & 108.1273 \\
+FSCS & 1.7 & 1.718 & 1.724 & 1.712 &  &  &  &  &  & 47.6294 \\
+FSSS & 1.44 & 1.422 & 1.417 & 1.428 &  &  &  &  &  & 38.3929 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\section{補充算例}
+
+以下四組資料用來檢查同一套 \(K^b,K^s,K^g\) 組裝方式在不同幾何比例與載重組合下的反應。這些表格保留 Reference/Exact、Present 與誤差欄位，方便直接核對目前公式的尺度差異。
+
+\subsection{單軸壓縮矩形板}
+
+此表改變 \(a/b\)，邊界為 SSSS，載重為單軸壓縮。它用來檢查幾何長寬比改變時，屈曲係數是否呈現合理趨勢。材料與厚度設定為 \(E=30\times10^6\) psi、\(\nu=0.3\)、\(k_s=5/6\)、\(h/b=0.01\)，載重為 \(P_{11}=1\)、\(P_{22}=P_{12}=0\)。
+
+\begin{table}[H]
+\centering
+\caption{Uniaxial compression, SSSS rectangular plates}
+\begin{tabular}{ccccc}
+\toprule
+\(a/b\) & nodes & Exact \(k\) & Present \(k\) & Error (\%) \\
+\midrule
+0.2 & 39 & 27.04 & 352.5498 & 1203.81 \\
+0.3 & 65 & 13.2011 & 92.5459 & 601.0459 \\
+0.4 & 78 & 8.41 & 69 & 720.4518 \\
+0.5 & 91 & 6.25 & 57.7019 & 823.2301 \\
+0.6 & 104 & 5.1378 & 52.8766 & 929.1722 \\
+0.7 & 117 & 4.5308 & 49.6183 & 995.1294 \\
+0.8 & 143 & 4.2025 & 43.1334 & 926.3748 \\
+0.9 & 156 & 4.0446 & 43.5384 & 976.4651 \\
+1 & 169 & 4 & 43.6636 & 991.591 \\
+1.1 & 182 & 4.0364 & 44.5739 & 1004.29 \\
+1.2 & 195 & 4.1344 & 45.1148 & 991.1933 \\
+1.3 & 221 & 4.2817 & 43.1664 & 908.1567 \\
+1.4 & 234 & 4.4702 & 42.3767 & 847.982 \\
+1.41 & 234 & 4.4911 & 42.5441 & 847.2997 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{純剪矩形板}
+
+此表使用 SSSS 矩形板並施加純剪面內合力。它用來檢查 \(P_{12}\) 進入 \(K^g\) 後，臨界係數對長寬比的變化。材料與厚度設定為 \(E=30\times10^6\) psi、\(\nu=0.3\)、\(k_s=5/6\)、\(h/b=0.01\)，載重為 \(P_{12}=1\)、\(P_{11}=P_{22}=0\)。
+
+\begin{table}[H]
+\centering
+\caption{Pure shear, SSSS rectangular plates}
+\begin{tabular}{ccccc}
+\toprule
+\(a/b\) & nodes & Reference \(k\) & Present \(k\) & Error (\%) \\
+\midrule
+1 & 169 & 14.71 & 49.0902 & 233.7199 \\
+1.5 & 247 & 11.5 & 34.4648 & 199.6941 \\
+2 & 325 & 10.34 & 29.1745 & 182.1517 \\
+2.5 & 403 & 10.85 & 26.9588 & 148.4678 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{雙軸壓縮方板}
+
+此表固定 SSSS 方板，改變 \(\gamma=N_y/N_x\)。它用來檢查 \(P_{11}\) 與 \(P_{22}\) 同時作用時的屈曲載重比例。材料與厚度設定為 \(E=30\times10^6\) psi、\(\nu=0.3\)、\(k_s=5/6\)、\(a/b=1\)、\(h/b=0.01\)，載重比例為 \(P_{22}=\gamma P_{11}\)、\(P_{12}=0\)。
+
+\begin{table}[H]
+\centering
+\caption{Biaxial compression, SSSS square plate}
+\begin{tabular}{ccccc}
+\toprule
+\(\gamma=N_y/N_x\) & nodes & Exact \(k\) & Present \(k\) & Error (\%) \\
+\midrule
+0 & 169 & 4 & 43.6636 & 991.591 \\
+0.25 & 169 & 3.2 & 34.9695 & 992.7984 \\
+0.5 & 169 & 2.6667 & 29.1466 & 992.9976 \\
+1 & 169 & 2 & 21.869 & 993.451 \\
+2 & 169 & 1.3333 & 14.5752 & 993.1387 \\
+4 & 169 & 0.8 & 8.7407 & 992.5851 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{壓縮與剪力組合方板}
+
+此表固定 SSSS 方板，改變 \(\sigma/\tau\)。它用來檢查壓縮與剪力共同作用時，\(K^g\) 中法向與剪向面內合力的交互影響。材料與厚度設定為 \(E=30\times10^6\) psi、\(\nu=0.3\)、\(k_s=5/6\)、\(a/b=1\)、\(h/b=0.01\)，載重比例由表中的 \(\sigma/\tau\) 指定。
+
+\begin{table}[H]
+\centering
+\caption{Combined compression and shear, SSSS square plate}
+\begin{tabular}{ccccc}
+\toprule
+\(\sigma/\tau\) & nodes & Reference \(k\) & Present \(k\) & Error (\%) \\
+\midrule
+0 & 169 & 14.71 & 49.0902 & 233.7199 \\
+0.5 & 169 & 7.09 & 33.6204 & 374.1952 \\
+1 & 169 & 4.5 & 25.0189 & 455.9759 \\
+1.5 & 169 & 3.24 & 19.7345 & 509.09 \\
+2 & 169 & 2.51 & 16.2357 & 546.8416 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{簡要說明}
+
+Table 1 顯示 Present 值會隨節點密度增加而下降，具備收斂趨勢；Table 2 則顯示目前 Present 與參考方法仍存在明顯尺度差異。補充算例也呈現相同現象，因此後續應優先核對幾何剛度載重尺度、面內合力定義與無因次化轉換。
+
+\end{document}

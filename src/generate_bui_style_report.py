@@ -1,10 +1,70 @@
 from __future__ import annotations
 
+import os
+import sys
+
+
+def maybe_restart_with_bundled_python() -> None:
+    bundled_python = os.path.join(
+        os.path.expanduser("~"),
+        ".cache",
+        "codex-runtimes",
+        "codex-primary-runtime",
+        "dependencies",
+        "python",
+        "python.exe",
+    )
+    current_python = os.path.abspath(sys.executable)
+    bundled_python = os.path.abspath(bundled_python)
+    has_dirty_python_env = bool(os.environ.get("PYTHONHOME") or os.environ.get("PYTHONPATH"))
+    needs_bundled_python = os.path.exists(bundled_python) and current_python.lower() != bundled_python.lower()
+    already_restarted = os.environ.get("BUI_STYLE_REPORT_PYTHON_RESTARTED") == "1"
+    if (needs_bundled_python or has_dirty_python_env) and not already_restarted:
+        target_python = bundled_python if os.path.exists(bundled_python) else current_python
+        env = os.environ.copy()
+        env.pop("PYTHONHOME", None)
+        env.pop("PYTHONPATH", None)
+        env["PYTHONNOUSERSITE"] = "1"
+        env["BUI_STYLE_REPORT_PYTHON_RESTARTED"] = "1"
+        os.execve(target_python, [target_python, *sys.argv], env)
+
+
+maybe_restart_with_bundled_python()
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 import html
+import importlib.util
 import math
+
+
+def ensure_python_deps() -> None:
+    missing = [name for name in ("openpyxl", "PIL") if importlib.util.find_spec(name) is None]
+    if not missing:
+        return
+
+    bundled_python = (
+        Path.home()
+        / ".cache"
+        / "codex-runtimes"
+        / "codex-primary-runtime"
+        / "dependencies"
+        / "python"
+        / "python.exe"
+    )
+    current_python = Path(sys.executable)
+    if bundled_python.exists() and bundled_python.resolve() != current_python.resolve():
+        os.execv(str(bundled_python), [str(bundled_python), *sys.argv])
+
+    packages = ", ".join(missing)
+    raise ModuleNotFoundError(
+        f"Missing Python package(s): {packages}. Run this script with the bundled Python at "
+        f"{bundled_python}, or install the package(s) into {current_python}."
+    )
+
+
+ensure_python_deps()
 
 from openpyxl import load_workbook, Workbook
 from PIL import Image, ImageDraw, ImageFont
