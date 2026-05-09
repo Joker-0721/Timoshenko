@@ -302,4 +302,6 @@ function run_benchmarks()
     end
 end
 
-run_benchmarks()
+if abspath(PROGRAM_FILE) == @__FILE__
+    run_benchmarks()
+end
