@@ -127,6 +127,7 @@ end
 function solve_table_9_1_case(r)
     gmsh.clear()
     @timeit to "open msh file" gmsh.open(mesh_file(r))
+    @timeit to "elevate mesh to second order" gmsh.model.mesh.setOrder(2)
     @timeit to "get entities" entities = getPhysicalGroups()
     @timeit to "get nodes" nodes = get𝑿ᵢ()
 
