@@ -60,6 +60,7 @@ const to = TimerOutput()
 const output_xlsx = normpath(joinpath(@__DIR__, "..", "results", "mindlin_uniaxial_ssss_table_9_1.xlsx"))
 const eigen_imag_tol = 1.0e-7
 const min_w_participation = 1.0e-4
+const relative_w_participation_tol = 1.0e-3
 
 function aspect_tag(r)
     return replace(@sprintf("%.2f", r), "."=>"p")
@@ -220,9 +221,15 @@ function solve_table_9_1_case(r)
             push!(candidates, (ξ=ξᵣ, w_participation=w_participation))
         end
         sort!(candidates, by = c -> c.ξ)
-        filtered_modes = count(c -> c.w_participation < min_w_participation, candidates)
-        physical_candidates = filter(c -> c.w_participation >= min_w_participation, candidates)
-        isempty(physical_candidates) && error("no positive finite buckling eigenvalue with w participation >= $min_w_participation found for a/b = $r")
+        isempty(candidates) && error("no positive finite buckling eigenvalue found for a/b = $r")
+        max_w_participation = maximum(c.w_participation for c in candidates)
+        if !(isfinite(max_w_participation) && max_w_participation > 0.0)
+            error("all positive finite buckling modes have zero w participation for a/b = $r")
+        end
+        w_participation_tol = min(min_w_participation, relative_w_participation_tol*max_w_participation)
+        filtered_modes = count(c -> c.w_participation < w_participation_tol, candidates)
+        physical_candidates = filter(c -> c.w_participation >= w_participation_tol, candidates)
+        isempty(physical_candidates) && error("no positive finite buckling eigenvalue with w participation >= $w_participation_tol found for a/b = $r")
         selected_mode = first(physical_candidates)
         ξcr = selected_mode.ξ
         w_participation = selected_mode.w_participation
