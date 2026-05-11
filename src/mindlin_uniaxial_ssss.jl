@@ -1,4 +1,5 @@
 using ApproxOperator
+import ApproxOperator: Tri3toTri6!, Seg2toSeg3!
 import ApproxOperator.GmshImport: getPhysicalGroups, get𝑿ᵢ, getElements
 import ApproxOperator.MindlinPlate: ∫wwGdΩ2D, ∫κκdΩBui, ∫wwdΩ, ∫ψψdΩBui, ∫ψwdΩBui, ∫ψxψxGdΩ2DBui, ∫ψyψyGdΩ2DBui, ∫αwwdΓ
 
@@ -127,9 +128,24 @@ end
 function solve_table_9_1_case(r)
     gmsh.clear()
     @timeit to "open msh file" gmsh.open(mesh_file(r))
-    @timeit to "elevate mesh to second order" gmsh.model.mesh.setOrder(2)
     @timeit to "get entities" entities = getPhysicalGroups()
     @timeit to "get nodes" nodes = get𝑿ᵢ()
+    @timeit to "get elements" elements = getElements(nodes, entities["Ω"], 3)
+    @timeit to "convert Ω elements to Tri6" begin
+        elements, midside_nodes = Tri3toTri6!(nodes, elements)
+    end
+    @timeit to "get boundary elements" begin
+        elements_1 = getElements(nodes, entities["Γ¹"], 3)
+        elements_2 = getElements(nodes, entities["Γ²"], 3)
+        elements_3 = getElements(nodes, entities["Γ³"], 3)
+        elements_4 = getElements(nodes, entities["Γ⁴"], 3)
+    end
+    @timeit to "convert Γ elements to Seg3" begin
+        elements_1 = Seg2toSeg3!(nodes, elements_1, midside_nodes)
+        elements_2 = Seg2toSeg3!(nodes, elements_2, midside_nodes)
+        elements_3 = Seg2toSeg3!(nodes, elements_3, midside_nodes)
+        elements_4 = Seg2toSeg3!(nodes, elements_4, midside_nodes)
+    end
 
     nʷ = length(nodes)
     nᵠ = length(nodes)
@@ -140,7 +156,6 @@ function solve_table_9_1_case(r)
     kgʷʷ = zeros(nʷ,nʷ)
 
     @timeit to "calculate ∫κκdΩBui, ∫wwdΩ, ∫ψψdΩBui, ∫ψwdΩBui, ∫wwGdΩ2D, ∫ψψGdΩ2DBui" begin
-        @timeit to "get elements" elements = getElements(nodes, entities["Ω"])
         prescribe!(elements, :E=>E, :ν=>ν, :h=>h)
         @timeit to "calculate shape functions" set∇²𝝭!(elements)
         𝑎ʷʷ = ∫wwdΩ=>elements
@@ -163,10 +178,6 @@ function solve_table_9_1_case(r)
     end
 
     @timeit to "calculate ∫αwwdΓ" begin
-        @timeit to "get elements" elements_1 = getElements(nodes, entities["Γ¹"])
-        @timeit to "get elements" elements_2 = getElements(nodes, entities["Γ²"])
-        @timeit to "get elements" elements_3 = getElements(nodes, entities["Γ³"])
-        @timeit to "get elements" elements_4 = getElements(nodes, entities["Γ⁴"])
         prescribe!(elements_1, :α=>1e8*E, :g=>w)
         prescribe!(elements_2, :α=>1e8*E, :g=>w)
         prescribe!(elements_3, :α=>1e8*E, :g=>w)
