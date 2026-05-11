@@ -138,7 +138,88 @@ function spectrum_values(row)
     ]
 end
 
-function write_table_9_1_xlsx(filepath, rows, spectrum_rows)
+function block_values(row)
+    return [
+        row.r,
+        row.mesh,
+        row.mode_index,
+        row.rank_by_xi,
+        row.xi_selected,
+        row.xi_exact,
+        row.xi_ratio,
+        row.norm_kww,
+        row.norm_kqq,
+        row.norm_kqw,
+        row.norm_kgww,
+        row.norm_kgqq,
+        row.ratio_kqq_kww,
+        row.ratio_kqw_geom_mean,
+        row.ratio_kgqq_kgww,
+        row.energy_kww,
+        row.energy_kqq,
+        row.energy_kqw,
+        row.energy_K_total,
+        row.energy_kgww,
+        row.energy_kgqq,
+        row.energy_KG_total,
+        row.rayleigh_xi,
+        row.w_participation,
+    ]
+end
+
+safe_ratio(numerator, denominator) = denominator == 0.0 ? NaN : numerator/denominator
+
+function matrix_block_diagnostics(
+    r, k_exact, selected_mode, F, nᵠ, nʷ,
+    kʷʷ, kᵠᵠ, kᵠʷ, kgʷʷ, kgᵠᵠ,
+)
+    v = @view F.vectors[:, selected_mode.mode_index]
+    vᵠ = @view v[1:2*nᵠ]
+    vʷ = @view v[2*nᵠ+1:2*nᵠ+nʷ]
+
+    norm_kww = norm(kʷʷ)
+    norm_kqq = norm(kᵠᵠ)
+    norm_kqw = norm(kᵠʷ)
+    norm_kgww = norm(kgʷʷ)
+    norm_kgqq = norm(kgᵠᵠ)
+
+    energy_kww = real(dot(vʷ, kʷʷ*vʷ))
+    energy_kqq = real(dot(vᵠ, kᵠᵠ*vᵠ))
+    energy_kqw = 2.0*real(dot(vᵠ, kᵠʷ*vʷ))
+    energy_K_total = energy_kww + energy_kqq + energy_kqw
+    energy_kgww = real(dot(vʷ, kgʷʷ*vʷ))
+    energy_kgqq = real(dot(vᵠ, kgᵠᵠ*vᵠ))
+    energy_KG_total = energy_kgww + energy_kgqq
+
+    return (
+        r = r,
+        mesh = basename(mesh_file(r)),
+        mode_index = selected_mode.mode_index,
+        rank_by_xi = selected_mode.rank_by_xi,
+        xi_selected = selected_mode.xi,
+        xi_exact = exact_ξcr(k_exact),
+        xi_ratio = selected_mode.xi_ratio,
+        norm_kww = norm_kww,
+        norm_kqq = norm_kqq,
+        norm_kqw = norm_kqw,
+        norm_kgww = norm_kgww,
+        norm_kgqq = norm_kgqq,
+        ratio_kqq_kww = safe_ratio(norm_kqq, norm_kww),
+        ratio_kqw_geom_mean = norm_kqq*norm_kww <= 0.0 ? NaN : norm_kqw/sqrt(norm_kqq*norm_kww),
+        ratio_kgqq_kgww = safe_ratio(norm_kgqq, norm_kgww),
+        energy_kww = energy_kww,
+        energy_kqq = energy_kqq,
+        energy_kqw = energy_kqw,
+        energy_K_total = energy_K_total,
+        energy_kgww = energy_kgww,
+        energy_kgqq = energy_kgqq,
+        energy_KG_total = energy_KG_total,
+        rayleigh_xi = safe_ratio(energy_K_total, energy_KG_total),
+        w_participation = selected_mode.w_participation,
+    )
+end
+
+function write_table_9_1_xlsx(filepath, rows, spectrum_rows, block_rows)
     mkpath(dirname(filepath))
     table_headers = [
         "a/b", "m", "mesh", "selection_mode", "mode_index", "rank_by_xi",
@@ -151,6 +232,14 @@ function write_table_9_1_xlsx(filepath, rows, spectrum_rows)
         "xi", "xi_exact", "xi_ratio", "log10_xi_ratio", "distance_to_exact",
         "w_participation", "k", "k_exact",
     ]
+    block_headers = [
+        "a/b", "mesh", "mode_index", "rank_by_xi", "xi_selected", "xi_exact",
+        "xi_ratio", "norm_kww", "norm_kqq", "norm_kqw", "norm_kgww",
+        "norm_kgqq", "ratio_kqq_kww", "ratio_kqw_geom_mean",
+        "ratio_kgqq_kgww", "energy_kww", "energy_kqq", "energy_kqw",
+        "energy_K_total", "energy_kgww", "energy_kgqq", "energy_KG_total",
+        "rayleigh_xi", "w_participation",
+    ]
 
     XLSX.openxlsx(filepath, mode="w") do xf
         sheet = xf[1]
@@ -159,6 +248,9 @@ function write_table_9_1_xlsx(filepath, rows, spectrum_rows)
 
         spectrum_sheet = XLSX.addsheet!(xf, "Spectrum")
         write_sheet_rows!(spectrum_sheet, spectrum_headers, spectrum_values.(spectrum_rows))
+
+        block_sheet = XLSX.addsheet!(xf, "MatrixBlocks")
+        write_sheet_rows!(block_sheet, block_headers, block_values.(block_rows))
     end
 end
 
@@ -326,9 +418,13 @@ function solve_table_9_1_case(r, k_exact)
         w_participation = selected_mode.w_participation
         k_num = selected_mode.k
         σcr_num = ξcr/h
+        block_diag = matrix_block_diagnostics(
+            r, k_exact, selected_mode, F, nᵠ, nʷ,
+            kʷʷ, kᵠᵠ, kᵠʷ, kgʷʷ, kgᵠᵠ,
+        )
     end
 
-    return ξcr, k_num, σcr_num, nʷ, w_participation, selected_mode, spectrum_rows
+    return ξcr, k_num, σcr_num, nʷ, w_participation, selected_mode, spectrum_rows, block_diag
 end
 
 gmsh.initialize()
@@ -338,6 +434,7 @@ try
     println("Required mesh names: msh/mindlin_uniaxial_ssss_ab_<a_over_b>.msh, e.g. ab_1p00.")
     results = []
     spectrum_results = []
+    block_results = []
     @printf("%7s %3s %18s %14s %10s %10s %12s %12s %12s %14s %14s %14s %12s %8s\n",
         "a/b", "m", "msh", "selection", "mode", "rank", "ξcr", "ξ_exact",
         "ξ/ξex", "w_part", "k_num", "k_exact", "k_err", "nodes")
@@ -347,13 +444,22 @@ try
         k_exact, m_exact = exact_uniaxial_k(r)
         σcr_exact = exact_σcr(k_exact)
         ξ_exact = exact_ξcr(k_exact)
-        ξcr, k_num, σcr_num, nnodes, w_participation, selected_mode, spectrum_rows = solve_table_9_1_case(r, k_exact)
+        ξcr, k_num, σcr_num, nnodes, w_participation, selected_mode, spectrum_rows, block_diag = solve_table_9_1_case(r, k_exact)
         append!(spectrum_results, spectrum_rows)
+        push!(block_results, block_diag)
         k_err = abs(k_num-k_exact)/abs(k_exact)
         @printf("%7.2f %3d %18s %14s %10d %10d %12.6e %12.6e %12.4e %14.6e %14.10f %14.10f %12.4e %8d\n",
             r, m_exact, basename(mesh_file(r)), spectrum_selection_mode, selected_mode.mode_index,
             selected_mode.rank_by_xi, ξcr, ξ_exact, selected_mode.xi_ratio, w_participation,
             k_num, k_exact, k_err, nnodes)
+        if isapprox(r, 1.0; atol=1.0e-12)
+            println("Matrix block diagnostics a/b=1.0:")
+            @printf("  norm_kww=%12.6e norm_kqq=%12.6e norm_kqw=%12.6e norm_kgww=%12.6e norm_kgqq=%12.6e\n",
+                block_diag.norm_kww, block_diag.norm_kqq, block_diag.norm_kqw,
+                block_diag.norm_kgww, block_diag.norm_kgqq)
+            @printf("  energy_K_total=%12.6e energy_KG_total=%12.6e rayleigh_xi=%12.6e\n",
+                block_diag.energy_K_total, block_diag.energy_KG_total, block_diag.rayleigh_xi)
+        end
         push!(results, (
             r = r,
             m_exact = m_exact,
@@ -377,7 +483,7 @@ try
         ))
     end
 
-    write_table_9_1_xlsx(output_xlsx, results, spectrum_results)
+    write_table_9_1_xlsx(output_xlsx, results, spectrum_results, block_results)
     println("Excel output: ", output_xlsx)
 finally
     gmsh.finalize()
