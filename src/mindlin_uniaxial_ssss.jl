@@ -1,6 +1,6 @@
 using ApproxOperator
 import ApproxOperator.GmshImport: getPhysicalGroups, get𝑿ᵢ, getElements
-import ApproxOperator.MindlinPlate: ∫wwGdΩ2D, ∫κκdΩ, ∫wwdΩ, ∫φφdΩ, ∫φwdΩ, ∫αwwdΓ
+import ApproxOperator.MindlinPlate: ∫wwGdΩ2D, ∫ψxψxGdΩ2D, ∫ψyψyGdΩ2D, ∫κκdΩ, ∫wwdΩ, ∫φφdΩ, ∫φwdΩ, ∫αwwdΓ
 
 using LinearAlgebra
 using Printf
@@ -135,9 +135,10 @@ function solve_table_9_1_case(r)
     kʷʷ = zeros(nʷ,nʷ)
     kᵠᵠ = zeros(2*nᵠ,2*nᵠ)
     kᵠʷ = zeros(2*nᵠ,nʷ)
+    kgᵠᵠ = zeros(2*nᵠ,2*nᵠ)
     kgʷʷ = zeros(nʷ,nʷ)
 
-    @timeit to "calculate ∫κκdΩ, ∫wwdΩ, ∫φφdΩ, ∫wφdΩ, ∫wwGdΩ2D" begin
+    @timeit to "calculate ∫κκdΩ, ∫wwdΩ, ∫φφdΩ, ∫wφdΩ, ∫wwGdΩ2D, ∫ψψGdΩ2D" begin
         @timeit to "get elements" elements = getElements(nodes, entities["Ω"])
         prescribe!(elements, :E=>E, :ν=>ν, :h=>h)
         @timeit to "calculate shape functions" set∇𝝭!(elements)
@@ -153,7 +154,11 @@ function solve_table_9_1_case(r)
 
         prescribe!(elements, :σ₁₁=>σ₁₁, :σ₂₂=>σ₂₂, :σ₁₂=>σ₁₂)
         𝑎ᴳʷʷ = ∫wwGdΩ2D=>elements
+        𝑎ᴳᵠˣᵠˣ = ∫ψxψxGdΩ2D=>elements
+        𝑎ᴳᵠʸᵠʸ = ∫ψyψyGdΩ2D=>elements
         @timeit to "assemble" 𝑎ᴳʷʷ(kgʷʷ)
+        @timeit to "assemble" 𝑎ᴳᵠˣᵠˣ(view(kgᵠᵠ, 1:2:2*nᵠ, 1:2:2*nᵠ))
+        @timeit to "assemble" 𝑎ᴳᵠʸᵠʸ(view(kgᵠᵠ, 2:2:2*nᵠ, 2:2:2*nᵠ))
     end
 
     @timeit to "calculate ∫αwwdΓ" begin
@@ -177,11 +182,10 @@ function solve_table_9_1_case(r)
     @timeit to "solve buckling eigenvalue" begin
         K = [kᵠᵠ kᵠʷ;kᵠʷ' kʷʷ]
         KG = [
-            zeros(2*nᵠ,2*nᵠ) zeros(2*nᵠ,nʷ)
+            kgᵠᵠ zeros(2*nᵠ,nʷ)
             zeros(nʷ,2*nᵠ) kgʷʷ
         ]
-        Keff = kʷʷ - kᵠʷ'*(kᵠᵠ\kᵠʷ)
-        λ = eigvals(Keff, kgʷʷ)
+        λ = eigvals(K, KG)
         λ_positive = sort!(collect(real(λᵢ) for λᵢ in λ if isfinite(real(λᵢ)) && isfinite(imag(λᵢ)) && abs(imag(λᵢ)) < 1.0e-7 && real(λᵢ) > 0.0))
         isempty(λ_positive) && error("no positive finite buckling eigenvalue found for a/b = $r")
         λcr = first(λ_positive)
