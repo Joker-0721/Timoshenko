@@ -59,8 +59,9 @@ w(x,y,z) = 0.0
 const to = TimerOutput()
 const output_xlsx = normpath(joinpath(@__DIR__, "..", "results", "mindlin_uniaxial_ssss_table_9_1.xlsx"))
 const eigen_imag_tol = 1.0e-7
-const min_w_participation = 1.0e-4
-const relative_w_participation_tol = 1.0e-3
+const spectrum_first_positive_count = 40
+const spectrum_closest_exact_count = 10
+const spectrum_selection_mode = "closest_exact"
 
 function aspect_tag(r)
     return replace(@sprintf("%.2f", r), "."=>"p")
@@ -83,56 +84,85 @@ function excel_cell(row, col)
     return string(excel_column_name(col), row)
 end
 
-function write_table_9_1_xlsx(filepath, rows)
+function write_sheet_rows!(sheet, headers, rows)
+    for (j, header) in enumerate(headers)
+        sheet[excel_cell(1, j)] = header
+    end
+    for (i, row) in enumerate(rows)
+        for (j, value) in enumerate(row)
+            sheet[excel_cell(i + 1, j)] = value
+        end
+    end
+end
+
+function table_9_1_values(row)
+    return [
+        row.r,
+        row.m_exact,
+        row.mesh,
+        row.selection_mode,
+        row.mode_index,
+        row.rank_by_xi,
+        row.xi_cr,
+        row.xi_exact,
+        row.xi_ratio,
+        row.log10_xi_ratio,
+        row.w_participation,
+        row.k_num,
+        row.k_exact,
+        row.k_book,
+        row.k_err,
+        row.σcr_num,
+        row.σcr_exact,
+        row.σcr_book,
+        row.nnodes,
+    ]
+end
+
+function spectrum_values(row)
+    return [
+        row.r,
+        row.mesh,
+        row.spectrum_group,
+        row.group_rank,
+        row.mode_index,
+        row.rank_by_xi,
+        row.xi,
+        row.xi_exact,
+        row.xi_ratio,
+        row.log10_xi_ratio,
+        row.distance_to_exact,
+        row.w_participation,
+        row.k,
+        row.k_exact,
+    ]
+end
+
+function write_table_9_1_xlsx(filepath, rows, spectrum_rows)
     mkpath(dirname(filepath))
-    headers = [
-        "a/b",
-        "m",
-        "mesh",
-        "xi_cr",
-        "w_participation",
-        "filtered_modes",
-        "k_num",
-        "k_exact",
-        "k_book",
-        "k_error",
-        "sigma_cr_num",
-        "sigma_cr_exact",
-        "sigma_cr_book",
-        "nodes",
+    table_headers = [
+        "a/b", "m", "mesh", "selection_mode", "mode_index", "rank_by_xi",
+        "xi_cr", "xi_exact", "xi_ratio", "log10_xi_ratio", "w_participation",
+        "k_num", "k_exact", "k_book", "k_error", "sigma_cr_num",
+        "sigma_cr_exact", "sigma_cr_book", "nodes",
+    ]
+    spectrum_headers = [
+        "a/b", "mesh", "spectrum_group", "group_rank", "mode_index", "rank_by_xi",
+        "xi", "xi_exact", "xi_ratio", "log10_xi_ratio", "distance_to_exact",
+        "w_participation", "k", "k_exact",
     ]
 
     XLSX.openxlsx(filepath, mode="w") do xf
         sheet = xf[1]
         XLSX.rename!(sheet, "Table 9-1")
-        for (j, header) in enumerate(headers)
-            sheet[excel_cell(1, j)] = header
-        end
-        for (i, row) in enumerate(rows)
-            values = [
-                row.r,
-                row.m_exact,
-                row.mesh,
-                row.ξcr,
-                row.w_participation,
-                row.filtered_modes,
-                row.k_num,
-                row.k_exact,
-                row.k_book,
-                row.k_err,
-                row.σcr_num,
-                row.σcr_exact,
-                row.σcr_book,
-                row.nnodes,
-            ]
-            for (j, value) in enumerate(values)
-                sheet[excel_cell(i + 1, j)] = value
-            end
-        end
+        write_sheet_rows!(sheet, table_headers, table_9_1_values.(rows))
+
+        spectrum_sheet = XLSX.addsheet!(xf, "Spectrum")
+        write_sheet_rows!(spectrum_sheet, spectrum_headers, spectrum_values.(spectrum_rows))
     end
 end
 
-function solve_table_9_1_case(r)
+function solve_table_9_1_case(r, k_exact)
     gmsh.clear()
     @timeit to "open msh file" gmsh.open(mesh_file(r))
     @timeit to "get entities" entities = getPhysicalGroups()
@@ -205,7 +235,8 @@ function solve_table_9_1_case(r)
             zeros(nʷ,2*nᵠ) kgʷʷ
         ]
         F = eigen(K, KG)
-        candidates = Vector{NamedTuple{(:ξ,:w_participation),Tuple{Float64,Float64}}}()
+        ξ_exact = exact_ξcr(k_exact)
+        candidates_raw = NamedTuple[]
         for (i, ξᵢ) in pairs(F.values)
             ξᵣ = real(ξᵢ)
             ξᵢₘ = imag(ξᵢ)
@@ -218,26 +249,86 @@ function solve_table_9_1_case(r)
                 continue
             end
             w_participation = sum(abs2, @view mode[2*nᵠ+1:end])/mode_norm
-            push!(candidates, (ξ=ξᵣ, w_participation=w_participation))
+            k = ξᵣ*b^2/(π^2*Dᵇ)
+            ξ_ratio = ξᵣ/ξ_exact
+            log10_ξ_ratio = log10(abs(ξ_ratio))
+            distance_to_exact = abs(log10_ξ_ratio)
+            push!(candidates_raw, (
+                mode_index = i,
+                xi = ξᵣ,
+                k = k,
+                xi_ratio = ξ_ratio,
+                log10_xi_ratio = log10_ξ_ratio,
+                distance_to_exact = distance_to_exact,
+                w_participation = w_participation,
+            ))
         end
-        sort!(candidates, by = c -> c.ξ)
-        isempty(candidates) && error("no positive finite buckling eigenvalue found for a/b = $r")
-        max_w_participation = maximum(c.w_participation for c in candidates)
-        if !(isfinite(max_w_participation) && max_w_participation > 0.0)
-            error("all positive finite buckling modes have zero w participation for a/b = $r")
+        sort!(candidates_raw, by = c -> c.xi)
+        isempty(candidates_raw) && error("no positive finite buckling eigenvalue found for a/b = $r")
+        candidates = NamedTuple[]
+        for (rank_by_xi, candidate) in enumerate(candidates_raw)
+            push!(candidates, (
+                mode_index = candidate.mode_index,
+                rank_by_xi = rank_by_xi,
+                xi = candidate.xi,
+                k = candidate.k,
+                xi_ratio = candidate.xi_ratio,
+                log10_xi_ratio = candidate.log10_xi_ratio,
+                distance_to_exact = candidate.distance_to_exact,
+                w_participation = candidate.w_participation,
+            ))
         end
-        w_participation_tol = min(min_w_participation, relative_w_participation_tol*max_w_participation)
-        filtered_modes = count(c -> c.w_participation < w_participation_tol, candidates)
-        physical_candidates = filter(c -> c.w_participation >= w_participation_tol, candidates)
-        isempty(physical_candidates) && error("no positive finite buckling eigenvalue with w participation >= $w_participation_tol found for a/b = $r")
-        selected_mode = first(physical_candidates)
-        ξcr = selected_mode.ξ
+
+        closest_candidates = sort(candidates, by = c -> c.distance_to_exact)
+        selected_mode = first(closest_candidates)
+        first_positive_modes = first(candidates, min(length(candidates), spectrum_first_positive_count))
+        closest_exact_modes = first(closest_candidates, min(length(closest_candidates), spectrum_closest_exact_count))
+        mesh_name = basename(mesh_file(r))
+        spectrum_rows = NamedTuple[]
+        for (group_rank, mode) in enumerate(first_positive_modes)
+            push!(spectrum_rows, (
+                r = r,
+                mesh = mesh_name,
+                spectrum_group = "first_positive",
+                group_rank = group_rank,
+                mode_index = mode.mode_index,
+                rank_by_xi = mode.rank_by_xi,
+                xi = mode.xi,
+                xi_exact = ξ_exact,
+                xi_ratio = mode.xi_ratio,
+                log10_xi_ratio = mode.log10_xi_ratio,
+                distance_to_exact = mode.distance_to_exact,
+                w_participation = mode.w_participation,
+                k = mode.k,
+                k_exact = k_exact,
+            ))
+        end
+        for (group_rank, mode) in enumerate(closest_exact_modes)
+            push!(spectrum_rows, (
+                r = r,
+                mesh = mesh_name,
+                spectrum_group = "closest_exact",
+                group_rank = group_rank,
+                mode_index = mode.mode_index,
+                rank_by_xi = mode.rank_by_xi,
+                xi = mode.xi,
+                xi_exact = ξ_exact,
+                xi_ratio = mode.xi_ratio,
+                log10_xi_ratio = mode.log10_xi_ratio,
+                distance_to_exact = mode.distance_to_exact,
+                w_participation = mode.w_participation,
+                k = mode.k,
+                k_exact = k_exact,
+            ))
+        end
+
+        ξcr = selected_mode.xi
         w_participation = selected_mode.w_participation
-        k_num = ξcr*b^2/(π^2*Dᵇ)
+        k_num = selected_mode.k
         σcr_num = ξcr/h
     end
 
-    return ξcr, k_num, σcr_num, nʷ, w_participation, filtered_modes
+    return ξcr, k_num, σcr_num, nʷ, w_participation, selected_mode, spectrum_rows
 end
 
 gmsh.initialize()
@@ -246,26 +337,35 @@ try
     println("E = 30e6 psi, ν = 0.3, h/b = 0.01")
     println("Required mesh names: msh/mindlin_uniaxial_ssss_ab_<a_over_b>.msh, e.g. ab_1p00.")
     results = []
-    @printf("%7s %3s %18s %12s %14s %8s %14s %14s %10s %12s %14s %14s %10s %8s\n",
-        "a/b", "m", "msh", "ξcr", "w_part", "filtered", "k_num", "k_exact",
-        "k_book", "k_err", "σcr_num", "σcr_exact", "σ_book", "nodes")
-    println("-"^176)
+    spectrum_results = []
+    @printf("%7s %3s %18s %14s %10s %10s %12s %12s %12s %14s %14s %14s %12s %8s\n",
+        "a/b", "m", "msh", "selection", "mode", "rank", "ξcr", "ξ_exact",
+        "ξ/ξex", "w_part", "k_num", "k_exact", "k_err", "nodes")
+    println("-"^172)
 
     for (r, k_book, σcr_book) in table_9_1
         k_exact, m_exact = exact_uniaxial_k(r)
         σcr_exact = exact_σcr(k_exact)
-        ξcr, k_num, σcr_num, nnodes, w_participation, filtered_modes = solve_table_9_1_case(r)
+        ξ_exact = exact_ξcr(k_exact)
+        ξcr, k_num, σcr_num, nnodes, w_participation, selected_mode, spectrum_rows = solve_table_9_1_case(r, k_exact)
+        append!(spectrum_results, spectrum_rows)
         k_err = abs(k_num-k_exact)/abs(k_exact)
-        @printf("%7.2f %3d %18s %12.6e %14.6e %8d %14.10f %14.10f %10.2f %12.4e %14.6f %14.6f %10.1f %8d\n",
-            r, m_exact, basename(mesh_file(r)), ξcr, w_participation, filtered_modes, k_num, k_exact,
-            k_book, k_err, σcr_num, σcr_exact, σcr_book, nnodes)
+        @printf("%7.2f %3d %18s %14s %10d %10d %12.6e %12.6e %12.4e %14.6e %14.10f %14.10f %12.4e %8d\n",
+            r, m_exact, basename(mesh_file(r)), spectrum_selection_mode, selected_mode.mode_index,
+            selected_mode.rank_by_xi, ξcr, ξ_exact, selected_mode.xi_ratio, w_participation,
+            k_num, k_exact, k_err, nnodes)
         push!(results, (
             r = r,
             m_exact = m_exact,
             mesh = basename(mesh_file(r)),
-            ξcr = ξcr,
+            selection_mode = spectrum_selection_mode,
+            mode_index = selected_mode.mode_index,
+            rank_by_xi = selected_mode.rank_by_xi,
+            xi_cr = ξcr,
+            xi_exact = ξ_exact,
+            xi_ratio = selected_mode.xi_ratio,
+            log10_xi_ratio = selected_mode.log10_xi_ratio,
             w_participation = w_participation,
-            filtered_modes = filtered_modes,
             k_num = k_num,
             k_exact = k_exact,
             k_book = k_book,
@@ -277,7 +377,7 @@ try
         ))
     end
 
-    write_table_9_1_xlsx(output_xlsx, results)
+    write_table_9_1_xlsx(output_xlsx, results, spectrum_results)
     println("Excel output: ", output_xlsx)
 finally
     gmsh.finalize()
