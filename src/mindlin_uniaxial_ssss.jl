@@ -57,7 +57,7 @@ w(x,y,z) = 0.0
 σ₁₂(x,y,z) = 0.0
 
 const to = TimerOutput()
-const output_xlsx = normpath(joinpath(@__DIR__, "..", "results", "mindlin_uniaxial_ssss_table_9_1.xlsx"))
+const output_xlsx = normpath(joinpath(@__DIR__, "..", "results", "mindlin_uniaxial_ssss_table_9_1_kg_diagnostic.xlsx"))
 const eigen_imag_tol = 1.0e-7
 const spectrum_first_positive_count = 40
 const spectrum_closest_exact_count = 10
@@ -100,6 +100,7 @@ function table_9_1_values(row)
         row.r,
         row.m_exact,
         row.mesh,
+        row.kg_strategy,
         row.selection_mode,
         row.mode_index,
         row.rank_by_xi,
@@ -123,6 +124,7 @@ function spectrum_values(row)
     return [
         row.r,
         row.mesh,
+        row.kg_strategy,
         row.spectrum_group,
         row.group_rank,
         row.mode_index,
@@ -142,6 +144,7 @@ function block_values(row)
     return [
         row.r,
         row.mesh,
+        row.kg_strategy,
         row.mode_index,
         row.rank_by_xi,
         row.xi_selected,
@@ -151,27 +154,133 @@ function block_values(row)
         row.norm_kqq,
         row.norm_kqw,
         row.norm_kgww,
-        row.norm_kgqq,
+        row.active_norm_kgqq,
+        row.assembled_norm_kgqq,
         row.ratio_kqq_kww,
         row.ratio_kqw_geom_mean,
-        row.ratio_kgqq_kgww,
+        row.active_ratio_kgqq_kgww,
+        row.assembled_ratio_kgqq_kgww,
         row.energy_kww,
         row.energy_kqq,
         row.energy_kqw,
         row.energy_K_total,
         row.energy_kgww,
-        row.energy_kgqq,
-        row.energy_KG_total,
-        row.rayleigh_xi,
+        row.active_energy_kgqq,
+        row.assembled_energy_kgqq,
+        row.active_energy_KG_total,
+        row.assembled_energy_KG_total,
+        row.rayleigh_xi_active,
         row.w_participation,
     ]
 end
 
 safe_ratio(numerator, denominator) = denominator == 0.0 ? NaN : numerator/denominator
 
+function solve_spectrum(K, KG, r, k_exact, kg_strategy, nᵠ)
+    F = eigen(K, KG)
+    ξ_exact = exact_ξcr(k_exact)
+    candidates_raw = NamedTuple[]
+    for (i, ξᵢ) in pairs(F.values)
+        ξᵣ = real(ξᵢ)
+        ξᵢₘ = imag(ξᵢ)
+        if !(isfinite(ξᵣ) && isfinite(ξᵢₘ) && abs(ξᵢₘ) < eigen_imag_tol && ξᵣ > 0.0)
+            continue
+        end
+        mode = @view F.vectors[:, i]
+        mode_norm = sum(abs2, mode)
+        if !(isfinite(mode_norm) && mode_norm > 0.0)
+            continue
+        end
+        w_participation = sum(abs2, @view mode[2*nᵠ+1:end])/mode_norm
+        k = ξᵣ*b^2/(π^2*Dᵇ)
+        ξ_ratio = ξᵣ/ξ_exact
+        log10_ξ_ratio = log10(abs(ξ_ratio))
+        distance_to_exact = abs(log10_ξ_ratio)
+        push!(candidates_raw, (
+            mode_index = i,
+            xi = ξᵣ,
+            k = k,
+            xi_ratio = ξ_ratio,
+            log10_xi_ratio = log10_ξ_ratio,
+            distance_to_exact = distance_to_exact,
+            w_participation = w_participation,
+        ))
+    end
+    sort!(candidates_raw, by = c -> c.xi)
+    isempty(candidates_raw) && error("no positive finite buckling eigenvalue found for a/b = $r, kg_strategy = $kg_strategy")
+    candidates = NamedTuple[]
+    for (rank_by_xi, candidate) in enumerate(candidates_raw)
+        push!(candidates, (
+            mode_index = candidate.mode_index,
+            rank_by_xi = rank_by_xi,
+            xi = candidate.xi,
+            k = candidate.k,
+            xi_ratio = candidate.xi_ratio,
+            log10_xi_ratio = candidate.log10_xi_ratio,
+            distance_to_exact = candidate.distance_to_exact,
+            w_participation = candidate.w_participation,
+        ))
+    end
+
+    closest_candidates = sort(candidates, by = c -> c.distance_to_exact)
+    selected_mode = first(closest_candidates)
+    first_positive_modes = first(candidates, min(length(candidates), spectrum_first_positive_count))
+    closest_exact_modes = first(closest_candidates, min(length(closest_candidates), spectrum_closest_exact_count))
+    mesh_name = basename(mesh_file(r))
+    spectrum_rows = NamedTuple[]
+    for (group_rank, mode) in enumerate(first_positive_modes)
+        push!(spectrum_rows, (
+            r = r,
+            mesh = mesh_name,
+            kg_strategy = kg_strategy,
+            spectrum_group = "first_positive",
+            group_rank = group_rank,
+            mode_index = mode.mode_index,
+            rank_by_xi = mode.rank_by_xi,
+            xi = mode.xi,
+            xi_exact = ξ_exact,
+            xi_ratio = mode.xi_ratio,
+            log10_xi_ratio = mode.log10_xi_ratio,
+            distance_to_exact = mode.distance_to_exact,
+            w_participation = mode.w_participation,
+            k = mode.k,
+            k_exact = k_exact,
+        ))
+    end
+    for (group_rank, mode) in enumerate(closest_exact_modes)
+        push!(spectrum_rows, (
+            r = r,
+            mesh = mesh_name,
+            kg_strategy = kg_strategy,
+            spectrum_group = "closest_exact",
+            group_rank = group_rank,
+            mode_index = mode.mode_index,
+            rank_by_xi = mode.rank_by_xi,
+            xi = mode.xi,
+            xi_exact = ξ_exact,
+            xi_ratio = mode.xi_ratio,
+            log10_xi_ratio = mode.log10_xi_ratio,
+            distance_to_exact = mode.distance_to_exact,
+            w_participation = mode.w_participation,
+            k = mode.k,
+            k_exact = k_exact,
+        ))
+    end
+
+    return (
+        F = F,
+        selected_mode = selected_mode,
+        spectrum_rows = spectrum_rows,
+        xi_cr = selected_mode.xi,
+        k_num = selected_mode.k,
+        σcr_num = selected_mode.xi/h,
+        w_participation = selected_mode.w_participation,
+    )
+end
+
 function matrix_block_diagnostics(
-    r, k_exact, selected_mode, F, nᵠ, nʷ,
-    kʷʷ, kᵠᵠ, kᵠʷ, kgʷʷ, kgᵠᵠ,
+    r, k_exact, kg_strategy, selected_mode, F, nᵠ, nʷ,
+    kʷʷ, kᵠᵠ, kᵠʷ, kgʷʷ, active_kgᵠᵠ, assembled_kgᵠᵠ,
 )
     v = @view F.vectors[:, selected_mode.mode_index]
     vᵠ = @view v[1:2*nᵠ]
@@ -181,19 +290,23 @@ function matrix_block_diagnostics(
     norm_kqq = norm(kᵠᵠ)
     norm_kqw = norm(kᵠʷ)
     norm_kgww = norm(kgʷʷ)
-    norm_kgqq = norm(kgᵠᵠ)
+    active_norm_kgqq = norm(active_kgᵠᵠ)
+    assembled_norm_kgqq = norm(assembled_kgᵠᵠ)
 
     energy_kww = real(dot(vʷ, kʷʷ*vʷ))
     energy_kqq = real(dot(vᵠ, kᵠᵠ*vᵠ))
     energy_kqw = 2.0*real(dot(vᵠ, kᵠʷ*vʷ))
     energy_K_total = energy_kww + energy_kqq + energy_kqw
     energy_kgww = real(dot(vʷ, kgʷʷ*vʷ))
-    energy_kgqq = real(dot(vᵠ, kgᵠᵠ*vᵠ))
-    energy_KG_total = energy_kgww + energy_kgqq
+    active_energy_kgqq = real(dot(vᵠ, active_kgᵠᵠ*vᵠ))
+    assembled_energy_kgqq = real(dot(vᵠ, assembled_kgᵠᵠ*vᵠ))
+    active_energy_KG_total = energy_kgww + active_energy_kgqq
+    assembled_energy_KG_total = energy_kgww + assembled_energy_kgqq
 
     return (
         r = r,
         mesh = basename(mesh_file(r)),
+        kg_strategy = kg_strategy,
         mode_index = selected_mode.mode_index,
         rank_by_xi = selected_mode.rank_by_xi,
         xi_selected = selected_mode.xi,
@@ -203,18 +316,22 @@ function matrix_block_diagnostics(
         norm_kqq = norm_kqq,
         norm_kqw = norm_kqw,
         norm_kgww = norm_kgww,
-        norm_kgqq = norm_kgqq,
+        active_norm_kgqq = active_norm_kgqq,
+        assembled_norm_kgqq = assembled_norm_kgqq,
         ratio_kqq_kww = safe_ratio(norm_kqq, norm_kww),
         ratio_kqw_geom_mean = norm_kqq*norm_kww <= 0.0 ? NaN : norm_kqw/sqrt(norm_kqq*norm_kww),
-        ratio_kgqq_kgww = safe_ratio(norm_kgqq, norm_kgww),
+        active_ratio_kgqq_kgww = safe_ratio(active_norm_kgqq, norm_kgww),
+        assembled_ratio_kgqq_kgww = safe_ratio(assembled_norm_kgqq, norm_kgww),
         energy_kww = energy_kww,
         energy_kqq = energy_kqq,
         energy_kqw = energy_kqw,
         energy_K_total = energy_K_total,
         energy_kgww = energy_kgww,
-        energy_kgqq = energy_kgqq,
-        energy_KG_total = energy_KG_total,
-        rayleigh_xi = safe_ratio(energy_K_total, energy_KG_total),
+        active_energy_kgqq = active_energy_kgqq,
+        assembled_energy_kgqq = assembled_energy_kgqq,
+        active_energy_KG_total = active_energy_KG_total,
+        assembled_energy_KG_total = assembled_energy_KG_total,
+        rayleigh_xi_active = safe_ratio(energy_K_total, active_energy_KG_total),
         w_participation = selected_mode.w_participation,
     )
 end
@@ -222,23 +339,26 @@ end
 function write_table_9_1_xlsx(filepath, rows, spectrum_rows, block_rows)
     mkpath(dirname(filepath))
     table_headers = [
-        "a/b", "m", "mesh", "selection_mode", "mode_index", "rank_by_xi",
+        "a/b", "m", "mesh", "kg_strategy", "selection_mode", "mode_index", "rank_by_xi",
         "xi_cr", "xi_exact", "xi_ratio", "log10_xi_ratio", "w_participation",
         "k_num", "k_exact", "k_book", "k_error", "sigma_cr_num",
         "sigma_cr_exact", "sigma_cr_book", "nodes",
     ]
     spectrum_headers = [
-        "a/b", "mesh", "spectrum_group", "group_rank", "mode_index", "rank_by_xi",
+        "a/b", "mesh", "kg_strategy", "spectrum_group", "group_rank", "mode_index", "rank_by_xi",
         "xi", "xi_exact", "xi_ratio", "log10_xi_ratio", "distance_to_exact",
         "w_participation", "k", "k_exact",
     ]
     block_headers = [
-        "a/b", "mesh", "mode_index", "rank_by_xi", "xi_selected", "xi_exact",
+        "a/b", "mesh", "kg_strategy", "mode_index", "rank_by_xi", "xi_selected", "xi_exact",
         "xi_ratio", "norm_kww", "norm_kqq", "norm_kqw", "norm_kgww",
-        "norm_kgqq", "ratio_kqq_kww", "ratio_kqw_geom_mean",
-        "ratio_kgqq_kgww", "energy_kww", "energy_kqq", "energy_kqw",
-        "energy_K_total", "energy_kgww", "energy_kgqq", "energy_KG_total",
-        "rayleigh_xi", "w_participation",
+        "active_norm_kgqq", "assembled_norm_kgqq", "ratio_kqq_kww",
+        "ratio_kqw_geom_mean", "active_ratio_kgqq_kgww",
+        "assembled_ratio_kgqq_kgww", "energy_kww", "energy_kqq",
+        "energy_kqw", "energy_K_total", "energy_kgww",
+        "active_energy_kgqq", "assembled_energy_kgqq",
+        "active_energy_KG_total", "assembled_energy_KG_total",
+        "rayleigh_xi_active", "w_participation",
     ]
 
     XLSX.openxlsx(filepath, mode="w") do xf
@@ -320,111 +440,37 @@ function solve_table_9_1_case(r, k_exact)
         @timeit to "assemble" 𝑎ʷ(kʷʷ,fᵅ)
     end
 
+    strategy_results = NamedTuple[]
     @timeit to "solve buckling eigenvalue" begin
         K = [kᵠᵠ kᵠʷ;kᵠʷ' kʷʷ]
-        KG = [
-            kgᵠᵠ zeros(2*nᵠ,nʷ)
-            zeros(nʷ,2*nᵠ) kgʷʷ
-        ]
-        F = eigen(K, KG)
-        ξ_exact = exact_ξcr(k_exact)
-        candidates_raw = NamedTuple[]
-        for (i, ξᵢ) in pairs(F.values)
-            ξᵣ = real(ξᵢ)
-            ξᵢₘ = imag(ξᵢ)
-            if !(isfinite(ξᵣ) && isfinite(ξᵢₘ) && abs(ξᵢₘ) < eigen_imag_tol && ξᵣ > 0.0)
-                continue
-            end
-            mode = @view F.vectors[:, i]
-            mode_norm = sum(abs2, mode)
-            if !(isfinite(mode_norm) && mode_norm > 0.0)
-                continue
-            end
-            w_participation = sum(abs2, @view mode[2*nᵠ+1:end])/mode_norm
-            k = ξᵣ*b^2/(π^2*Dᵇ)
-            ξ_ratio = ξᵣ/ξ_exact
-            log10_ξ_ratio = log10(abs(ξ_ratio))
-            distance_to_exact = abs(log10_ξ_ratio)
-            push!(candidates_raw, (
-                mode_index = i,
-                xi = ξᵣ,
-                k = k,
-                xi_ratio = ξ_ratio,
-                log10_xi_ratio = log10_ξ_ratio,
-                distance_to_exact = distance_to_exact,
-                w_participation = w_participation,
-            ))
-        end
-        sort!(candidates_raw, by = c -> c.xi)
-        isempty(candidates_raw) && error("no positive finite buckling eigenvalue found for a/b = $r")
-        candidates = NamedTuple[]
-        for (rank_by_xi, candidate) in enumerate(candidates_raw)
-            push!(candidates, (
-                mode_index = candidate.mode_index,
-                rank_by_xi = rank_by_xi,
-                xi = candidate.xi,
-                k = candidate.k,
-                xi_ratio = candidate.xi_ratio,
-                log10_xi_ratio = candidate.log10_xi_ratio,
-                distance_to_exact = candidate.distance_to_exact,
-                w_participation = candidate.w_participation,
-            ))
-        end
-
-        closest_candidates = sort(candidates, by = c -> c.distance_to_exact)
-        selected_mode = first(closest_candidates)
-        first_positive_modes = first(candidates, min(length(candidates), spectrum_first_positive_count))
-        closest_exact_modes = first(closest_candidates, min(length(closest_candidates), spectrum_closest_exact_count))
-        mesh_name = basename(mesh_file(r))
-        spectrum_rows = NamedTuple[]
-        for (group_rank, mode) in enumerate(first_positive_modes)
-            push!(spectrum_rows, (
-                r = r,
-                mesh = mesh_name,
-                spectrum_group = "first_positive",
-                group_rank = group_rank,
-                mode_index = mode.mode_index,
-                rank_by_xi = mode.rank_by_xi,
-                xi = mode.xi,
-                xi_exact = ξ_exact,
-                xi_ratio = mode.xi_ratio,
-                log10_xi_ratio = mode.log10_xi_ratio,
-                distance_to_exact = mode.distance_to_exact,
-                w_participation = mode.w_participation,
-                k = mode.k,
-                k_exact = k_exact,
-            ))
-        end
-        for (group_rank, mode) in enumerate(closest_exact_modes)
-            push!(spectrum_rows, (
-                r = r,
-                mesh = mesh_name,
-                spectrum_group = "closest_exact",
-                group_rank = group_rank,
-                mode_index = mode.mode_index,
-                rank_by_xi = mode.rank_by_xi,
-                xi = mode.xi,
-                xi_exact = ξ_exact,
-                xi_ratio = mode.xi_ratio,
-                log10_xi_ratio = mode.log10_xi_ratio,
-                distance_to_exact = mode.distance_to_exact,
-                w_participation = mode.w_participation,
-                k = mode.k,
-                k_exact = k_exact,
-            ))
-        end
-
-        ξcr = selected_mode.xi
-        w_participation = selected_mode.w_participation
-        k_num = selected_mode.k
-        σcr_num = ξcr/h
-        block_diag = matrix_block_diagnostics(
-            r, k_exact, selected_mode, F, nᵠ, nʷ,
-            kʷʷ, kᵠᵠ, kᵠʷ, kgʷʷ, kgᵠᵠ,
+        zero_kgᵠᵠ = zeros(2*nᵠ,2*nᵠ)
+        for (kg_strategy, active_kgᵠᵠ) in (
+            ("full_bui", kgᵠᵠ),
+            ("kgww_only", zero_kgᵠᵠ),
         )
+            KG = [
+                active_kgᵠᵠ zeros(2*nᵠ,nʷ)
+                zeros(nʷ,2*nᵠ) kgʷʷ
+            ]
+            solved = solve_spectrum(K, KG, r, k_exact, kg_strategy, nᵠ)
+            block_diag = matrix_block_diagnostics(
+                r, k_exact, kg_strategy, solved.selected_mode, solved.F, nᵠ, nʷ,
+                kʷʷ, kᵠᵠ, kᵠʷ, kgʷʷ, active_kgᵠᵠ, kgᵠᵠ,
+            )
+            push!(strategy_results, (
+                kg_strategy = kg_strategy,
+                xi_cr = solved.xi_cr,
+                k_num = solved.k_num,
+                σcr_num = solved.σcr_num,
+                w_participation = solved.w_participation,
+                selected_mode = solved.selected_mode,
+                spectrum_rows = solved.spectrum_rows,
+                block_diag = block_diag,
+            ))
+        end
     end
 
-    return ξcr, k_num, σcr_num, nʷ, w_participation, selected_mode, spectrum_rows, block_diag
+    return nʷ, strategy_results
 end
 
 gmsh.initialize()
@@ -435,52 +481,60 @@ try
     results = []
     spectrum_results = []
     block_results = []
-    @printf("%7s %3s %18s %14s %10s %10s %12s %12s %12s %14s %14s %14s %12s %8s\n",
-        "a/b", "m", "msh", "selection", "mode", "rank", "ξcr", "ξ_exact",
+    @printf("%7s %3s %18s %11s %14s %10s %10s %12s %12s %12s %14s %14s %14s %12s %8s\n",
+        "a/b", "m", "msh", "kg_strategy", "selection", "mode", "rank", "ξcr", "ξ_exact",
         "ξ/ξex", "w_part", "k_num", "k_exact", "k_err", "nodes")
-    println("-"^172)
+    println("-"^188)
 
     for (r, k_book, σcr_book) in table_9_1
         k_exact, m_exact = exact_uniaxial_k(r)
         σcr_exact = exact_σcr(k_exact)
         ξ_exact = exact_ξcr(k_exact)
-        ξcr, k_num, σcr_num, nnodes, w_participation, selected_mode, spectrum_rows, block_diag = solve_table_9_1_case(r, k_exact)
-        append!(spectrum_results, spectrum_rows)
-        push!(block_results, block_diag)
-        k_err = abs(k_num-k_exact)/abs(k_exact)
-        @printf("%7.2f %3d %18s %14s %10d %10d %12.6e %12.6e %12.4e %14.6e %14.10f %14.10f %12.4e %8d\n",
-            r, m_exact, basename(mesh_file(r)), spectrum_selection_mode, selected_mode.mode_index,
-            selected_mode.rank_by_xi, ξcr, ξ_exact, selected_mode.xi_ratio, w_participation,
-            k_num, k_exact, k_err, nnodes)
-        if isapprox(r, 1.0; atol=1.0e-12)
-            println("Matrix block diagnostics a/b=1.0:")
-            @printf("  norm_kww=%12.6e norm_kqq=%12.6e norm_kqw=%12.6e norm_kgww=%12.6e norm_kgqq=%12.6e\n",
-                block_diag.norm_kww, block_diag.norm_kqq, block_diag.norm_kqw,
-                block_diag.norm_kgww, block_diag.norm_kgqq)
-            @printf("  energy_K_total=%12.6e energy_KG_total=%12.6e rayleigh_xi=%12.6e\n",
-                block_diag.energy_K_total, block_diag.energy_KG_total, block_diag.rayleigh_xi)
+        nnodes, strategy_rows = solve_table_9_1_case(r, k_exact)
+        for strategy_row in strategy_rows
+            selected_mode = strategy_row.selected_mode
+            block_diag = strategy_row.block_diag
+            append!(spectrum_results, strategy_row.spectrum_rows)
+            push!(block_results, block_diag)
+            k_err = abs(strategy_row.k_num-k_exact)/abs(k_exact)
+            @printf("%7.2f %3d %18s %11s %14s %10d %10d %12.6e %12.6e %12.4e %14.6e %14.10f %14.10f %12.4e %8d\n",
+                r, m_exact, basename(mesh_file(r)), strategy_row.kg_strategy, spectrum_selection_mode,
+                selected_mode.mode_index, selected_mode.rank_by_xi, strategy_row.xi_cr, ξ_exact,
+                selected_mode.xi_ratio, strategy_row.w_participation, strategy_row.k_num,
+                k_exact, k_err, nnodes)
+            if isapprox(r, 1.0; atol=1.0e-12)
+                println("Matrix block diagnostics a/b=1.0, kg_strategy=$(strategy_row.kg_strategy):")
+                @printf("  norm_kww=%12.6e norm_kqq=%12.6e norm_kqw=%12.6e norm_kgww=%12.6e active_norm_kgqq=%12.6e assembled_norm_kgqq=%12.6e\n",
+                    block_diag.norm_kww, block_diag.norm_kqq, block_diag.norm_kqw,
+                    block_diag.norm_kgww, block_diag.active_norm_kgqq,
+                    block_diag.assembled_norm_kgqq)
+                @printf("  energy_K_total=%12.6e active_energy_KG_total=%12.6e assembled_energy_KG_total=%12.6e rayleigh_xi_active=%12.6e\n",
+                    block_diag.energy_K_total, block_diag.active_energy_KG_total,
+                    block_diag.assembled_energy_KG_total, block_diag.rayleigh_xi_active)
+            end
+            push!(results, (
+                r = r,
+                m_exact = m_exact,
+                mesh = basename(mesh_file(r)),
+                kg_strategy = strategy_row.kg_strategy,
+                selection_mode = spectrum_selection_mode,
+                mode_index = selected_mode.mode_index,
+                rank_by_xi = selected_mode.rank_by_xi,
+                xi_cr = strategy_row.xi_cr,
+                xi_exact = ξ_exact,
+                xi_ratio = selected_mode.xi_ratio,
+                log10_xi_ratio = selected_mode.log10_xi_ratio,
+                w_participation = strategy_row.w_participation,
+                k_num = strategy_row.k_num,
+                k_exact = k_exact,
+                k_book = k_book,
+                k_err = k_err,
+                σcr_num = strategy_row.σcr_num,
+                σcr_exact = σcr_exact,
+                σcr_book = σcr_book,
+                nnodes = nnodes,
+            ))
         end
-        push!(results, (
-            r = r,
-            m_exact = m_exact,
-            mesh = basename(mesh_file(r)),
-            selection_mode = spectrum_selection_mode,
-            mode_index = selected_mode.mode_index,
-            rank_by_xi = selected_mode.rank_by_xi,
-            xi_cr = ξcr,
-            xi_exact = ξ_exact,
-            xi_ratio = selected_mode.xi_ratio,
-            log10_xi_ratio = selected_mode.log10_xi_ratio,
-            w_participation = w_participation,
-            k_num = k_num,
-            k_exact = k_exact,
-            k_book = k_book,
-            k_err = k_err,
-            σcr_num = σcr_num,
-            σcr_exact = σcr_exact,
-            σcr_book = σcr_book,
-            nnodes = nnodes,
-        ))
     end
 
     write_table_9_1_xlsx(output_xlsx, results, spectrum_results, block_results)
