@@ -47,8 +47,8 @@ function exact_uniaxial_k(r; mmax=80)
     return k_exact, m_exact
 end
 
-exact_λcr(k_exact) = k_exact*π^2*Dᵇ/b^2
-exact_σcr(k_exact) = exact_λcr(k_exact)/h
+exact_ξcr(k_exact) = k_exact*π^2*Dᵇ/b^2
+exact_σcr(k_exact) = exact_ξcr(k_exact)/h
 
 w(x,y,z) = 0.0
 σ₁₁(x,y,z) = 1.0
@@ -85,7 +85,7 @@ function write_table_9_1_xlsx(filepath, rows)
         "a/b",
         "m",
         "mesh",
-        "lambda_cr",
+        "xi_cr",
         "k_num",
         "k_exact",
         "k_book",
@@ -107,7 +107,7 @@ function write_table_9_1_xlsx(filepath, rows)
                 row.r,
                 row.m_exact,
                 row.mesh,
-                row.λcr,
+                row.ξcr,
                 row.k_num,
                 row.k_exact,
                 row.k_book,
@@ -185,15 +185,15 @@ function solve_table_9_1_case(r)
             kgᵠᵠ zeros(2*nᵠ,nʷ)
             zeros(nʷ,2*nᵠ) kgʷʷ
         ]
-        λ = eigvals(K, KG)
-        λ_positive = sort!(collect(real(λᵢ) for λᵢ in λ if isfinite(real(λᵢ)) && isfinite(imag(λᵢ)) && abs(imag(λᵢ)) < 1.0e-7 && real(λᵢ) > 0.0))
-        isempty(λ_positive) && error("no positive finite buckling eigenvalue found for a/b = $r")
-        λcr = first(λ_positive)
-        k_num = λcr*b^2/(π^2*Dᵇ)
-        σcr_num = λcr/h
+        ξ = eigvals(K, KG)
+        ξ_positive = sort!(collect(real(ξᵢ) for ξᵢ in ξ if isfinite(real(ξᵢ)) && isfinite(imag(ξᵢ)) && abs(imag(ξᵢ)) < 1.0e-7 && real(ξᵢ) > 0.0))
+        isempty(ξ_positive) && error("no positive finite buckling eigenvalue found for a/b = $r")
+        ξcr = first(ξ_positive)
+        k_num = ξcr*b^2/(π^2*Dᵇ)
+        σcr_num = ξcr/h
     end
 
-    return λcr, k_num, σcr_num, nʷ
+    return ξcr, k_num, σcr_num, nʷ
 end
 
 gmsh.initialize()
@@ -203,23 +203,23 @@ try
     println("Required mesh names: msh/mindlin_uniaxial_ssss_ab_<a_over_b>.msh, e.g. ab_1p00.")
     results = []
     @printf("%7s %3s %18s %12s %14s %14s %10s %12s %14s %14s %10s %8s\n",
-        "a/b", "m", "msh", "λcr", "k_num", "k_exact",
+        "a/b", "m", "msh", "ξcr", "k_num", "k_exact",
         "k_book", "k_err", "σcr_num", "σcr_exact", "σ_book", "nodes")
     println("-"^153)
 
     for (r, k_book, σcr_book) in table_9_1
         k_exact, m_exact = exact_uniaxial_k(r)
         σcr_exact = exact_σcr(k_exact)
-        λcr, k_num, σcr_num, nnodes = solve_table_9_1_case(r)
+        ξcr, k_num, σcr_num, nnodes = solve_table_9_1_case(r)
         k_err = abs(k_num-k_exact)/abs(k_exact)
         @printf("%7.2f %3d %18s %12.6e %14.10f %14.10f %10.2f %12.4e %14.6f %14.6f %10.1f %8d\n",
-            r, m_exact, basename(mesh_file(r)), λcr, k_num, k_exact,
+            r, m_exact, basename(mesh_file(r)), ξcr, k_num, k_exact,
             k_book, k_err, σcr_num, σcr_exact, σcr_book, nnodes)
         push!(results, (
             r = r,
             m_exact = m_exact,
             mesh = basename(mesh_file(r)),
-            λcr = λcr,
+            ξcr = ξcr,
             k_num = k_num,
             k_exact = k_exact,
             k_book = k_book,
