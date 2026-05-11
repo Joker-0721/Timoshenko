@@ -58,6 +58,8 @@ w(x,y,z) = 0.0
 
 const to = TimerOutput()
 const output_xlsx = normpath(joinpath(@__DIR__, "..", "results", "mindlin_uniaxial_ssss_table_9_1.xlsx"))
+const eigen_imag_tol = 1.0e-7
+const min_w_participation = 1.0e-4
 
 function aspect_tag(r)
     return replace(@sprintf("%.2f", r), "."=>"p")
@@ -87,6 +89,8 @@ function write_table_9_1_xlsx(filepath, rows)
         "m",
         "mesh",
         "xi_cr",
+        "w_participation",
+        "filtered_modes",
         "k_num",
         "k_exact",
         "k_book",
@@ -109,6 +113,8 @@ function write_table_9_1_xlsx(filepath, rows)
                 row.m_exact,
                 row.mesh,
                 row.ξcr,
+                row.w_participation,
+                row.filtered_modes,
                 row.k_num,
                 row.k_exact,
                 row.k_book,
@@ -197,15 +203,34 @@ function solve_table_9_1_case(r)
             kgᵠᵠ zeros(2*nᵠ,nʷ)
             zeros(nʷ,2*nᵠ) kgʷʷ
         ]
-        ξ = eigvals(K, KG)
-        ξ_positive = sort!(collect(real(ξᵢ) for ξᵢ in ξ if isfinite(real(ξᵢ)) && isfinite(imag(ξᵢ)) && abs(imag(ξᵢ)) < 1.0e-7 && real(ξᵢ) > 0.0))
-        isempty(ξ_positive) && error("no positive finite buckling eigenvalue found for a/b = $r")
-        ξcr = first(ξ_positive)
+        F = eigen(K, KG)
+        candidates = Vector{NamedTuple{(:ξ,:w_participation),Tuple{Float64,Float64}}}()
+        for (i, ξᵢ) in pairs(F.values)
+            ξᵣ = real(ξᵢ)
+            ξᵢₘ = imag(ξᵢ)
+            if !(isfinite(ξᵣ) && isfinite(ξᵢₘ) && abs(ξᵢₘ) < eigen_imag_tol && ξᵣ > 0.0)
+                continue
+            end
+            mode = @view F.vectors[:, i]
+            mode_norm = sum(abs2, mode)
+            if !(isfinite(mode_norm) && mode_norm > 0.0)
+                continue
+            end
+            w_participation = sum(abs2, @view mode[2*nᵠ+1:end])/mode_norm
+            push!(candidates, (ξ=ξᵣ, w_participation=w_participation))
+        end
+        sort!(candidates, by = c -> c.ξ)
+        filtered_modes = count(c -> c.w_participation < min_w_participation, candidates)
+        physical_candidates = filter(c -> c.w_participation >= min_w_participation, candidates)
+        isempty(physical_candidates) && error("no positive finite buckling eigenvalue with w participation >= $min_w_participation found for a/b = $r")
+        selected_mode = first(physical_candidates)
+        ξcr = selected_mode.ξ
+        w_participation = selected_mode.w_participation
         k_num = ξcr*b^2/(π^2*Dᵇ)
         σcr_num = ξcr/h
     end
 
-    return ξcr, k_num, σcr_num, nʷ
+    return ξcr, k_num, σcr_num, nʷ, w_participation, filtered_modes
 end
 
 gmsh.initialize()
@@ -214,24 +239,26 @@ try
     println("E = 30e6 psi, ν = 0.3, h/b = 0.01")
     println("Required mesh names: msh/mindlin_uniaxial_ssss_ab_<a_over_b>.msh, e.g. ab_1p00.")
     results = []
-    @printf("%7s %3s %18s %12s %14s %14s %10s %12s %14s %14s %10s %8s\n",
-        "a/b", "m", "msh", "ξcr", "k_num", "k_exact",
+    @printf("%7s %3s %18s %12s %14s %8s %14s %14s %10s %12s %14s %14s %10s %8s\n",
+        "a/b", "m", "msh", "ξcr", "w_part", "filtered", "k_num", "k_exact",
         "k_book", "k_err", "σcr_num", "σcr_exact", "σ_book", "nodes")
-    println("-"^153)
+    println("-"^176)
 
     for (r, k_book, σcr_book) in table_9_1
         k_exact, m_exact = exact_uniaxial_k(r)
         σcr_exact = exact_σcr(k_exact)
-        ξcr, k_num, σcr_num, nnodes = solve_table_9_1_case(r)
+        ξcr, k_num, σcr_num, nnodes, w_participation, filtered_modes = solve_table_9_1_case(r)
         k_err = abs(k_num-k_exact)/abs(k_exact)
-        @printf("%7.2f %3d %18s %12.6e %14.10f %14.10f %10.2f %12.4e %14.6f %14.6f %10.1f %8d\n",
-            r, m_exact, basename(mesh_file(r)), ξcr, k_num, k_exact,
+        @printf("%7.2f %3d %18s %12.6e %14.6e %8d %14.10f %14.10f %10.2f %12.4e %14.6f %14.6f %10.1f %8d\n",
+            r, m_exact, basename(mesh_file(r)), ξcr, w_participation, filtered_modes, k_num, k_exact,
             k_book, k_err, σcr_num, σcr_exact, σcr_book, nnodes)
         push!(results, (
             r = r,
             m_exact = m_exact,
             mesh = basename(mesh_file(r)),
             ξcr = ξcr,
+            w_participation = w_participation,
+            filtered_modes = filtered_modes,
             k_num = k_num,
             k_exact = k_exact,
             k_book = k_book,
