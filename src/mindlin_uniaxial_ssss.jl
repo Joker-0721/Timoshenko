@@ -57,7 +57,7 @@ w(x,y,z) = 0.0
 σ₁₂(x,y,z) = 0.0
 
 const to = TimerOutput()
-const output_xlsx = normpath(joinpath(@__DIR__, "..", "results", "mindlin_uniaxial_ssss_table_9_1_analytical_rayleigh_diagnostic.xlsx"))
+const output_xlsx = normpath(joinpath(@__DIR__, "..", "results", "mindlin_uniaxial_ssss_table_9_1_kirchhoff_constraint_diagnostic.xlsx"))
 const eigen_imag_tol = 1.0e-7
 const spectrum_first_positive_count = 40
 const spectrum_closest_exact_count = 10
@@ -256,6 +256,27 @@ function analytical_mode_rayleigh_values(row)
     ]
 end
 
+function kirchhoff_constraint_values(row)
+    return [
+        row.r,
+        row.mesh,
+        row.kg_strategy,
+        row.mode_index,
+        row.rank_by_xi,
+        row.xi,
+        row.xi_exact,
+        row.xi_ratio,
+        row.log10_xi_ratio,
+        row.k,
+        row.k_exact,
+        row.k_error,
+        row.σcr,
+        row.energy_K_total,
+        row.energy_KG_total,
+        row.rayleigh_xi,
+    ]
+end
+
 safe_ratio(numerator, denominator) = denominator == 0.0 ? NaN : numerator/denominator
 
 function build_psi_projection(r, kᵠᵠ)
@@ -384,6 +405,80 @@ function analytical_mode_rayleigh_diagnostics(
     end
 
     return rows
+end
+
+function build_kirchhoff_constraint_map(nw)
+    T = zeros(3*nw, nw)
+    for I in 1:nw
+        T[2*I-1, I] = -1.0
+        T[2*I, I] = -1.0
+        T[2*nw+I, I] = 1.0
+    end
+    return T
+end
+
+function solve_kirchhoff_constraint_spectrum(Kc, KGc, r, k_exact, kg_strategy)
+    F = eigen(Kc, KGc)
+    ξ_exact = exact_ξcr(k_exact)
+    candidates_raw = NamedTuple[]
+    for (i, ξᵢ) in pairs(F.values)
+        ξᵣ = real(ξᵢ)
+        ξᵢₘ = imag(ξᵢ)
+        if !(isfinite(ξᵣ) && isfinite(ξᵢₘ) && abs(ξᵢₘ) < eigen_imag_tol && ξᵣ > 0.0)
+            continue
+        end
+        k = ξᵣ*b^2/(π^2*Dᵇ)
+        ξ_ratio = ξᵣ/ξ_exact
+        log10_ξ_ratio = log10(abs(ξ_ratio))
+        push!(candidates_raw, (
+            mode_index = i,
+            xi = ξᵣ,
+            k = k,
+            xi_ratio = ξ_ratio,
+            log10_xi_ratio = log10_ξ_ratio,
+            distance_to_exact = abs(log10_ξ_ratio),
+        ))
+    end
+    sort!(candidates_raw, by = c -> c.xi)
+    isempty(candidates_raw) && error("no positive finite Kirchhoff-compatible eigenvalue found for a/b = $r, kg_strategy = $kg_strategy")
+
+    candidates = NamedTuple[]
+    for (rank_by_xi, candidate) in enumerate(candidates_raw)
+        push!(candidates, (
+            mode_index = candidate.mode_index,
+            rank_by_xi = rank_by_xi,
+            xi = candidate.xi,
+            k = candidate.k,
+            xi_ratio = candidate.xi_ratio,
+            log10_xi_ratio = candidate.log10_xi_ratio,
+            distance_to_exact = candidate.distance_to_exact,
+        ))
+    end
+
+    selected = first(sort(candidates, by = c -> c.distance_to_exact))
+    v = @view F.vectors[:, selected.mode_index]
+    energy_K_total = real(dot(v, Kc*v))
+    energy_KG_total = real(dot(v, KGc*v))
+    rayleigh_xi = safe_ratio(energy_K_total, energy_KG_total)
+
+    return (
+        r = r,
+        mesh = basename(mesh_file(r)),
+        kg_strategy = kg_strategy,
+        mode_index = selected.mode_index,
+        rank_by_xi = selected.rank_by_xi,
+        xi = selected.xi,
+        xi_exact = ξ_exact,
+        xi_ratio = selected.xi_ratio,
+        log10_xi_ratio = selected.log10_xi_ratio,
+        k = selected.k,
+        k_exact = k_exact,
+        k_error = abs(selected.k-k_exact)/abs(k_exact),
+        σcr = selected.xi/h,
+        energy_K_total = energy_K_total,
+        energy_KG_total = energy_KG_total,
+        rayleigh_xi = rayleigh_xi,
+    )
 end
 
 function k_nullspace_diagnostics(r, kᵠᵠ, kᵠʷ, kʷʷ, nᵠ, nʷ)
@@ -643,7 +738,7 @@ end
 function write_table_9_1_xlsx(
     filepath, rows, spectrum_rows, block_rows,
     kqq_nullspace_rows, k_nullspace_rows, selected_mode_energy_rows,
-    projection_summary_rows, analytical_rayleigh_rows,
+    projection_summary_rows, analytical_rayleigh_rows, kirchhoff_constraint_rows,
 )
     mkpath(dirname(filepath))
     table_headers = [
@@ -694,6 +789,12 @@ function write_table_9_1_xlsx(
         "energy_K_total", "energy_kgww", "energy_kgqq",
         "energy_KG_total", "psi_norm_ratio", "w_norm_ratio",
     ]
+    kirchhoff_constraint_headers = [
+        "a/b", "mesh", "kg_strategy", "mode_index", "rank_by_xi",
+        "xi", "xi_exact", "xi_ratio", "log10_xi_ratio",
+        "k", "k_exact", "k_error", "sigma_cr",
+        "energy_K_total", "energy_KG_total", "rayleigh_xi",
+    ]
 
     XLSX.openxlsx(filepath, mode="w") do xf
         sheet = xf[1]
@@ -731,6 +832,13 @@ function write_table_9_1_xlsx(
             analytical_sheet,
             analytical_rayleigh_headers,
             analytical_mode_rayleigh_values.(analytical_rayleigh_rows),
+        )
+
+        kirchhoff_sheet = XLSX.addsheet!(xf, "KirchhoffConstraint")
+        write_sheet_rows!(
+            kirchhoff_sheet,
+            kirchhoff_constraint_headers,
+            kirchhoff_constraint_values.(kirchhoff_constraint_rows),
         )
     end
 end
@@ -805,6 +913,7 @@ function solve_table_9_1_case(r, k_exact)
     k_diag = nothing
     projection_summary = nothing
     analytical_rayleigh_rows = NamedTuple[]
+    kirchhoff_constraint_rows = NamedTuple[]
     @timeit to "solve buckling eigenvalue" begin
         nψ_dofs = 2*nᵠ
         K = [kᵠᵠ kᵠʷ;kᵠʷ' kʷʷ]
@@ -819,6 +928,24 @@ function solve_table_9_1_case(r, k_exact)
         K_projected = [projected.kᵠᵠ projected.kᵠʷ;projected.kᵠʷ' kʷʷ]
         zero_kgᵠᵠ = zeros(nψ_dofs,nψ_dofs)
         zero_kgᵠᵠ_projected = zeros(nψ_projected,nψ_projected)
+        T_kirchhoff = build_kirchhoff_constraint_map(nʷ)
+        KG_full = [
+            kgᵠᵠ zeros(nψ_dofs,nʷ)
+            zeros(nʷ,nψ_dofs) kgʷʷ
+        ]
+        KG_ww_only = [
+            zero_kgᵠᵠ zeros(nψ_dofs,nʷ)
+            zeros(nʷ,nψ_dofs) kgʷʷ
+        ]
+        Kc = T_kirchhoff' * K * T_kirchhoff
+        push!(kirchhoff_constraint_rows, solve_kirchhoff_constraint_spectrum(
+            Kc, T_kirchhoff' * KG_full * T_kirchhoff,
+            r, k_exact, "kirchhoff_full_bui",
+        ))
+        push!(kirchhoff_constraint_rows, solve_kirchhoff_constraint_spectrum(
+            Kc, T_kirchhoff' * KG_ww_only * T_kirchhoff,
+            r, k_exact, "kirchhoff_kgww_only",
+        ))
         for strategy in (
             (
                 kg_strategy = "full_bui",
@@ -884,7 +1011,7 @@ function solve_table_9_1_case(r, k_exact)
         end
     end
 
-    return nʷ, strategy_results, k_diag, projection_summary, analytical_rayleigh_rows
+    return nʷ, strategy_results, k_diag, projection_summary, analytical_rayleigh_rows, kirchhoff_constraint_rows
 end
 
 gmsh.initialize()
@@ -900,6 +1027,7 @@ try
     selected_mode_energy_results = []
     projection_summary_results = []
     analytical_rayleigh_results = []
+    kirchhoff_constraint_results = []
     @printf("%7s %3s %18s %11s %14s %10s %10s %12s %12s %12s %14s %14s %14s %12s %8s\n",
         "a/b", "m", "msh", "kg_strategy", "selection", "mode", "rank", "ξcr", "ξ_exact",
         "ξ/ξex", "w_part", "k_num", "k_exact", "k_err", "nodes")
@@ -909,17 +1037,23 @@ try
         k_exact, m_exact = exact_uniaxial_k(r)
         σcr_exact = exact_σcr(k_exact)
         ξ_exact = exact_ξcr(k_exact)
-        nnodes, strategy_rows, k_diag, projection_summary, analytical_rayleigh_rows = solve_table_9_1_case(r, k_exact)
+        nnodes, strategy_rows, k_diag, projection_summary, analytical_rayleigh_rows, kirchhoff_constraint_rows = solve_table_9_1_case(r, k_exact)
         append!(kqq_nullspace_results, k_diag.kqq_rows)
         append!(k_nullspace_results, k_diag.k_rows)
         push!(projection_summary_results, projection_summary)
         append!(analytical_rayleigh_results, analytical_rayleigh_rows)
+        append!(kirchhoff_constraint_results, kirchhoff_constraint_rows)
         if isapprox(r, 1.0; atol=1.0e-12)
             println("K-only nullspace diagnostics a/b=1.0:")
             @printf("  Kqq near-zero count = %d\n", k_diag.kqq_near_zero_count)
             @printf("  K near-zero count   = %d\n", k_diag.k_near_zero_count)
             @printf("  projection kept ψ dofs = %d, removed ψ dofs = %d\n",
                 projection_summary.kept_psi_dofs, projection_summary.removed_psi_dofs)
+            println("Kirchhoff-compatible constraint diagnostics a/b=1.0:")
+            for row in kirchhoff_constraint_rows
+                @printf("  %-23s ξ/ξex=%12.4e k=%14.10f k_exact=%14.10f rayleigh_xi=%12.6e\n",
+                    row.kg_strategy, row.xi_ratio, row.k, row.k_exact, row.rayleigh_xi)
+            end
         end
         for strategy_row in strategy_rows
             selected_mode = strategy_row.selected_mode
@@ -975,7 +1109,7 @@ try
     write_table_9_1_xlsx(
         output_xlsx, results, spectrum_results, block_results,
         kqq_nullspace_results, k_nullspace_results, selected_mode_energy_results,
-        projection_summary_results, analytical_rayleigh_results,
+        projection_summary_results, analytical_rayleigh_results, kirchhoff_constraint_results,
     )
     println("Excel output: ", output_xlsx)
 finally
