@@ -57,7 +57,7 @@ w(x,y,z) = 0.0
 σ₁₂(x,y,z) = 0.0
 
 const to = TimerOutput()
-const output_xlsx = normpath(joinpath(@__DIR__, "..", "results", "mindlin_uniaxial_ssss_table_9_1_k_nullspace_diagnostic.xlsx"))
+const output_xlsx = normpath(joinpath(@__DIR__, "..", "results", "mindlin_uniaxial_ssss_table_9_1_projected_nullspace_diagnostic.xlsx"))
 const eigen_imag_tol = 1.0e-7
 const spectrum_first_positive_count = 40
 const spectrum_closest_exact_count = 10
@@ -221,7 +221,60 @@ function selected_mode_energy_values(row)
     ]
 end
 
+function projection_summary_values(row)
+    return [
+        row.r,
+        row.mesh,
+        row.original_psi_dofs,
+        row.kept_psi_dofs,
+        row.removed_psi_dofs,
+        row.projection_tol,
+        row.max_abs_lambda_kqq,
+        row.min_kept_lambda_ratio,
+        row.max_removed_lambda_ratio,
+    ]
+end
+
 safe_ratio(numerator, denominator) = denominator == 0.0 ? NaN : numerator/denominator
+
+function build_psi_projection(r, kᵠᵠ)
+    E = eigen(Symmetric(kᵠᵠ))
+    λ = real.(E.values)
+    abs_λ = abs.(λ)
+    max_abs_λ = maximum(abs_λ)
+    projection_tol = k_nullspace_near_zero_tol*max_abs_λ
+    keep = abs_λ .> projection_tol
+    Pψ = E.vectors[:, keep]
+    λ_ratios = max_abs_λ == 0.0 ? fill(NaN, length(abs_λ)) : abs_λ ./ max_abs_λ
+    kept_ratios = λ_ratios[keep]
+    removed_ratios = λ_ratios[.!keep]
+
+    summary = (
+        r = r,
+        mesh = basename(mesh_file(r)),
+        original_psi_dofs = size(kᵠᵠ, 1),
+        kept_psi_dofs = size(Pψ, 2),
+        removed_psi_dofs = size(kᵠᵠ, 1) - size(Pψ, 2),
+        projection_tol = projection_tol,
+        max_abs_lambda_kqq = max_abs_λ,
+        min_kept_lambda_ratio = isempty(kept_ratios) ? NaN : minimum(kept_ratios),
+        max_removed_lambda_ratio = isempty(removed_ratios) ? NaN : maximum(removed_ratios),
+    )
+
+    return (
+        Pψ = Pψ,
+        summary = summary,
+    )
+end
+
+function project_matrices(kᵠᵠ, kᵠʷ, kgᵠᵠ, projection)
+    Pψ = projection.Pψ
+    return (
+        kᵠᵠ = Pψ' * kᵠᵠ * Pψ,
+        kᵠʷ = Pψ' * kᵠʷ,
+        kgᵠᵠ = Pψ' * kgᵠᵠ * Pψ,
+    )
+end
 
 function k_nullspace_diagnostics(r, kᵠᵠ, kᵠʷ, kʷʷ, nᵠ, nʷ)
     mesh_name = basename(mesh_file(r))
@@ -282,12 +335,12 @@ function k_nullspace_diagnostics(r, kᵠᵠ, kᵠʷ, kʷʷ, nᵠ, nʷ)
 end
 
 function selected_mode_energy_diagnostics(
-    r, kg_strategy, selected_mode, F, nᵠ, nʷ,
+    r, kg_strategy, selected_mode, F, nψ_dofs, nʷ,
     kʷʷ, kᵠᵠ, kᵠʷ,
 )
     v = @view F.vectors[:, selected_mode.mode_index]
-    vᵠ = @view v[1:2*nᵠ]
-    vʷ = @view v[2*nᵠ+1:2*nᵠ+nʷ]
+    vᵠ = @view v[1:nψ_dofs]
+    vʷ = @view v[nψ_dofs+1:nψ_dofs+nʷ]
 
     mode_norm = sum(abs2, v)
     psi_norm_ratio = mode_norm <= 0.0 ? NaN : sum(abs2, vᵠ)/mode_norm
@@ -317,7 +370,7 @@ function selected_mode_energy_diagnostics(
     )
 end
 
-function solve_spectrum(K, KG, r, k_exact, kg_strategy, nᵠ)
+function solve_spectrum(K, KG, r, k_exact, kg_strategy, nψ_dofs)
     F = eigen(K, KG)
     ξ_exact = exact_ξcr(k_exact)
     candidates_raw = NamedTuple[]
@@ -332,7 +385,7 @@ function solve_spectrum(K, KG, r, k_exact, kg_strategy, nᵠ)
         if !(isfinite(mode_norm) && mode_norm > 0.0)
             continue
         end
-        w_participation = sum(abs2, @view mode[2*nᵠ+1:end])/mode_norm
+        w_participation = sum(abs2, @view mode[nψ_dofs+1:end])/mode_norm
         k = ξᵣ*b^2/(π^2*Dᵇ)
         ξ_ratio = ξᵣ/ξ_exact
         log10_ξ_ratio = log10(abs(ξ_ratio))
@@ -420,12 +473,12 @@ function solve_spectrum(K, KG, r, k_exact, kg_strategy, nᵠ)
 end
 
 function matrix_block_diagnostics(
-    r, k_exact, kg_strategy, selected_mode, F, nᵠ, nʷ,
+    r, k_exact, kg_strategy, selected_mode, F, nψ_dofs, nʷ,
     kʷʷ, kᵠᵠ, kᵠʷ, kgʷʷ, active_kgᵠᵠ, assembled_kgᵠᵠ,
 )
     v = @view F.vectors[:, selected_mode.mode_index]
-    vᵠ = @view v[1:2*nᵠ]
-    vʷ = @view v[2*nᵠ+1:2*nᵠ+nʷ]
+    vᵠ = @view v[1:nψ_dofs]
+    vʷ = @view v[nψ_dofs+1:nψ_dofs+nʷ]
 
     norm_kww = norm(kʷʷ)
     norm_kqq = norm(kᵠᵠ)
@@ -480,6 +533,7 @@ end
 function write_table_9_1_xlsx(
     filepath, rows, spectrum_rows, block_rows,
     kqq_nullspace_rows, k_nullspace_rows, selected_mode_energy_rows,
+    projection_summary_rows,
 )
     mkpath(dirname(filepath))
     table_headers = [
@@ -519,6 +573,11 @@ function write_table_9_1_xlsx(
         "energy_kww", "energy_K_total", "abs_energy_kqq_ratio",
         "abs_energy_kqw_ratio", "abs_energy_kww_ratio",
     ]
+    projection_summary_headers = [
+        "a/b", "mesh", "original_psi_dofs", "kept_psi_dofs",
+        "removed_psi_dofs", "projection_tol", "max_abs_lambda_kqq",
+        "min_kept_lambda_ratio", "max_removed_lambda_ratio",
+    ]
 
     XLSX.openxlsx(filepath, mode="w") do xf
         sheet = xf[1]
@@ -542,6 +601,13 @@ function write_table_9_1_xlsx(
             selected_energy_sheet,
             selected_mode_energy_headers,
             selected_mode_energy_values.(selected_mode_energy_rows),
+        )
+
+        projection_sheet = XLSX.addsheet!(xf, "ProjectionSummary")
+        write_sheet_rows!(
+            projection_sheet,
+            projection_summary_headers,
+            projection_summary_values.(projection_summary_rows),
         )
     end
 end
@@ -614,29 +680,71 @@ function solve_table_9_1_case(r, k_exact)
 
     strategy_results = NamedTuple[]
     k_diag = nothing
+    projection_summary = nothing
     @timeit to "solve buckling eigenvalue" begin
+        nψ_dofs = 2*nᵠ
         K = [kᵠᵠ kᵠʷ;kᵠʷ' kʷʷ]
         k_diag = k_nullspace_diagnostics(r, kᵠᵠ, kᵠʷ, kʷʷ, nᵠ, nʷ)
-        zero_kgᵠᵠ = zeros(2*nᵠ,2*nᵠ)
-        for (kg_strategy, active_kgᵠᵠ) in (
-            ("full_bui", kgᵠᵠ),
-            ("kgww_only", zero_kgᵠᵠ),
+        projection = build_psi_projection(r, kᵠᵠ)
+        projection_summary = projection.summary
+        projected = project_matrices(kᵠᵠ, kᵠʷ, kgᵠᵠ, projection)
+        nψ_projected = size(projected.kᵠᵠ, 1)
+        K_projected = [projected.kᵠᵠ projected.kᵠʷ;projected.kᵠʷ' kʷʷ]
+        zero_kgᵠᵠ = zeros(nψ_dofs,nψ_dofs)
+        zero_kgᵠᵠ_projected = zeros(nψ_projected,nψ_projected)
+        for strategy in (
+            (
+                kg_strategy = "full_bui",
+                K = K,
+                kᵠᵠ = kᵠᵠ,
+                kᵠʷ = kᵠʷ,
+                active_kgᵠᵠ = kgᵠᵠ,
+                assembled_kgᵠᵠ = kgᵠᵠ,
+                nψ_dofs = nψ_dofs,
+            ),
+            (
+                kg_strategy = "kgww_only",
+                K = K,
+                kᵠᵠ = kᵠᵠ,
+                kᵠʷ = kᵠʷ,
+                active_kgᵠᵠ = zero_kgᵠᵠ,
+                assembled_kgᵠᵠ = kgᵠᵠ,
+                nψ_dofs = nψ_dofs,
+            ),
+            (
+                kg_strategy = "projected_full_bui",
+                K = K_projected,
+                kᵠᵠ = projected.kᵠᵠ,
+                kᵠʷ = projected.kᵠʷ,
+                active_kgᵠᵠ = projected.kgᵠᵠ,
+                assembled_kgᵠᵠ = projected.kgᵠᵠ,
+                nψ_dofs = nψ_projected,
+            ),
+            (
+                kg_strategy = "projected_kgww_only",
+                K = K_projected,
+                kᵠᵠ = projected.kᵠᵠ,
+                kᵠʷ = projected.kᵠʷ,
+                active_kgᵠᵠ = zero_kgᵠᵠ_projected,
+                assembled_kgᵠᵠ = projected.kgᵠᵠ,
+                nψ_dofs = nψ_projected,
+            ),
         )
             KG = [
-                active_kgᵠᵠ zeros(2*nᵠ,nʷ)
-                zeros(nʷ,2*nᵠ) kgʷʷ
+                strategy.active_kgᵠᵠ zeros(strategy.nψ_dofs,nʷ)
+                zeros(nʷ,strategy.nψ_dofs) kgʷʷ
             ]
-            solved = solve_spectrum(K, KG, r, k_exact, kg_strategy, nᵠ)
+            solved = solve_spectrum(strategy.K, KG, r, k_exact, strategy.kg_strategy, strategy.nψ_dofs)
             block_diag = matrix_block_diagnostics(
-                r, k_exact, kg_strategy, solved.selected_mode, solved.F, nᵠ, nʷ,
-                kʷʷ, kᵠᵠ, kᵠʷ, kgʷʷ, active_kgᵠᵠ, kgᵠᵠ,
+                r, k_exact, strategy.kg_strategy, solved.selected_mode, solved.F, strategy.nψ_dofs, nʷ,
+                kʷʷ, strategy.kᵠᵠ, strategy.kᵠʷ, kgʷʷ, strategy.active_kgᵠᵠ, strategy.assembled_kgᵠᵠ,
             )
             selected_energy = selected_mode_energy_diagnostics(
-                r, kg_strategy, solved.selected_mode, solved.F, nᵠ, nʷ,
-                kʷʷ, kᵠᵠ, kᵠʷ,
+                r, strategy.kg_strategy, solved.selected_mode, solved.F, strategy.nψ_dofs, nʷ,
+                kʷʷ, strategy.kᵠᵠ, strategy.kᵠʷ,
             )
             push!(strategy_results, (
-                kg_strategy = kg_strategy,
+                kg_strategy = strategy.kg_strategy,
                 xi_cr = solved.xi_cr,
                 k_num = solved.k_num,
                 σcr_num = solved.σcr_num,
@@ -649,7 +757,7 @@ function solve_table_9_1_case(r, k_exact)
         end
     end
 
-    return nʷ, strategy_results, k_diag
+    return nʷ, strategy_results, k_diag, projection_summary
 end
 
 gmsh.initialize()
@@ -663,6 +771,7 @@ try
     kqq_nullspace_results = []
     k_nullspace_results = []
     selected_mode_energy_results = []
+    projection_summary_results = []
     @printf("%7s %3s %18s %11s %14s %10s %10s %12s %12s %12s %14s %14s %14s %12s %8s\n",
         "a/b", "m", "msh", "kg_strategy", "selection", "mode", "rank", "ξcr", "ξ_exact",
         "ξ/ξex", "w_part", "k_num", "k_exact", "k_err", "nodes")
@@ -672,13 +781,16 @@ try
         k_exact, m_exact = exact_uniaxial_k(r)
         σcr_exact = exact_σcr(k_exact)
         ξ_exact = exact_ξcr(k_exact)
-        nnodes, strategy_rows, k_diag = solve_table_9_1_case(r, k_exact)
+        nnodes, strategy_rows, k_diag, projection_summary = solve_table_9_1_case(r, k_exact)
         append!(kqq_nullspace_results, k_diag.kqq_rows)
         append!(k_nullspace_results, k_diag.k_rows)
+        push!(projection_summary_results, projection_summary)
         if isapprox(r, 1.0; atol=1.0e-12)
             println("K-only nullspace diagnostics a/b=1.0:")
             @printf("  Kqq near-zero count = %d\n", k_diag.kqq_near_zero_count)
             @printf("  K near-zero count   = %d\n", k_diag.k_near_zero_count)
+            @printf("  projection kept ψ dofs = %d, removed ψ dofs = %d\n",
+                projection_summary.kept_psi_dofs, projection_summary.removed_psi_dofs)
         end
         for strategy_row in strategy_rows
             selected_mode = strategy_row.selected_mode
@@ -734,6 +846,7 @@ try
     write_table_9_1_xlsx(
         output_xlsx, results, spectrum_results, block_results,
         kqq_nullspace_results, k_nullspace_results, selected_mode_energy_results,
+        projection_summary_results,
     )
     println("Excel output: ", output_xlsx)
 finally
