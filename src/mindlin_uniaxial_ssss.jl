@@ -57,13 +57,15 @@ w(x,y,z) = 0.0
 σ₁₂(x,y,z) = 0.0
 
 const to = TimerOutput()
-const output_xlsx = normpath(joinpath(@__DIR__, "..", "results", "mindlin_uniaxial_ssss_table_9_1_kirchhoff_constraint_diagnostic.xlsx"))
+const output_xlsx = normpath(joinpath(@__DIR__, "..", "results", "mindlin_uniaxial_ssss_table_9_1_sine_basis_diagnostic.xlsx"))
 const eigen_imag_tol = 1.0e-7
 const spectrum_first_positive_count = 40
 const spectrum_closest_exact_count = 10
 const spectrum_selection_mode = "closest_exact"
 const k_nullspace_count = 40
 const k_nullspace_near_zero_tol = 1.0e-10
+const sine_basis_mmax = 4
+const sine_basis_nmax = 4
 
 function aspect_tag(r)
     return replace(@sprintf("%.2f", r), "."=>"p")
@@ -277,6 +279,70 @@ function kirchhoff_constraint_values(row)
     ]
 end
 
+function sine_basis_values(row)
+    return [
+        row.r,
+        row.mesh,
+        row.kg_strategy,
+        row.mode_index,
+        row.rank_by_xi,
+        row.xi,
+        row.xi_exact,
+        row.xi_ratio,
+        row.log10_xi_ratio,
+        row.k,
+        row.k_exact,
+        row.k_error,
+        row.σcr,
+        row.dominant_m,
+        row.dominant_n,
+        row.dominant_coeff_abs,
+        row.energy_K_total,
+        row.energy_KG_total,
+        row.rayleigh_xi,
+    ]
+end
+
+function sine_basis_spectrum_values(row)
+    return [
+        row.r,
+        row.mesh,
+        row.kg_strategy,
+        row.mode_index,
+        row.rank_by_xi,
+        row.xi,
+        row.xi_exact,
+        row.xi_ratio,
+        row.log10_xi_ratio,
+        row.distance_to_exact,
+        row.k,
+        row.k_exact,
+        row.dominant_m,
+        row.dominant_n,
+        row.dominant_coeff_abs,
+    ]
+end
+
+function sine_basis_rayleigh_values(row)
+    return [
+        row.r,
+        row.mesh,
+        row.kg_strategy,
+        row.m,
+        row.n,
+        row.xi,
+        row.xi_exact,
+        row.xi_ratio,
+        row.log10_xi_ratio,
+        row.k,
+        row.k_exact,
+        row.k_error,
+        row.energy_K_total,
+        row.energy_KG_total,
+        row.rayleigh_xi,
+    ]
+end
+
 safe_ratio(numerator, denominator) = denominator == 0.0 ? NaN : numerator/denominator
 
 function build_psi_projection(r, kᵠᵠ)
@@ -479,6 +545,185 @@ function solve_kirchhoff_constraint_spectrum(Kc, KGc, r, k_exact, kg_strategy)
         energy_KG_total = energy_KG_total,
         rayleigh_xi = rayleigh_xi,
     )
+end
+
+function build_sine_basis(nodes, r)
+    nʷ = length(nodes)
+    a = r*b
+    basis_vectors = Vector{Vector{Float64}}()
+    labels = NamedTuple[]
+
+    for m in 1:sine_basis_mmax, n in 1:sine_basis_nmax
+        wᵗ = zeros(nʷ)
+        for xᵢ in nodes
+            wᵗ[xᵢ.𝐼] = sin(m*π*xᵢ.x/a)*sin(n*π*xᵢ.y/b)
+        end
+
+        v = zeros(3*nʷ)
+        for I in 1:nʷ
+            v[2*I-1] = -wᵗ[I]
+            v[2*I] = -wᵗ[I]
+            v[2*nʷ+I] = wᵗ[I]
+        end
+
+        v_norm = norm(v)
+        v_norm > 0.0 || continue
+        push!(basis_vectors, v ./ v_norm)
+        push!(labels, (m = m, n = n))
+    end
+
+    isempty(basis_vectors) && error("empty sine basis for a/b = $r")
+    return (
+        S = hcat(basis_vectors...),
+        labels = labels,
+    )
+end
+
+function dominant_sine_component(coefficients, labels)
+    idx = argmax(abs.(coefficients))
+    label = labels[idx]
+    return label.m, label.n, abs(coefficients[idx])
+end
+
+function solve_sine_basis_spectrum(K, KG, basis, labels, r, k_exact, kg_strategy)
+    S = basis.S
+    Ks = S' * K * S
+    KGs = S' * KG * S
+    F = eigen(Ks, KGs)
+    ξ_exact = exact_ξcr(k_exact)
+    candidates_raw = NamedTuple[]
+
+    for (i, ξᵢ) in pairs(F.values)
+        ξᵣ = real(ξᵢ)
+        ξᵢₘ = imag(ξᵢ)
+        if !(isfinite(ξᵣ) && isfinite(ξᵢₘ) && abs(ξᵢₘ) < eigen_imag_tol && ξᵣ > 0.0)
+            continue
+        end
+
+        mode = @view F.vectors[:, i]
+        dominant_m, dominant_n, dominant_coeff_abs = dominant_sine_component(mode, labels)
+        k = ξᵣ*b^2/(π^2*Dᵇ)
+        ξ_ratio = ξᵣ/ξ_exact
+        log10_ξ_ratio = log10(abs(ξ_ratio))
+        push!(candidates_raw, (
+            mode_index = i,
+            xi = ξᵣ,
+            k = k,
+            xi_ratio = ξ_ratio,
+            log10_xi_ratio = log10_ξ_ratio,
+            distance_to_exact = abs(log10_ξ_ratio),
+            dominant_m = dominant_m,
+            dominant_n = dominant_n,
+            dominant_coeff_abs = dominant_coeff_abs,
+        ))
+    end
+
+    sort!(candidates_raw, by = c -> c.xi)
+    isempty(candidates_raw) && error("no positive finite sine-basis eigenvalue found for a/b = $r, kg_strategy = $kg_strategy")
+
+    candidates = NamedTuple[]
+    for (rank_by_xi, candidate) in enumerate(candidates_raw)
+        push!(candidates, (
+            mode_index = candidate.mode_index,
+            rank_by_xi = rank_by_xi,
+            xi = candidate.xi,
+            k = candidate.k,
+            xi_ratio = candidate.xi_ratio,
+            log10_xi_ratio = candidate.log10_xi_ratio,
+            distance_to_exact = candidate.distance_to_exact,
+            dominant_m = candidate.dominant_m,
+            dominant_n = candidate.dominant_n,
+            dominant_coeff_abs = candidate.dominant_coeff_abs,
+        ))
+    end
+
+    selected = first(sort(candidates, by = c -> c.distance_to_exact))
+    selected_coefficients = @view F.vectors[:, selected.mode_index]
+    selected_vector = S * selected_coefficients
+    energy_K_total = real(dot(selected_vector, K*selected_vector))
+    energy_KG_total = real(dot(selected_vector, KG*selected_vector))
+    rayleigh_xi = safe_ratio(energy_K_total, energy_KG_total)
+    mesh_name = basename(mesh_file(r))
+
+    spectrum_rows = NamedTuple[]
+    for candidate in candidates
+        push!(spectrum_rows, (
+            r = r,
+            mesh = mesh_name,
+            kg_strategy = kg_strategy,
+            mode_index = candidate.mode_index,
+            rank_by_xi = candidate.rank_by_xi,
+            xi = candidate.xi,
+            xi_exact = ξ_exact,
+            xi_ratio = candidate.xi_ratio,
+            log10_xi_ratio = candidate.log10_xi_ratio,
+            distance_to_exact = candidate.distance_to_exact,
+            k = candidate.k,
+            k_exact = k_exact,
+            dominant_m = candidate.dominant_m,
+            dominant_n = candidate.dominant_n,
+            dominant_coeff_abs = candidate.dominant_coeff_abs,
+        ))
+    end
+
+    return (
+        selected = (
+            r = r,
+            mesh = mesh_name,
+            kg_strategy = kg_strategy,
+            mode_index = selected.mode_index,
+            rank_by_xi = selected.rank_by_xi,
+            xi = selected.xi,
+            xi_exact = ξ_exact,
+            xi_ratio = selected.xi_ratio,
+            log10_xi_ratio = selected.log10_xi_ratio,
+            k = selected.k,
+            k_exact = k_exact,
+            k_error = abs(selected.k-k_exact)/abs(k_exact),
+            σcr = selected.xi/h,
+            dominant_m = selected.dominant_m,
+            dominant_n = selected.dominant_n,
+            dominant_coeff_abs = selected.dominant_coeff_abs,
+            energy_K_total = energy_K_total,
+            energy_KG_total = energy_KG_total,
+            rayleigh_xi = rayleigh_xi,
+        ),
+        spectrum_rows = spectrum_rows,
+    )
+end
+
+function sine_basis_rayleigh_rows(K, KG, basis, labels, r, k_exact, kg_strategy)
+    ξ_exact = exact_ξcr(k_exact)
+    rows = NamedTuple[]
+
+    for (j, label) in enumerate(labels)
+        v = @view basis.S[:, j]
+        energy_K_total = real(dot(v, K*v))
+        energy_KG_total = real(dot(v, KG*v))
+        xi = safe_ratio(energy_K_total, energy_KG_total)
+        k = xi*b^2/(π^2*Dᵇ)
+        xi_ratio = safe_ratio(xi, ξ_exact)
+        log10_xi_ratio = log10(abs(xi_ratio))
+        push!(rows, (
+            r = r,
+            mesh = basename(mesh_file(r)),
+            kg_strategy = kg_strategy,
+            m = label.m,
+            n = label.n,
+            xi = xi,
+            xi_exact = ξ_exact,
+            xi_ratio = xi_ratio,
+            log10_xi_ratio = log10_xi_ratio,
+            k = k,
+            k_exact = k_exact,
+            k_error = abs(k-k_exact)/abs(k_exact),
+            energy_K_total = energy_K_total,
+            energy_KG_total = energy_KG_total,
+            rayleigh_xi = xi,
+        ))
+    end
+
+    return rows
 end
 
 function k_nullspace_diagnostics(r, kᵠᵠ, kᵠʷ, kʷʷ, nᵠ, nʷ)
@@ -739,6 +984,7 @@ function write_table_9_1_xlsx(
     filepath, rows, spectrum_rows, block_rows,
     kqq_nullspace_rows, k_nullspace_rows, selected_mode_energy_rows,
     projection_summary_rows, analytical_rayleigh_rows, kirchhoff_constraint_rows,
+    sine_basis_rows, sine_basis_spectrum_rows, sine_basis_rayleigh_rows_,
 )
     mkpath(dirname(filepath))
     table_headers = [
@@ -795,6 +1041,25 @@ function write_table_9_1_xlsx(
         "k", "k_exact", "k_error", "sigma_cr",
         "energy_K_total", "energy_KG_total", "rayleigh_xi",
     ]
+    sine_basis_headers = [
+        "a/b", "mesh", "kg_strategy", "mode_index", "rank_by_xi",
+        "xi", "xi_exact", "xi_ratio", "log10_xi_ratio",
+        "k", "k_exact", "k_error", "sigma_cr",
+        "dominant_m", "dominant_n", "dominant_coeff_abs",
+        "energy_K_total", "energy_KG_total", "rayleigh_xi",
+    ]
+    sine_basis_spectrum_headers = [
+        "a/b", "mesh", "kg_strategy", "mode_index", "rank_by_xi",
+        "xi", "xi_exact", "xi_ratio", "log10_xi_ratio",
+        "distance_to_exact", "k", "k_exact",
+        "dominant_m", "dominant_n", "dominant_coeff_abs",
+    ]
+    sine_basis_rayleigh_headers = [
+        "a/b", "mesh", "kg_strategy", "m", "n",
+        "xi", "xi_exact", "xi_ratio", "log10_xi_ratio",
+        "k", "k_exact", "k_error",
+        "energy_K_total", "energy_KG_total", "rayleigh_xi",
+    ]
 
     XLSX.openxlsx(filepath, mode="w") do xf
         sheet = xf[1]
@@ -839,6 +1104,27 @@ function write_table_9_1_xlsx(
             kirchhoff_sheet,
             kirchhoff_constraint_headers,
             kirchhoff_constraint_values.(kirchhoff_constraint_rows),
+        )
+
+        sine_basis_sheet = XLSX.addsheet!(xf, "SineBasis")
+        write_sheet_rows!(
+            sine_basis_sheet,
+            sine_basis_headers,
+            sine_basis_values.(sine_basis_rows),
+        )
+
+        sine_basis_spectrum_sheet = XLSX.addsheet!(xf, "SineBasisSpectrum")
+        write_sheet_rows!(
+            sine_basis_spectrum_sheet,
+            sine_basis_spectrum_headers,
+            sine_basis_spectrum_values.(sine_basis_spectrum_rows),
+        )
+
+        sine_basis_rayleigh_sheet = XLSX.addsheet!(xf, "SineBasisRayleigh")
+        write_sheet_rows!(
+            sine_basis_rayleigh_sheet,
+            sine_basis_rayleigh_headers,
+            sine_basis_rayleigh_values.(sine_basis_rayleigh_rows_),
         )
     end
 end
@@ -914,6 +1200,9 @@ function solve_table_9_1_case(r, k_exact)
     projection_summary = nothing
     analytical_rayleigh_rows = NamedTuple[]
     kirchhoff_constraint_rows = NamedTuple[]
+    sine_basis_rows = NamedTuple[]
+    sine_basis_spectrum_rows = NamedTuple[]
+    sine_basis_rayleigh_rows_ = NamedTuple[]
     @timeit to "solve buckling eigenvalue" begin
         nψ_dofs = 2*nᵠ
         K = [kᵠᵠ kᵠʷ;kᵠʷ' kʷʷ]
@@ -946,6 +1235,22 @@ function solve_table_9_1_case(r, k_exact)
             Kc, T_kirchhoff' * KG_ww_only * T_kirchhoff,
             r, k_exact, "kirchhoff_kgww_only",
         ))
+        sine_basis = build_sine_basis(nodes, r)
+        for sine_strategy in (
+            (kg_strategy = "sine_full_bui", KG = KG_full),
+            (kg_strategy = "sine_kgww_only", KG = KG_ww_only),
+        )
+            solved_sine = solve_sine_basis_spectrum(
+                K, sine_strategy.KG, sine_basis, sine_basis.labels,
+                r, k_exact, sine_strategy.kg_strategy,
+            )
+            push!(sine_basis_rows, solved_sine.selected)
+            append!(sine_basis_spectrum_rows, solved_sine.spectrum_rows)
+            append!(sine_basis_rayleigh_rows_, sine_basis_rayleigh_rows(
+                K, sine_strategy.KG, sine_basis, sine_basis.labels,
+                r, k_exact, sine_strategy.kg_strategy,
+            ))
+        end
         for strategy in (
             (
                 kg_strategy = "full_bui",
@@ -1011,7 +1316,17 @@ function solve_table_9_1_case(r, k_exact)
         end
     end
 
-    return nʷ, strategy_results, k_diag, projection_summary, analytical_rayleigh_rows, kirchhoff_constraint_rows
+    return (
+        nʷ,
+        strategy_results,
+        k_diag,
+        projection_summary,
+        analytical_rayleigh_rows,
+        kirchhoff_constraint_rows,
+        sine_basis_rows,
+        sine_basis_spectrum_rows,
+        sine_basis_rayleigh_rows_,
+    )
 end
 
 gmsh.initialize()
@@ -1028,6 +1343,9 @@ try
     projection_summary_results = []
     analytical_rayleigh_results = []
     kirchhoff_constraint_results = []
+    sine_basis_results = []
+    sine_basis_spectrum_results = []
+    sine_basis_rayleigh_results = []
     @printf("%7s %3s %18s %11s %14s %10s %10s %12s %12s %12s %14s %14s %14s %12s %8s\n",
         "a/b", "m", "msh", "kg_strategy", "selection", "mode", "rank", "ξcr", "ξ_exact",
         "ξ/ξex", "w_part", "k_num", "k_exact", "k_err", "nodes")
@@ -1037,12 +1355,25 @@ try
         k_exact, m_exact = exact_uniaxial_k(r)
         σcr_exact = exact_σcr(k_exact)
         ξ_exact = exact_ξcr(k_exact)
-        nnodes, strategy_rows, k_diag, projection_summary, analytical_rayleigh_rows, kirchhoff_constraint_rows = solve_table_9_1_case(r, k_exact)
+        (
+            nnodes,
+            strategy_rows,
+            k_diag,
+            projection_summary,
+            analytical_rayleigh_rows,
+            kirchhoff_constraint_rows,
+            sine_basis_rows,
+            sine_basis_spectrum_rows,
+            sine_basis_rayleigh_rows_,
+        ) = solve_table_9_1_case(r, k_exact)
         append!(kqq_nullspace_results, k_diag.kqq_rows)
         append!(k_nullspace_results, k_diag.k_rows)
         push!(projection_summary_results, projection_summary)
         append!(analytical_rayleigh_results, analytical_rayleigh_rows)
         append!(kirchhoff_constraint_results, kirchhoff_constraint_rows)
+        append!(sine_basis_results, sine_basis_rows)
+        append!(sine_basis_spectrum_results, sine_basis_spectrum_rows)
+        append!(sine_basis_rayleigh_results, sine_basis_rayleigh_rows_)
         if isapprox(r, 1.0; atol=1.0e-12)
             println("K-only nullspace diagnostics a/b=1.0:")
             @printf("  Kqq near-zero count = %d\n", k_diag.kqq_near_zero_count)
@@ -1053,6 +1384,12 @@ try
             for row in kirchhoff_constraint_rows
                 @printf("  %-23s ξ/ξex=%12.4e k=%14.10f k_exact=%14.10f rayleigh_xi=%12.6e\n",
                     row.kg_strategy, row.xi_ratio, row.k, row.k_exact, row.rayleigh_xi)
+            end
+            println("Sine-basis reduced diagnostics a/b=1.0:")
+            for row in sine_basis_rows
+                @printf("  %-16s ξ/ξex=%12.4e k=%14.10f k_exact=%14.10f dominant=(%d,%d) coeff=%12.6e\n",
+                    row.kg_strategy, row.xi_ratio, row.k, row.k_exact,
+                    row.dominant_m, row.dominant_n, row.dominant_coeff_abs)
             end
         end
         for strategy_row in strategy_rows
@@ -1110,6 +1447,7 @@ try
         output_xlsx, results, spectrum_results, block_results,
         kqq_nullspace_results, k_nullspace_results, selected_mode_energy_results,
         projection_summary_results, analytical_rayleigh_results, kirchhoff_constraint_results,
+        sine_basis_results, sine_basis_spectrum_results, sine_basis_rayleigh_results,
     )
     println("Excel output: ", output_xlsx)
 finally
