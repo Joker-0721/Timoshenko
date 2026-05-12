@@ -57,7 +57,7 @@ w(x,y,z) = 0.0
 σ₁₂(x,y,z) = 0.0
 
 const to = TimerOutput()
-const output_xlsx = normpath(joinpath(@__DIR__, "..", "results", "mindlin_uniaxial_ssss_table_9_1_projected_nullspace_diagnostic.xlsx"))
+const output_xlsx = normpath(joinpath(@__DIR__, "..", "results", "mindlin_uniaxial_ssss_table_9_1_analytical_rayleigh_diagnostic.xlsx"))
 const eigen_imag_tol = 1.0e-7
 const spectrum_first_positive_count = 40
 const spectrum_closest_exact_count = 10
@@ -235,6 +235,27 @@ function projection_summary_values(row)
     ]
 end
 
+function analytical_mode_rayleigh_values(row)
+    return [
+        row.r,
+        row.trial_name,
+        row.kg_strategy,
+        row.xi,
+        row.k,
+        row.k_exact,
+        row.k_ratio,
+        row.energy_kww,
+        row.energy_kqq,
+        row.energy_kqw,
+        row.energy_K_total,
+        row.energy_kgww,
+        row.energy_kgqq,
+        row.energy_KG_total,
+        row.psi_norm_ratio,
+        row.w_norm_ratio,
+    ]
+end
+
 safe_ratio(numerator, denominator) = denominator == 0.0 ? NaN : numerator/denominator
 
 function build_psi_projection(r, kᵠᵠ)
@@ -274,6 +295,95 @@ function project_matrices(kᵠᵠ, kᵠʷ, kgᵠᵠ, projection)
         kᵠʷ = Pψ' * kᵠʷ,
         kgᵠᵠ = Pψ' * kgᵠᵠ * Pψ,
     )
+end
+
+function analytical_rayleigh_row(
+    r, trial_name, kg_strategy, vᵠ, vʷ,
+    kʷʷ, kᵠᵠ, kᵠʷ, kgʷʷ, active_kgᵠᵠ,
+)
+    k_exact, _ = exact_uniaxial_k(r)
+    energy_kww = real(dot(vʷ, kʷʷ*vʷ))
+    energy_kqq = real(dot(vᵠ, kᵠᵠ*vᵠ))
+    energy_kqw = 2.0*real(dot(vᵠ, kᵠʷ*vʷ))
+    energy_K_total = energy_kww + energy_kqq + energy_kqw
+    energy_kgww = real(dot(vʷ, kgʷʷ*vʷ))
+    energy_kgqq = real(dot(vᵠ, active_kgᵠᵠ*vᵠ))
+    energy_KG_total = energy_kgww + energy_kgqq
+    xi = safe_ratio(energy_K_total, energy_KG_total)
+    k = xi*b^2/(π^2*Dᵇ)
+    mode_norm = sum(abs2, vᵠ) + sum(abs2, vʷ)
+
+    return (
+        r = r,
+        trial_name = trial_name,
+        kg_strategy = kg_strategy,
+        xi = xi,
+        k = k,
+        k_exact = k_exact,
+        k_ratio = safe_ratio(k, k_exact),
+        energy_kww = energy_kww,
+        energy_kqq = energy_kqq,
+        energy_kqw = energy_kqw,
+        energy_K_total = energy_K_total,
+        energy_kgww = energy_kgww,
+        energy_kgqq = energy_kgqq,
+        energy_KG_total = energy_KG_total,
+        psi_norm_ratio = safe_ratio(sum(abs2, vᵠ), mode_norm),
+        w_norm_ratio = safe_ratio(sum(abs2, vʷ), mode_norm),
+    )
+end
+
+function analytical_mode_rayleigh_diagnostics(
+    r, nodes, kʷʷ, kᵠᵠ, kᵠʷ, kgʷʷ, kgᵠᵠ, projection,
+)
+    isapprox(r, 1.0; atol=1.0e-12) || return NamedTuple[]
+
+    nʷ = length(nodes)
+    wᵗ = zeros(nʷ)
+    a = r*b
+    for xᵢ in nodes
+        wᵗ[xᵢ.𝐼] = sin(π*xᵢ.x/a)*sin(π*xᵢ.y/b)
+    end
+
+    projected = project_matrices(kᵠᵠ, kᵠʷ, kgᵠᵠ, projection)
+    zero_kgᵠᵠ = zeros(size(kᵠᵠ))
+    zero_kgᵠᵠ_projected = zeros(size(projected.kᵠᵠ))
+
+    rows = NamedTuple[]
+    for (trial_name, ψ_sign) in (
+        ("pure_w", 0.0),
+        ("psi_minus_w", -1.0),
+        ("psi_plus_w", 1.0),
+    )
+        ψ = zeros(2*nʷ)
+        if ψ_sign != 0.0
+            for xᵢ in nodes
+                I = xᵢ.𝐼
+                ψ[2*I-1] = ψ_sign*wᵗ[I]
+                ψ[2*I] = ψ_sign*wᵗ[I]
+            end
+        end
+        ψ_projected = projection.Pψ' * ψ
+
+        push!(rows, analytical_rayleigh_row(
+            r, trial_name, "full_bui", ψ, wᵗ,
+            kʷʷ, kᵠᵠ, kᵠʷ, kgʷʷ, kgᵠᵠ,
+        ))
+        push!(rows, analytical_rayleigh_row(
+            r, trial_name, "kgww_only", ψ, wᵗ,
+            kʷʷ, kᵠᵠ, kᵠʷ, kgʷʷ, zero_kgᵠᵠ,
+        ))
+        push!(rows, analytical_rayleigh_row(
+            r, trial_name, "projected_full_bui", ψ_projected, wᵗ,
+            kʷʷ, projected.kᵠᵠ, projected.kᵠʷ, kgʷʷ, projected.kgᵠᵠ,
+        ))
+        push!(rows, analytical_rayleigh_row(
+            r, trial_name, "projected_kgww_only", ψ_projected, wᵗ,
+            kʷʷ, projected.kᵠᵠ, projected.kᵠʷ, kgʷʷ, zero_kgᵠᵠ_projected,
+        ))
+    end
+
+    return rows
 end
 
 function k_nullspace_diagnostics(r, kᵠᵠ, kᵠʷ, kʷʷ, nᵠ, nʷ)
@@ -533,7 +643,7 @@ end
 function write_table_9_1_xlsx(
     filepath, rows, spectrum_rows, block_rows,
     kqq_nullspace_rows, k_nullspace_rows, selected_mode_energy_rows,
-    projection_summary_rows,
+    projection_summary_rows, analytical_rayleigh_rows,
 )
     mkpath(dirname(filepath))
     table_headers = [
@@ -578,6 +688,12 @@ function write_table_9_1_xlsx(
         "removed_psi_dofs", "projection_tol", "max_abs_lambda_kqq",
         "min_kept_lambda_ratio", "max_removed_lambda_ratio",
     ]
+    analytical_rayleigh_headers = [
+        "a/b", "trial_name", "kg_strategy", "xi", "k", "k_exact",
+        "k_ratio", "energy_kww", "energy_kqq", "energy_kqw",
+        "energy_K_total", "energy_kgww", "energy_kgqq",
+        "energy_KG_total", "psi_norm_ratio", "w_norm_ratio",
+    ]
 
     XLSX.openxlsx(filepath, mode="w") do xf
         sheet = xf[1]
@@ -608,6 +724,13 @@ function write_table_9_1_xlsx(
             projection_sheet,
             projection_summary_headers,
             projection_summary_values.(projection_summary_rows),
+        )
+
+        analytical_sheet = XLSX.addsheet!(xf, "AnalyticalModeRayleigh")
+        write_sheet_rows!(
+            analytical_sheet,
+            analytical_rayleigh_headers,
+            analytical_mode_rayleigh_values.(analytical_rayleigh_rows),
         )
     end
 end
@@ -681,6 +804,7 @@ function solve_table_9_1_case(r, k_exact)
     strategy_results = NamedTuple[]
     k_diag = nothing
     projection_summary = nothing
+    analytical_rayleigh_rows = NamedTuple[]
     @timeit to "solve buckling eigenvalue" begin
         nψ_dofs = 2*nᵠ
         K = [kᵠᵠ kᵠʷ;kᵠʷ' kʷʷ]
@@ -688,6 +812,9 @@ function solve_table_9_1_case(r, k_exact)
         projection = build_psi_projection(r, kᵠᵠ)
         projection_summary = projection.summary
         projected = project_matrices(kᵠᵠ, kᵠʷ, kgᵠᵠ, projection)
+        analytical_rayleigh_rows = analytical_mode_rayleigh_diagnostics(
+            r, nodes, kʷʷ, kᵠᵠ, kᵠʷ, kgʷʷ, kgᵠᵠ, projection,
+        )
         nψ_projected = size(projected.kᵠᵠ, 1)
         K_projected = [projected.kᵠᵠ projected.kᵠʷ;projected.kᵠʷ' kʷʷ]
         zero_kgᵠᵠ = zeros(nψ_dofs,nψ_dofs)
@@ -757,7 +884,7 @@ function solve_table_9_1_case(r, k_exact)
         end
     end
 
-    return nʷ, strategy_results, k_diag, projection_summary
+    return nʷ, strategy_results, k_diag, projection_summary, analytical_rayleigh_rows
 end
 
 gmsh.initialize()
@@ -772,6 +899,7 @@ try
     k_nullspace_results = []
     selected_mode_energy_results = []
     projection_summary_results = []
+    analytical_rayleigh_results = []
     @printf("%7s %3s %18s %11s %14s %10s %10s %12s %12s %12s %14s %14s %14s %12s %8s\n",
         "a/b", "m", "msh", "kg_strategy", "selection", "mode", "rank", "ξcr", "ξ_exact",
         "ξ/ξex", "w_part", "k_num", "k_exact", "k_err", "nodes")
@@ -781,10 +909,11 @@ try
         k_exact, m_exact = exact_uniaxial_k(r)
         σcr_exact = exact_σcr(k_exact)
         ξ_exact = exact_ξcr(k_exact)
-        nnodes, strategy_rows, k_diag, projection_summary = solve_table_9_1_case(r, k_exact)
+        nnodes, strategy_rows, k_diag, projection_summary, analytical_rayleigh_rows = solve_table_9_1_case(r, k_exact)
         append!(kqq_nullspace_results, k_diag.kqq_rows)
         append!(k_nullspace_results, k_diag.k_rows)
         push!(projection_summary_results, projection_summary)
+        append!(analytical_rayleigh_results, analytical_rayleigh_rows)
         if isapprox(r, 1.0; atol=1.0e-12)
             println("K-only nullspace diagnostics a/b=1.0:")
             @printf("  Kqq near-zero count = %d\n", k_diag.kqq_near_zero_count)
@@ -846,7 +975,7 @@ try
     write_table_9_1_xlsx(
         output_xlsx, results, spectrum_results, block_results,
         kqq_nullspace_results, k_nullspace_results, selected_mode_energy_results,
-        projection_summary_results,
+        projection_summary_results, analytical_rayleigh_results,
     )
     println("Excel output: ", output_xlsx)
 finally
