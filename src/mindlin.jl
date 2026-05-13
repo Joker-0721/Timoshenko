@@ -25,7 +25,7 @@ const to = TimerOutput()
 
 gmsh.initialize()
 integrationOrder = 2
-@timeit to "open msh file" gmsh.open("./msh/patchtest_quad4_2.msh")
+@timeit to "open msh file" gmsh.open("./msh/patchtest_quad4_16.msh")
 @timeit to "get entities" entities = getPhysicalGroups()
 @timeit to "get nodes" nodes = get𝑿ᵢ()
 
