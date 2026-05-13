@@ -1,7 +1,6 @@
 using ApproxOperator
-import ApproxOperator: Tri3toTri6!, Seg2toSeg3!
 import ApproxOperator.GmshImport: getPhysicalGroups, get𝑿ᵢ, getElements
-import ApproxOperator.MindlinPlate: ∫wwGdΩ2D, ∫κκdΩBui, ∫wwdΩ, ∫ψψdΩBui, ∫ψwdΩBui, ∫ψxψxGdΩ2DBui, ∫ψyψyGdΩ2DBui, ∫αwwdΓ
+import ApproxOperator.MindlinPlate: ∫κκdΩ, ∫wwdΩ, ∫∇wσ∇wdΩ, ∫∇φσ∇φdΩ, ∫αwwdΓ
 
 using LinearAlgebra
 using Printf
