@@ -4,6 +4,7 @@ import ApproxOperator.MindlinPlate: ∫κκdΩ, ∫wwdΩ, ∫φwdΩ, ∫φφdΩ,
 
 using LinearAlgebra
 using TimerOutputs
+using WriteVTK
 import Gmsh: gmsh
 
 E = 200e9
@@ -24,7 +25,7 @@ const to = TimerOutput()
 
 gmsh.initialize()
 integrationOrder = 2
-@timeit to "open msh file" gmsh.open("./msh/bui_2011_square_17x17.msh")
+@timeit to "open msh file" gmsh.open("./msh/patchtest_quad4_2.msh")
 @timeit to "get entities" entities = getPhysicalGroups()
 @timeit to "get nodes" nodes = get𝑿ᵢ()
 
@@ -55,6 +56,8 @@ kᴳᵠᵠ = zeros(2*nᵠ,2*nᵠ)
     𝑎ᴳᵠᵠ = ∫∇φσ∇φdΩ=>elements
     @timeit to "assemble" 𝑎ᴳʷʷ(kᴳʷʷ)
     @timeit to "assemble" 𝑎ᴳᵠᵠ(kᴳᵠᵠ)
+
+    global elements_domain = elements
 end
 
 @timeit to "calculate ∫αwwdΓ" begin
@@ -83,11 +86,22 @@ end
     ]
     Keff = kʷʷ - kᵠʷ'*(kᵠᵠ\kᵠʷ)
     # λ = eigvals(Keff, kᴳʷʷ)
-    λ = eigvals(K, Kᴳ)
+    F = eigen(K, Kᴳ)
+    λ = F.values
+    V = F.vectors
+
+    mode_ids = sort!(
+        collect(i for i in eachindex(λ)
+            if isfinite(real(λ[i])) &&
+               isfinite(imag(λ[i])) &&
+               abs(imag(λ[i])) < 1.0e-7 &&
+               real(λ[i]) > 0.0),
+        by = i -> real(λ[i]),
+    )
+    isempty(mode_ids) && error("no positive finite buckling eigenvalue found")
+
     println(λ)
-    λ_positive = sort!(collect(real(λᵢ) for λᵢ in λ if isfinite(real(λᵢ)) && isfinite(imag(λᵢ)) && abs(imag(λᵢ)) < 1.0e-7 && real(λᵢ) > 0.0))
-    isempty(λ_positive) && error("no positive finite buckling eigenvalue found")
-    λcr = first(λ_positive)
+    λcr = real(λ[first(mode_ids)])
     k_num = λcr*b^2/(π^2*Dᵇ)
     rel_error = abs(k_num - k_exact)/abs(k_exact)
 end
@@ -103,3 +117,31 @@ println("k_exact: ", k_exact)
 println("rel_error: ", rel_error)
 
 
+
+cells = [MeshCell(VTKCellTypes.VTK_QUAD, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
+
+for mode_rank in 1:4
+    mode_id = mode_ids[mode_rank]
+    d = real.(V[:, mode_id])
+    push!(nodes, :d => d[2*nᵠ+1:end], :d₁ => d[1:2:2*nᵠ], :d₂ => d[2:2:2*nᵠ])
+
+    nₚ = length(nodes)
+    points = zeros(3,nₚ)
+    for (i,node) in enumerate(nodes)
+        points[1,i] = node.x
+        points[2,i] = node.y
+        points[3,i] = node.d
+        # points[3,i] = us[i]*4
+    end
+
+    vtk_grid("./vtk/mindlin_mode_$(lpad(mode_rank, 2, '0')).vtu", points, cells;
+             ascii=true, append=false, compress=false) do vtk
+
+        # 挠度 w
+        vtk["w"] = [node.d for node in nodes]
+        # 转角 φ₁
+        vtk["phi_1"] = [node.d₁ for node in nodes]
+        # 转角 φ₂  
+        vtk["phi_2"] = [node.d₂ for node in nodes]
+    end
+end

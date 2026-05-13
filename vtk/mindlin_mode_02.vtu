@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VTKFile type="UnstructuredGrid" version="1.0" byte_order="LittleEndian" header_type="UInt64">
+  <UnstructuredGrid>
+    <Piece NumberOfPoints="9" NumberOfCells="4">
+      <Points>
+        <DataArray type="Float64" Name="Points" NumberOfComponents="3" format="ascii">
+ 0.0 0.0 1.0 1.0 0.0 0.9194025697328312 1.0 1.0 0.4992619710261718 0.0 1.0 0.57985930180056 0.4999999999986921 0.0 0.9597012791238749 1.0 0.4999999999986921 0.7093322880672507 0.5000000000020595 1.0 0.5395606627926685 0.0 0.5000000000020595 0.789929679457179 0.5000000000003758 0.5000000000003758 0.7496309702537413
+</DataArray>
+      </Points>
+      <Cells>
+        <DataArray type="Int64" Name="connectivity" NumberOfComponents="1" format="ascii">
+ 0 4 8 7 7 8 6 3 4 1 5 8 8 5 2 6
+</DataArray>
+        <DataArray type="Int64" Name="offsets" NumberOfComponents="1" format="ascii">
+ 4 8 12 16
+</DataArray>
+        <DataArray type="UInt8" Name="types" NumberOfComponents="1" format="ascii">
+ 9 9 9 9
+</DataArray>
+      </Cells>
+      <PointData>
+        <DataArray type="Float64" Name="w" NumberOfComponents="1" format="ascii">
+ 1.0 0.9194025697328312 0.4992619710261718 0.57985930180056 0.9597012791238749 0.7093322880672507 0.5395606627926685 0.789929679457179 0.7496309702537413
+</DataArray>
+        <DataArray type="Float64" Name="phi_1" NumberOfComponents="1" format="ascii">
+ -0.08059741955432206 -0.08059746241357624 -0.08059732258965471 -0.08059735363969475 -0.0805974539531184 -0.08059740851613638 -0.08059741048109138 -0.08059743458057553 -0.08059740963267402
+</DataArray>
+        <DataArray type="Float64" Name="phi_2" NumberOfComponents="1" format="ascii">
+ -0.4201406723599448 -0.4201407193415406 -0.42014083606921815 -0.42014077311433884 -0.4201405685926341 -0.4201406199391283 -0.42014061621290816 -0.4201407028846557 -0.4201406539221965
+</DataArray>
+      </PointData>
+    </Piece>
+  </UnstructuredGrid>
+</VTKFile>
