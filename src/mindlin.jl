@@ -99,6 +99,7 @@ end
         by = i -> real(λ[i]),
     )
     isempty(mode_ids) && error("no positive finite buckling eigenvalue found")
+    sort!(mode_ids, by = i -> abs(real(λ[i])*b^2/(π^2*Dᵇ) - k_exact))
 
     println(λ)
     λcr = real(λ[first(mode_ids)])
