@@ -1,0 +1,197 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=18mm]{geometry}
+\usepackage{fontspec}
+\usepackage{xeCJK}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{caption}
+\usepackage{fancyhdr}
+
+\setmainfont{Times New Roman}
+\setCJKmainfont{Microsoft JhengHei}
+\hypersetup{colorlinks=true, linkcolor=black, urlcolor=blue}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Mindlin 板屈曲模態測試}
+\rhead{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\captionsetup{font=small, labelfont=bf}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.55em}
+
+\graphicspath{{../../vtk/}}
+
+\title{\textbf{Mindlin 板屈曲模態與網格比較}\\[0.35em]
+\large Q4 與 T3 元素之模態圖整理}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{模型與測試摘要}
+
+本報告整理 Mindlin 板屈曲算例中，四節點四邊形元素（Q4）與三節點三角形元素（T3）所得之模態圖。圖中 M1--M4 表示輸出的四個候選模態，色階為正規化後的橫向位移 $w$。
+
+\begin{table}[H]
+\centering
+\caption{模型參數與靜力一致性測試}
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.28\textwidth}p{0.62\textwidth}}
+\toprule
+項目 & 數值或說明 \\
+\midrule
+材料與幾何參數 & $E=200\times 10^9$, $\nu=0.3$, $h=1.0$, $a=b=1.0$ \\
+彎曲剛度 & $D^b = Eh^3/[12(1-\nu^2)]$ \\
+理論屈曲係數 & $k_{\mathrm{exact}}=4.0$ \\
+測試網格 & $16\times16$ \\
+靜力測試載重參數 & $\lambda_{\mathrm{test}}=7.230479\times10^{10}$ \\
+相對誤差 & $\|d-d_{\mathrm{exact}}\|/\|d_{\mathrm{exact}}\|=1.198424\times10^{-14}$ \\
+$w$ 相對誤差 & $4.326165\times10^{-15}$ \\
+$\phi$ 相對誤差 & $1.221666\times10^{-14}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+靜力一致性測試結果接近雙精度機器誤差，表示目前離散矩陣拼接、自由度排列以及 $w,\phi_1,\phi_2$ 的輸出映射在代數層面是自洽的。後續模態圖中的震盪現象，較可能與元素型式、模態篩選方式、幾何剛度矩陣之奇異性或鎖定效應有關。
+
+\clearpage
+
+\section{Q4 元素模態圖}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{m1x_q4.png}
+  \caption{M1\_Q4}
+\end{subfigure}\hfill
+\begin{subfigure}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{m2x_q4.png}
+  \caption{M2\_Q4}
+\end{subfigure}
+
+\vspace{0.8em}
+
+\begin{subfigure}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{m3x_q4.png}
+  \caption{M3\_Q4}
+\end{subfigure}\hfill
+\begin{subfigure}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{m4x_q4.png}
+  \caption{M4\_Q4}
+\end{subfigure}
+\caption{Q4 元素所得 M1--M4 模態圖。}
+\end{figure}
+
+\clearpage
+
+\section{T3 元素模態圖}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{m1x_t3.png}
+  \caption{M1\_T3}
+\end{subfigure}\hfill
+\begin{subfigure}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{m2x_t3.png}
+  \caption{M2\_T3}
+\end{subfigure}
+
+\vspace{0.8em}
+
+\begin{subfigure}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{m3x_t3.png}
+  \caption{M3\_T3}
+\end{subfigure}\hfill
+\begin{subfigure}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{m4x_t3.png}
+  \caption{M4\_T3}
+\end{subfigure}
+\caption{T3 元素所得 M1--M4 模態圖。}
+\end{figure}
+
+\clearpage
+
+\section{同一模態下 Q4 與 T3 對照}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{m1x_q4.png}
+  \caption{M1\_Q4}
+\end{subfigure}\hfill
+\begin{subfigure}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{m1x_t3.png}
+  \caption{M1\_T3}
+\end{subfigure}
+\caption{M1 模態之 Q4 與 T3 對照。}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{m2x_q4.png}
+  \caption{M2\_Q4}
+\end{subfigure}\hfill
+\begin{subfigure}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{m2x_t3.png}
+  \caption{M2\_T3}
+\end{subfigure}
+\caption{M2 模態之 Q4 與 T3 對照。}
+\end{figure}
+
+\clearpage
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{m3x_q4.png}
+  \caption{M3\_Q4}
+\end{subfigure}\hfill
+\begin{subfigure}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{m3x_t3.png}
+  \caption{M3\_T3}
+\end{subfigure}
+\caption{M3 模態之 Q4 與 T3 對照。}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{m4x_q4.png}
+  \caption{M4\_Q4}
+\end{subfigure}\hfill
+\begin{subfigure}{0.48\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{m4x_t3.png}
+  \caption{M4\_T3}
+\end{subfigure}
+\caption{M4 模態之 Q4 與 T3 對照。}
+\end{figure}
+
+\section{初步觀察}
+
+由圖可見，部分候選模態具有明顯局部震盪與鋸齒狀變形，顯示僅以 $k$ 值接近 $k_{\mathrm{exact}}$ 作為模態篩選條件並不足夠。後續可加入模態形狀判斷，例如與 $\sin(m\pi x/a)\sin(n\pi y/b)$ 的相關性比較，以排除高頻或轉角主導的數值模態。
+
+\end{document}

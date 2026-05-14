@@ -42,13 +42,19 @@ kᴳᵠᵠ = zeros(2*nᵠ,2*nᵠ)
 @timeit to "calculate ∫κκdΩ, ∫wwdΩ, ∫φφdΩ, ∫wφdΩ" begin
     @timeit to "get elements" elements = getElements(nodes, entities["Ω"],integrationOrder)
     @timeit to "get shear elements" elements_s = getElements(nodes, entities["Ω"],integrationOrder_shear)
+    @timeit to "get shear elements" elements_s = getElements(nodes, entities["Ω"],integrationOrder_shear)
     prescribe!(elements, :E=>E, :ν=>ν, :h=>h)
+    prescribe!(elements_s, :E=>E, :ν=>ν, :h=>h)
     prescribe!(elements_s, :E=>E, :ν=>ν, :h=>h)
     @timeit to "calculate shape functions" set∇𝝭!(elements)
     @timeit to "calculate shear shape functions" set∇𝝭!(elements_s)
     𝑎ʷʷ = ∫wwdΩ=>elements_s
     𝑎ᵠʷ = ∫φwdΩ=>elements_s
+    @timeit to "calculate shear shape functions" set∇𝝭!(elements_s)
+    𝑎ʷʷ = ∫wwdΩ=>elements_s
+    𝑎ᵠʷ = ∫φwdΩ=>elements_s
     𝑎ᵠᵠ = [
+        ∫φφdΩ=>elements_s,
         ∫φφdΩ=>elements_s,
         ∫κκdΩ=>elements,
     ]
@@ -63,6 +69,7 @@ kᴳᵠᵠ = zeros(2*nᵠ,2*nᵠ)
     @timeit to "assemble" 𝑎ᴳᵠᵠ(kᴳᵠᵠ)
 
     global elements_domain = elements
+    global elements_shear = elements_s
     global elements_shear = elements_s
 end
 

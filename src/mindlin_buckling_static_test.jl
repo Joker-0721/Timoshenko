@@ -27,9 +27,9 @@ k_exact = 4.0
 λtest = 0.1*λ_exact
 α = 1e8*E
 
-σ₁₁ = 1.0
-σ₂₂ = 0.0
-σ₁₂ = 0.0
+σ₁₁(x, y, z) = 1.0
+σ₂₂(x, y, z) = 0.0
+σ₁₂(x, y, z) = 0.0
 
 w_exact(x, y, z) = sin(π*x/a)*sin(π*y/b)
 φ₁_exact(x, y, z) = -(π/a)*cos(π*x/a)*sin(π*y/b)
