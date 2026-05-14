@@ -25,7 +25,7 @@ const to = TimerOutput()
 
 gmsh.initialize()
 integrationOrder = 2
-@timeit to "open msh file" gmsh.open("./msh/patchtest_quad4_16.msh")
+@timeit to "open msh file" gmsh.open("./msh/bui_2011_square_17x17.msh")
 @timeit to "get entities" entities = getPhysicalGroups()
 @timeit to "get nodes" nodes = get𝑿ᵢ()
 
@@ -118,8 +118,8 @@ println("k_exact: ", k_exact)
 println("rel_error: ", rel_error)
 
 
-
-cells = [MeshCell(VTKCellTypes.VTK_QUAD, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
+cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
+# cells = [MeshCell(VTKCellTypes.VTK_QUAD, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
 
 for mode_rank in 1:4
     mode_id = mode_ids[mode_rank]
