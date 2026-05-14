@@ -24,10 +24,10 @@ w = 0.0
 const to = TimerOutput()
 
 gmsh.initialize()
-integrationOrder = 2
-integrationOrder_shear = 1
-# @timeit to "open msh file" gmsh.open("./msh/patchtest_quad4_16.msh")
-@timeit to "open msh file" gmsh.open("./msh/bui_2011_square_17x17.msh")
+integrationOrder = 3
+integrationOrder_shear = 2
+@timeit to "open msh file" gmsh.open("./msh/patchtest_quad4_16.msh")
+# @timeit to "open msh file" gmsh.open("./msh/bui_2011_square_17x17.msh")
 @timeit to "get entities" entities = getPhysicalGroups()
 @timeit to "get nodes" nodes = get𝑿ᵢ()
 
@@ -81,7 +81,7 @@ end
     @timeit to "calculate shape functions" set𝝭!(elements_4)
     𝑎ʷ = ∫αwwdΓ=>elements_1∪elements_2∪elements_3∪elements_4
     @timeit to "assemble" 𝑎ʷ(kʷʷ)
-    @timeit to "assemble" 𝑎ʷ(kᴳʷʷ)
+    # @timeit to "assemble" 𝑎ʷ(kᴳʷʷ)
 end
 
 @timeit to "solve buckling eigenvalue" begin
@@ -124,8 +124,8 @@ println("k_exact: ", k_exact)
 println("rel_error: ", rel_error)
 
 
-cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
-# cells = [MeshCell(VTKCellTypes.VTK_QUAD, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
+# cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
+cells = [MeshCell(VTKCellTypes.VTK_QUAD, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
 
 for mode_rank in 1:4
     mode_id = mode_ids[mode_rank]
@@ -141,8 +141,8 @@ for mode_rank in 1:4
         # points[3,i] = us[i]*4
     end
 
-    # vtk_grid("./vtk/mindlin_Q4int_mode_$(lpad(mode_rank, 2, '0')).vtu", points, cells;
-    vtk_grid("./vtk/mindlin_T3int_mode_$(lpad(mode_rank, 2, '0')).vtu", points, cells;
+    vtk_grid("./vtk/mindlin_Q4int_mode_$(lpad(mode_rank, 2, '0')).vtu", points, cells;
+    # vtk_grid("./vtk/mindlin_T3_mode_$(lpad(mode_rank, 2, '0')).vtu", points, cells;
              ascii=true, append=false, compress=false) do vtk
 
         # 挠度 w
