@@ -24,7 +24,8 @@ w = 0.0
 const to = TimerOutput()
 
 gmsh.initialize()
-integrationOrder = 2
+integrationOrder = 3
+integrationOrder_shear = 2
 @timeit to "open msh file" gmsh.open("./msh/patchtest_quad4_16.msh")
 # @timeit to "open msh file" gmsh.open("./msh/bui_2011_square_17x17.msh")
 @timeit to "get entities" entities = getPhysicalGroups()
@@ -40,12 +41,15 @@ kᴳᵠᵠ = zeros(2*nᵠ,2*nᵠ)
 
 @timeit to "calculate ∫κκdΩ, ∫wwdΩ, ∫φφdΩ, ∫wφdΩ" begin
     @timeit to "get elements" elements = getElements(nodes, entities["Ω"],integrationOrder)
+    @timeit to "get shear elements" elements_s = getElements(nodes, entities["Ω"],integrationOrder_shear)
     prescribe!(elements, :E=>E, :ν=>ν, :h=>h)
+    prescribe!(elements_s, :E=>E, :ν=>ν, :h=>h)
     @timeit to "calculate shape functions" set∇𝝭!(elements)
-    𝑎ʷʷ = ∫wwdΩ=>elements
-    𝑎ᵠʷ = ∫φwdΩ=>elements
+    @timeit to "calculate shear shape functions" set∇𝝭!(elements_s)
+    𝑎ʷʷ = ∫wwdΩ=>elements_s
+    𝑎ᵠʷ = ∫φwdΩ=>elements_s
     𝑎ᵠᵠ = [
-        ∫φφdΩ=>elements,
+        ∫φφdΩ=>elements_s,
         ∫κκdΩ=>elements,
     ]
     @timeit to "assemble" 𝑎ʷʷ(kʷʷ)
@@ -59,6 +63,7 @@ kᴳᵠᵠ = zeros(2*nᵠ,2*nᵠ)
     @timeit to "assemble" 𝑎ᴳᵠᵠ(kᴳᵠᵠ)
 
     global elements_domain = elements
+    global elements_shear = elements_s
 end
 
 @timeit to "calculate ∫αwwdΓ" begin
