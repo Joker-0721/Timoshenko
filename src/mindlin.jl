@@ -25,8 +25,9 @@ const to = TimerOutput()
 
 gmsh.initialize()
 integrationOrder = 2
-@timeit to "open msh file" gmsh.open("./msh/patchtest_quad4_16.msh")
-# @timeit to "open msh file" gmsh.open("./msh/bui_2011_square_17x17.msh")
+integrationOrder_shear = 1
+# @timeit to "open msh file" gmsh.open("./msh/patchtest_quad4_16.msh")
+@timeit to "open msh file" gmsh.open("./msh/bui_2011_square_17x17.msh")
 @timeit to "get entities" entities = getPhysicalGroups()
 @timeit to "get nodes" nodes = get𝑿ᵢ()
 
@@ -40,12 +41,15 @@ kᴳᵠᵠ = zeros(2*nᵠ,2*nᵠ)
 
 @timeit to "calculate ∫κκdΩ, ∫wwdΩ, ∫φφdΩ, ∫wφdΩ" begin
     @timeit to "get elements" elements = getElements(nodes, entities["Ω"],integrationOrder)
+    @timeit to "get shear elements" elements_s = getElements(nodes, entities["Ω"],integrationOrder_shear)
     prescribe!(elements, :E=>E, :ν=>ν, :h=>h)
+    prescribe!(elements_s, :E=>E, :ν=>ν, :h=>h)
     @timeit to "calculate shape functions" set∇𝝭!(elements)
-    𝑎ʷʷ = ∫wwdΩ=>elements
-    𝑎ᵠʷ = ∫φwdΩ=>elements
+    @timeit to "calculate shear shape functions" set∇𝝭!(elements_s)
+    𝑎ʷʷ = ∫wwdΩ=>elements_s
+    𝑎ᵠʷ = ∫φwdΩ=>elements_s
     𝑎ᵠᵠ = [
-        ∫φφdΩ=>elements,
+        ∫φφdΩ=>elements_s,
         ∫κκdΩ=>elements,
     ]
     @timeit to "assemble" 𝑎ʷʷ(kʷʷ)
@@ -59,6 +63,7 @@ kᴳᵠᵠ = zeros(2*nᵠ,2*nᵠ)
     @timeit to "assemble" 𝑎ᴳᵠᵠ(kᴳᵠᵠ)
 
     global elements_domain = elements
+    global elements_shear = elements_s
 end
 
 @timeit to "calculate ∫αwwdΓ" begin
@@ -119,8 +124,8 @@ println("k_exact: ", k_exact)
 println("rel_error: ", rel_error)
 
 
-# cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
-cells = [MeshCell(VTKCellTypes.VTK_QUAD, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
+cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
+# cells = [MeshCell(VTKCellTypes.VTK_QUAD, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
 
 for mode_rank in 1:4
     mode_id = mode_ids[mode_rank]
@@ -136,7 +141,8 @@ for mode_rank in 1:4
         # points[3,i] = us[i]*4
     end
 
-    vtk_grid("./vtk/mindlin_mode_$(lpad(mode_rank, 2, '0')).vtu", points, cells;
+    # vtk_grid("./vtk/mindlin_Q4int_mode_$(lpad(mode_rank, 2, '0')).vtu", points, cells;
+    vtk_grid("./vtk/mindlin_T3int_mode_$(lpad(mode_rank, 2, '0')).vtu", points, cells;
              ascii=true, append=false, compress=false) do vtk
 
         # 挠度 w
