@@ -16,7 +16,6 @@ Dᵇ = E*h^3/12/(1-ν^2)
 k_exact = 4.0
 λcr_exact = k_exact*π^2*Dᵇ/b^2
 
-w = 0.0
 σ₁₁ = 1.0
 σ₂₂ = 0.0
 σ₁₂ = 0.0
@@ -26,7 +25,7 @@ const to = TimerOutput()
 gmsh.initialize()
 integrationOrder = 3
 integrationOrder_shear = 2
-@timeit to "open msh file" gmsh.open("./msh/patchtest_quad4_16.msh")
+@timeit to "open msh file" gmsh.open("./msh/patchtest_quad4_2.msh")
 # @timeit to "open msh file" gmsh.open("./msh/bui_2011_square_17x17.msh")
 @timeit to "get entities" entities = getPhysicalGroups()
 @timeit to "get nodes" nodes = get𝑿ᵢ()
@@ -78,10 +77,10 @@ end
     @timeit to "get elements" elements_2 = getElements(nodes, entities["Γ²"],integrationOrder)
     @timeit to "get elements" elements_3 = getElements(nodes, entities["Γ³"],integrationOrder)
     @timeit to "get elements" elements_4 = getElements(nodes, entities["Γ⁴"],integrationOrder)
-    prescribe!(elements_1, :α=>1e8*E, :g=>w)
-    prescribe!(elements_2, :α=>1e8*E, :g=>w)
-    prescribe!(elements_3, :α=>1e8*E, :g=>w)
-    prescribe!(elements_4, :α=>1e8*E, :g=>w)
+    prescribe!(elements_1, :α=>1e8*E, :g=>0.0)
+    prescribe!(elements_2, :α=>1e8*E, :g=>0.0)
+    prescribe!(elements_3, :α=>1e8*E, :g=>0.0)
+    prescribe!(elements_4, :α=>1e8*E, :g=>0.0)
     @timeit to "calculate shape functions" set𝝭!(elements_1)
     @timeit to "calculate shape functions" set𝝭!(elements_2)
     @timeit to "calculate shape functions" set𝝭!(elements_3)
@@ -134,29 +133,29 @@ println("rel_error: ", rel_error)
 # cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
 cells = [MeshCell(VTKCellTypes.VTK_QUAD, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
 
-for mode_rank in 1:4
-    mode_id = mode_ids[mode_rank]
-    d = real.(V[:, mode_id])
-    push!(nodes, :d => d[2*nᵠ+1:end], :d₁ => d[1:2:2*nᵠ], :d₂ => d[2:2:2*nᵠ])
+nₚ = length(nodes)
+points = zeros(3,nₚ)
+for (i,node) in enumerate(nodes)
+    points[1,i] = node.x
+    points[2,i] = node.y
+    points[3,i] = 0.0
+end
 
-    nₚ = length(nodes)
-    points = zeros(3,nₚ)
-    for (i,node) in enumerate(nodes)
-        points[1,i] = node.x
-        points[2,i] = node.y
-        points[3,i] = node.d
-        # points[3,i] = us[i]*4
-    end
+vtk_grid("./vtk/mindlin_Q4int_modes.vtu", points, cells;
+# vtk_grid("./vtk/mindlin_T3_modes.vtu", points, cells;
+         ascii=true, append=false, compress=false) do vtk
 
-    vtk_grid("./vtk/mindlin_Q4int_mode_$(lpad(mode_rank, 2, '0')).vtu", points, cells;
-    # vtk_grid("./vtk/mindlin_T3_mode_$(lpad(mode_rank, 2, '0')).vtu", points, cells;
-             ascii=true, append=false, compress=false) do vtk
+    for (mode_rank, mode_id) in enumerate(mode_ids)
+        dm = real.(V[:, mode_id])
+        w = dm[2*nᵠ+1:end]
+        phi_1 = dm[1:2:2*nᵠ]
+        phi_2 = dm[2:2:2*nᵠ]
 
         # 挠度 w
-        vtk["w"] = [node.d for node in nodes]
+        vtk["w$(mode_rank)"] = w
         # 转角 φ₁
-        vtk["phi_1"] = [node.d₁ for node in nodes]
-        # 转角 φ₂  
-        vtk["phi_2"] = [node.d₂ for node in nodes]
+        vtk["phi_1_$(mode_rank)"] = phi_1
+        # 转角 φ₂
+        vtk["phi_2_$(mode_rank)"] = phi_2
     end
 end
