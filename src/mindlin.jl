@@ -80,7 +80,7 @@ end
     @timeit to "calculate shape functions" set𝝭!(elements_4)
     𝑎ʷ = ∫αwwdΓ=>elements_1∪elements_2∪elements_3∪elements_4
     @timeit to "assemble" 𝑎ʷ(kʷʷ)
-    # @timeit to "assemble" 𝑎ʷ(kᴳʷʷ)
+    @timeit to "assemble" 𝑎ʷ(kᴳʷʷ)
 end
 
 @timeit to "solve buckling eigenvalue" begin
