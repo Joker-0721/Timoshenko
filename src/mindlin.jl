@@ -122,6 +122,75 @@ println("k_num: ", k_num)
 println("k_exact: ", k_exact)
 println("rel_error: ", rel_error)
 
+function write_eigen_check(filepath, K, Kᴳ, λ, V, mode_ids)
+    mkpath(dirname(filepath))
+    open(filepath, "w") do io
+        println(io, join([
+            "mode_rank",
+            "eigen_index",
+            "lambda_real",
+            "lambda_imag",
+            "lambda_isfinite",
+            "lambda_isinf",
+            "lambda_isnan",
+            "vector_isfinite",
+            "norm_v",
+            "norm_Kv",
+            "norm_KGv",
+            "residual_norm",
+            "relative_residual",
+            "KGv_over_v",
+            "selected_positive_mode",
+        ], ","))
+
+        selected = Set(mode_ids)
+        for (mode_rank, mode_id) in enumerate(eachindex(λ))
+            λᵢ = λ[mode_id]
+            vᵢ = V[:, mode_id]
+            Kv = K*vᵢ
+            Kᴳv = Kᴳ*vᵢ
+            λ_finite = isfinite(real(λᵢ)) && isfinite(imag(λᵢ))
+            v_finite = all(isfinite, real.(vᵢ)) && all(isfinite, imag.(vᵢ))
+            norm_v = norm(vᵢ)
+            norm_Kv = norm(Kv)
+            norm_Kᴳv = norm(Kᴳv)
+
+            if λ_finite && v_finite
+                residual = Kv - λᵢ*Kᴳv
+                residual_norm = norm(residual)
+                denominator = max(norm_Kv, abs(λᵢ)*norm_Kᴳv, eps(Float64))
+                relative_residual = residual_norm/denominator
+            else
+                residual_norm = NaN
+                relative_residual = NaN
+            end
+
+            KGv_over_v = norm_Kᴳv/max(norm_v, eps(Float64))
+
+            println(io, join([
+                mode_rank,
+                mode_id,
+                real(λᵢ),
+                imag(λᵢ),
+                λ_finite,
+                isinf(real(λᵢ)) || isinf(imag(λᵢ)),
+                isnan(real(λᵢ)) || isnan(imag(λᵢ)),
+                v_finite,
+                norm_v,
+                norm_Kv,
+                norm_Kᴳv,
+                residual_norm,
+                relative_residual,
+                KGv_over_v,
+                mode_id in selected,
+            ], ","))
+        end
+    end
+end
+
+write_eigen_check("./vtk/mindlin_eigen_check.csv", K, Kᴳ, λ, V, mode_ids)
+println("eigen check csv: ./vtk/mindlin_eigen_check.csv")
+
 
 cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
 # cells = [MeshCell(VTKCellTypes.VTK_QUAD, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]

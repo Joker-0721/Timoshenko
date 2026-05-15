@@ -22,8 +22,8 @@ try:
 except NameError:
     SCRIPT_DIR = Path(r"D:\Joker\Timoshenko\scripts")
 REPO_DIR = SCRIPT_DIR.parent
-VTU_PATH = REPO_DIR / "vtk" / "mindlin_T3_noGG_modes.vtu"
-OUTPUT_DIR = REPO_DIR / "vtk" / "screenshots" / "mindlin_T3_noGG_modes"
+VTU_PATH = REPO_DIR / "vtk" / "mindlin_Q4int_modes.vtu"
+OUTPUT_DIR = REPO_DIR / "vtk" / "screenshots" / "mindlin_Q4int_modes"
 
 IMAGE_SIZE = [1600, 1200]
 USE_WARP = False
