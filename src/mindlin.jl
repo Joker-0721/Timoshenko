@@ -145,17 +145,27 @@ vtk_grid("./vtk/mindlin_Q4int_modes.vtu", points, cells;
 # vtk_grid("./vtk/mindlin_T3_modes.vtu", points, cells;
          ascii=true, append=false, compress=false) do vtk
 
-    for (mode_rank, mode_id) in enumerate(mode_ids)
-        dm = real.(V[:, mode_id])
+    vtk_mode_ids = collect(eachindex(λ))
+    vtk["lambda_real", WriteVTK.VTKFieldData()] = real.(λ)
+    vtk["lambda_imag", WriteVTK.VTKFieldData()] = imag.(λ)
+    vtk["lambda_isfinite", WriteVTK.VTKFieldData()] = Float64.(isfinite.(real.(λ)) .& isfinite.(imag.(λ)))
+    vtk["lambda_isinf", WriteVTK.VTKFieldData()] = Float64.(isinf.(real.(λ)) .| isinf.(imag.(λ)))
+    vtk["lambda_isnan", WriteVTK.VTKFieldData()] = Float64.(isnan.(real.(λ)) .| isnan.(imag.(λ)))
+
+    for (mode_rank, mode_id) in enumerate(vtk_mode_ids)
+        dm_raw = real.(V[:, mode_id])
+        dm = [isfinite(x) ? x : 0.0 for x in dm_raw]
         w = dm[2*nᵠ+1:end]
         phi_1 = dm[1:2:2*nᵠ]
         phi_2 = dm[2:2:2*nᵠ]
+        dm_vtk = zeros(3,nₚ)
+        dm_vtk[3,:] .= w
 
         # 挠度 w
         vtk["w$(mode_rank)"] = w
         # 转角 φ₁
-        vtk["phi_1_$(mode_rank)"] = phi_1
+        # vtk["phi_1_$(mode_rank)"] = phi_1
         # 转角 φ₂
-        vtk["phi_2_$(mode_rank)"] = phi_2
+        # vtk["phi_2_$(mode_rank)"] = phi_2
     end
 end
