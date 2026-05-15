@@ -1,6 +1,20 @@
 import BenchmarkExample: PatchTest
 using Printf
 
+msh_dir = normpath(joinpath(@__DIR__, "..", "msh"))
+
+elements_per_side = 4
+nodes_per_side = elements_per_side + 1
+PatchTest.generateMsh(
+    joinpath(msh_dir, "patchtest_quad4_$(elements_per_side).msh"),
+    a = 1.0,
+    b = 1.0,
+    transfinite_x = nodes_per_side,
+    transfinite_y = nodes_per_side,
+    order = 1,
+    quad = true,
+)
+
 # PatchTest.generateMsh("msh/patchtest.msh", transfinite = 3, order = 1, quad = false)
 
 # for n in 2:25
@@ -16,7 +30,7 @@ using Printf
 
 n = 12
 b = 1.0
-msh_dir = normpath(joinpath(@__DIR__, "..", "msh"))
+generate_benchmark_meshes = false
 
 bui_2011_node_patterns = [
     7,
@@ -82,17 +96,19 @@ function generate_square_msh(prefix, nodes_per_side)
     )
 end
 
-for nodes_per_side in bui_2011_node_patterns
-    generate_square_msh("bui_2011_square", nodes_per_side)
-end
+if generate_benchmark_meshes
+    for nodes_per_side in bui_2011_node_patterns
+        generate_square_msh("bui_2011_square", nodes_per_side)
+    end
 
-for r in table_9_1_aspect_ratios
-    generate_rect_msh("mindlin_uniaxial_ssss", r)
-end
+    for r in table_9_1_aspect_ratios
+        generate_rect_msh("mindlin_uniaxial_ssss", r)
+    end
 
-for r in table_9_12_aspect_ratios
-    generate_rect_msh("mindlin_shear_ssss", r)
-end
+    for r in table_9_12_aspect_ratios
+        generate_rect_msh("mindlin_shear_ssss", r)
+    end
 
-generate_rect_msh("mindlin_biaxial_ssss", 1.0)
-generate_rect_msh("mindlin_combined_load_ssss", 1.0)
+    generate_rect_msh("mindlin_biaxial_ssss", 1.0)
+    generate_rect_msh("mindlin_combined_load_ssss", 1.0)
+end
