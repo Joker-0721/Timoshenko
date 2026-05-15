@@ -80,7 +80,7 @@ end
     @timeit to "calculate shape functions" set𝝭!(elements_4)
     𝑎ʷ = ∫αwwdΓ=>elements_1∪elements_2∪elements_3∪elements_4
     @timeit to "assemble" 𝑎ʷ(kʷʷ)
-    @timeit to "assemble" 𝑎ʷ(kᴳʷʷ)
+    # @timeit to "assemble" 𝑎ʷ(kᴳʷʷ)
 end
 
 @timeit to "solve buckling eigenvalue" begin
@@ -188,8 +188,8 @@ function write_eigen_check(filepath, K, Kᴳ, λ, V, mode_ids)
     end
 end
 
-write_eigen_check("./vtk/mindlin_eigen_check.csv", K, Kᴳ, λ, V, mode_ids)
-println("eigen check csv: ./vtk/mindlin_eigen_check.csv")
+write_eigen_check("./vtk/mindlin_T3int_noGG_eigen_check.csv", K, Kᴳ, λ, V, mode_ids)
+println("eigen check csv: ./vtk/mindlin_T3int_noGG_eigen_check.csv")
 
 function write_mode_data(summary_path, node_path, nodes, λ, V, nᵠ, mode_ids)
     mkpath(dirname(summary_path))
@@ -292,16 +292,16 @@ function write_mode_data(summary_path, node_path, nodes, λ, V, nᵠ, mode_ids)
 end
 
 write_mode_data(
-    "./vtk/mindlin_mode_summary.csv",
-    "./vtk/mindlin_mode_node_values.csv",
+    "./vtk/mindlin_T3int_noGG_mode_summary.csv",
+    "./vtk/mindlin_T3int_noGG_mode_node_values.csv",
     nodes,
     λ,
     V,
     nᵠ,
     mode_ids,
 )
-println("mode summary csv: ./vtk/mindlin_mode_summary.csv")
-println("mode node values csv: ./vtk/mindlin_mode_node_values.csv")
+println("mode summary csv: ./vtk/mindlin_T3int_noGG_mode_summary.csv")
+println("mode node values csv: ./vtk/mindlin_T3int_noGG_mode_node_values.csv")
 
 
 cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
@@ -316,7 +316,7 @@ for (i,node) in enumerate(nodes)
 end
 
 # vtk_grid("./vtk/mindlin_Q4int_noGG_modes.vtu", points, cells;
-vtk_grid("./vtk/mindlin_T3_modes.vtu", points, cells;
+vtk_grid("./vtk/mindlin_T3int_noGG_modes.vtu", points, cells;
          ascii=true, append=false, compress=false) do vtk
 
     vtk_mode_ids = collect(eachindex(λ))
