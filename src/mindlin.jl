@@ -25,8 +25,8 @@ const to = TimerOutput()
 gmsh.initialize()
 integrationOrder = 3
 integrationOrder_shear = 2
-@timeit to "open msh file" gmsh.open("./msh/patchtest_quad4_4.msh")
-# @timeit to "open msh file" gmsh.open("./msh/bui_2011_square_17x17.msh")
+# @timeit to "open msh file" gmsh.open("./msh/patchtest_quad4_4.msh")
+@timeit to "open msh file" gmsh.open("./msh/bui_2011_square_5x5.msh")
 @timeit to "get entities" entities = getPhysicalGroups()
 @timeit to "get nodes" nodes = get𝑿ᵢ()
 
@@ -123,8 +123,8 @@ println("k_exact: ", k_exact)
 println("rel_error: ", rel_error)
 
 
-# cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
-cells = [MeshCell(VTKCellTypes.VTK_QUAD, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
+cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
+# cells = [MeshCell(VTKCellTypes.VTK_QUAD, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
 
 nₚ = length(nodes)
 points = zeros(3,nₚ)
@@ -134,8 +134,8 @@ for (i,node) in enumerate(nodes)
     points[3,i] = 0.0
 end
 
-vtk_grid("./vtk/mindlin_Q4int_modes.vtu", points, cells;
-# vtk_grid("./vtk/mindlin_T3_modes.vtu", points, cells;
+# vtk_grid("./vtk/mindlin_Q4int_noGG_modes.vtu", points, cells;
+vtk_grid("./vtk/mindlin_T3_modes.vtu", points, cells;
          ascii=true, append=false, compress=false) do vtk
 
     vtk_mode_ids = collect(eachindex(λ))
