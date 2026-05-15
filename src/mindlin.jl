@@ -191,6 +191,118 @@ end
 write_eigen_check("./vtk/mindlin_eigen_check.csv", K, Kᴳ, λ, V, mode_ids)
 println("eigen check csv: ./vtk/mindlin_eigen_check.csv")
 
+function write_mode_data(summary_path, node_path, nodes, λ, V, nᵠ, mode_ids)
+    mkpath(dirname(summary_path))
+    selected = Set(mode_ids)
+
+    open(summary_path, "w") do summary_io
+        println(summary_io, join([
+            "mode_rank",
+            "eigen_index",
+            "vtk_w_field",
+            "lambda_real",
+            "lambda_imag",
+            "lambda_isfinite",
+            "selected_positive_mode",
+            "vector_isfinite",
+            "vector_norm",
+            "w_norm",
+            "w_min",
+            "w_min_node",
+            "w_max",
+            "w_max_node",
+            "phi_1_norm",
+            "phi_2_norm",
+            "rebuild_error",
+            "relative_rebuild_error",
+        ], ","))
+
+        open(node_path, "w") do node_io
+            println(node_io, join([
+                "mode_rank",
+                "eigen_index",
+                "vtk_w_field",
+                "lambda_real",
+                "lambda_imag",
+                "node_row",
+                "x",
+                "y",
+                "w",
+                "phi_1",
+                "phi_2",
+            ], ","))
+
+            for (mode_rank, mode_id) in enumerate(eachindex(λ))
+                λᵢ = λ[mode_id]
+                dm_raw = real.(V[:, mode_id])
+                dm = [isfinite(x) ? x : 0.0 for x in dm_raw]
+                phi_1 = dm[1:2:2*nᵠ]
+                phi_2 = dm[2:2:2*nᵠ]
+                w = dm[2*nᵠ+1:end]
+
+                rebuilt = similar(dm)
+                rebuilt[1:2:2*nᵠ] .= phi_1
+                rebuilt[2:2:2*nᵠ] .= phi_2
+                rebuilt[2*nᵠ+1:end] .= w
+                rebuild_error = norm(rebuilt - dm)
+                relative_rebuild_error = rebuild_error/max(norm(dm), eps(Float64))
+
+                w_min, w_min_node = findmin(w)
+                w_max, w_max_node = findmax(w)
+
+                println(summary_io, join([
+                    mode_rank,
+                    mode_id,
+                    "w$(mode_rank)",
+                    real(λᵢ),
+                    imag(λᵢ),
+                    isfinite(real(λᵢ)) && isfinite(imag(λᵢ)),
+                    mode_id in selected,
+                    all(isfinite, dm_raw),
+                    norm(dm_raw),
+                    norm(w),
+                    w_min,
+                    w_min_node,
+                    w_max,
+                    w_max_node,
+                    norm(phi_1),
+                    norm(phi_2),
+                    rebuild_error,
+                    relative_rebuild_error,
+                ], ","))
+
+                for (node_row, node) in enumerate(nodes)
+                    println(node_io, join([
+                        mode_rank,
+                        mode_id,
+                        "w$(mode_rank)",
+                        real(λᵢ),
+                        imag(λᵢ),
+                        node_row,
+                        node.x,
+                        node.y,
+                        w[node_row],
+                        phi_1[node_row],
+                        phi_2[node_row],
+                    ], ","))
+                end
+            end
+        end
+    end
+end
+
+write_mode_data(
+    "./vtk/mindlin_mode_summary.csv",
+    "./vtk/mindlin_mode_node_values.csv",
+    nodes,
+    λ,
+    V,
+    nᵠ,
+    mode_ids,
+)
+println("mode summary csv: ./vtk/mindlin_mode_summary.csv")
+println("mode node values csv: ./vtk/mindlin_mode_node_values.csv")
+
 
 cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
 # cells = [MeshCell(VTKCellTypes.VTK_QUAD, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
