@@ -3,10 +3,11 @@ import re
 
 from paraview.simple import (
     ColorBy,
-    GetActiveViewOrCreate,
+    CreateView,
     GetColorTransferFunction,
     GetOpacityTransferFunction,
     Hide,
+    HideScalarBarIfNotNeeded,
     Render,
     ResetCamera,
     SaveScreenshot,
@@ -21,11 +22,11 @@ try:
 except NameError:
     SCRIPT_DIR = Path(r"D:\Joker\Timoshenko\scripts")
 REPO_DIR = SCRIPT_DIR.parent
-VTU_PATH = REPO_DIR / "vtk" / "mindlin_Q4int_modes.vtu"
-OUTPUT_DIR = REPO_DIR / "vtk" / "screenshots" / "mindlin_Q4int_modes"
+VTU_PATH = REPO_DIR / "vtk" / "mindlin_T3_noGG_modes.vtu"
+OUTPUT_DIR = REPO_DIR / "vtk" / "screenshots" / "mindlin_T3_noGG_modes"
 
 IMAGE_SIZE = [1600, 1200]
-USE_WARP = True
+USE_WARP = False
 WARP_SCALE = 0.2
 
 
@@ -56,7 +57,7 @@ def main():
     if not w_arrays:
         raise RuntimeError("No point-data arrays named w1, w2, ... were found.")
 
-    view = GetActiveViewOrCreate("RenderView")
+    view = CreateView("RenderView")
     view.ViewSize = IMAGE_SIZE
     view.Background = [1.0, 1.0, 1.0]
 
@@ -68,20 +69,24 @@ def main():
     display = Show(source, view)
     display.Representation = "Surface With Edges"
 
+    previous_color = None
     for index, array_name in enumerate(w_arrays, start=1):
         if USE_WARP:
             source.Scalars = ["POINTS", array_name]
             source.UpdatePipeline()
 
         ColorBy(display, ("POINTS", array_name))
-        display.RescaleTransferFunctionToDataRange(True, False)
-        display.SetScalarBarVisibility(view, True)
+        if previous_color is not None:
+            HideScalarBarIfNotNeeded(previous_color, view)
 
         color = GetColorTransferFunction(array_name)
         opacity = GetOpacityTransferFunction(array_name)
         data_range = source.GetPointDataInformation().GetArray(array_name).GetRange()
         color.RescaleTransferFunction(data_range[0], data_range[1])
         opacity.RescaleTransferFunction(data_range[0], data_range[1])
+        display.RescaleTransferFunctionToDataRange(True, False)
+        display.SetScalarBarVisibility(view, True)
+        previous_color = color
 
         view.Update()
         ResetCamera(view)
