@@ -2,8 +2,10 @@ from pathlib import Path
 import re
 
 from paraview.simple import (
+    Calculator,
     ColorBy,
     CreateView,
+    Delete,
     GetColorTransferFunction,
     GetOpacityTransferFunction,
     Hide,
@@ -28,6 +30,14 @@ OUTPUT_DIR = REPO_DIR / "vtk" / "screenshots" / "mindlin_Q4int_modes"
 IMAGE_SIZE = [1600, 1200]
 USE_WARP = False
 WARP_SCALE = 0.2
+NORMALIZE_W = True
+NORMALIZED_RANGE = [-1.0, 1.0]
+NORMALIZED_ARRAY_NAME = "w_normalized"
+DIVERGING_RGB_POINTS = [
+    -1.0, 0.0, 0.0, 1.0,
+     0.0, 1.0, 1.0, 1.0,
+     1.0, 1.0, 0.0, 0.0,
+]
 
 
 def mode_number(name):
@@ -39,6 +49,12 @@ def point_array_names(source):
     source.UpdatePipeline()
     point_data = source.GetDataInformation().GetPointDataInformation()
     return [point_data.GetArrayInformation(i).GetName() for i in range(point_data.GetNumberOfArrays())]
+
+
+def apply_blue_white_red(color):
+    color.RGBPoints = DIVERGING_RGB_POINTS
+    color.ColorSpace = "RGB"
+    color.NanColor = [0.5, 0.5, 0.5]
 
 
 def main():
@@ -66,25 +82,55 @@ def main():
         source = WarpByScalar(Input=reader)
         source.ScaleFactor = WARP_SCALE
 
-    display = Show(source, view)
-    display.Representation = "Surface With Edges"
+    source_display = Show(source, view)
+    source_display.Representation = "Surface With Edges"
+    display = source_display
 
     previous_color = None
+    previous_normalized = None
     for index, array_name in enumerate(w_arrays, start=1):
         if USE_WARP:
             source.Scalars = ["POINTS", array_name]
             source.UpdatePipeline()
 
-        ColorBy(display, ("POINTS", array_name))
+        color_source = source
+        color_array = array_name
+        data_range = source.GetPointDataInformation().GetArray(array_name).GetRange()
+        max_abs = max(abs(data_range[0]), abs(data_range[1]))
+        if NORMALIZE_W and max_abs > 0.0:
+            if previous_normalized is not None:
+                Hide(previous_normalized, view)
+                Delete(previous_normalized)
+                previous_normalized = None
+            Hide(source, view)
+            color_source = Calculator(Input=source)
+            color_source.ResultArrayName = NORMALIZED_ARRAY_NAME
+            color_source.Function = f"{array_name}/{max_abs:.17g}"
+            color_source.UpdatePipeline()
+            color_array = NORMALIZED_ARRAY_NAME
+            display = Show(color_source, view)
+            display.Representation = "Surface With Edges"
+            previous_normalized = color_source
+        elif previous_normalized is not None:
+            Hide(previous_normalized, view)
+            Delete(previous_normalized)
+            previous_normalized = None
+            display = Show(source, view)
+            display.Representation = "Surface With Edges"
+
+        ColorBy(display, ("POINTS", color_array))
         if previous_color is not None:
             HideScalarBarIfNotNeeded(previous_color, view)
 
-        color = GetColorTransferFunction(array_name)
-        opacity = GetOpacityTransferFunction(array_name)
-        data_range = source.GetPointDataInformation().GetArray(array_name).GetRange()
-        color.RescaleTransferFunction(data_range[0], data_range[1])
-        opacity.RescaleTransferFunction(data_range[0], data_range[1])
-        display.RescaleTransferFunctionToDataRange(True, False)
+        color = GetColorTransferFunction(color_array)
+        opacity = GetOpacityTransferFunction(color_array)
+        if NORMALIZE_W and max_abs > 0.0:
+            color.RescaleTransferFunction(NORMALIZED_RANGE[0], NORMALIZED_RANGE[1])
+            apply_blue_white_red(color)
+            opacity.RescaleTransferFunction(NORMALIZED_RANGE[0], NORMALIZED_RANGE[1])
+        else:
+            color.RescaleTransferFunction(data_range[0], data_range[1])
+            opacity.RescaleTransferFunction(data_range[0], data_range[1])
         display.SetScalarBarVisibility(view, True)
         previous_color = color
 
@@ -96,6 +142,9 @@ def main():
         SaveScreenshot(str(output_path), view, ImageResolution=IMAGE_SIZE)
         print(f"Saved {output_path}")
 
+    if previous_normalized is not None:
+        Hide(previous_normalized, view)
+        Delete(previous_normalized)
     Hide(source, view)
 
 
