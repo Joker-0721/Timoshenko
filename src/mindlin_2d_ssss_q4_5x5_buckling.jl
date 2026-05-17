@@ -4,48 +4,47 @@ if isdir(LOCAL_APPROX_OPERATOR) && !(LOCAL_APPROX_OPERATOR in LOAD_PATH)
 end
 
 using ApproxOperator
-using LinearAlgebra
-using Printf
-using WriteVTK
-
-import Gmsh: gmsh
 import ApproxOperator.GmshImport: getPhysicalGroups, get𝑿ᵢ, getElements
 import ApproxOperator.MindlinPlate: ∫κκdΩ, ∫wwdΩ, ∫φwdΩ, ∫φφdΩ, ∫∇wσ∇wdΩ, ∫∇φσ∇φdΩ, ∫αwwdΓ
 
-const CASE_PREFIX = "mindlin_2d_ssss_q4_5x5_buckling"
-const OUTPUT_DIR = normpath(joinpath(@__DIR__, "..", "vtk"))
+using LinearAlgebra
+using Printf
+using TimerOutputs
+using WriteVTK
+import Gmsh: gmsh
 
-const E = 1.0e8
-const ν = 0.3
-const a = 1.0
-const b = 1.0
-const h_over_b = 0.1
-const h = h_over_b*b
-const Dᵇ = E*h^3/(12.0*(1.0 - ν^2))
-const α = 1.0e8*E
+case_prefix = "mindlin_2d_ssss_q4_5x5_buckling"
+output_dir = normpath(joinpath(@__DIR__, "..", "vtk"))
 
-const NODES_PER_SIDE = 5
-const K_REF_FIRST_MODE = 4.0
-const EIGEN_IMAG_TOL = 1.0e-7
-const RESIDUAL_WARN_TOL = 1.0e-6
+E = 1.0e8
+ν = 0.3
+a = 1.0
+b = 1.0
+h_over_b = 0.1
+h = h_over_b*b
+Dᵇ = E*h^3/12/(1 - ν^2)
+k_exact = 4.0
+λcr_exact = k_exact*π^2*Dᵇ/b^2
 
-struct BucklingSolution
-    nodes
-    elements
-    K::Matrix{Float64}
-    KG::Matrix{Float64}
-    lambdas::Vector{Float64}
-    full_modes::Vector{Vector{Float64}}
-    full_residuals::Vector{Float64}
-end
+σ₁₁ = 1.0
+σ₂₂ = 0.0
+σ₁₂ = 0.0
+α = 1.0e8*E
 
-function bending_k(lambda::Float64)
-    return lambda*b^2/(π^2*Dᵇ)
-end
+nodes_per_side = 5
+eigen_imag_tol = 1.0e-7
+residual_warn_tol = 1.0e-6
 
-function generate_square_mesh!()
+eigen_check_path = joinpath(output_dir, "$(case_prefix)_eigen_check.csv")
+mode_summary_path = joinpath(output_dir, "$(case_prefix)_mode_summary.csv")
+mode_node_path = joinpath(output_dir, "$(case_prefix)_mode_node_values.csv")
+vtu_path = joinpath(output_dir, "$(case_prefix)_modes.vtu")
+
+const to = TimerOutput()
+
+function generate_square_mesh!(nodes_per_side)
     gmsh.clear()
-    gmsh.model.add(CASE_PREFIX)
+    gmsh.model.add("mindlin_2d_ssss_q4_5x5")
 
     p1 = gmsh.model.geo.addPoint(0.0, 0.0, 0.0)
     p2 = gmsh.model.geo.addPoint(a, 0.0, 0.0)
@@ -59,10 +58,10 @@ function generate_square_mesh!()
     loop = gmsh.model.geo.addCurveLoop([bottom, right, top, left])
     surface = gmsh.model.geo.addPlaneSurface([loop])
 
-    gmsh.model.geo.mesh.setTransfiniteCurve(bottom, NODES_PER_SIDE)
-    gmsh.model.geo.mesh.setTransfiniteCurve(top, NODES_PER_SIDE)
-    gmsh.model.geo.mesh.setTransfiniteCurve(left, NODES_PER_SIDE)
-    gmsh.model.geo.mesh.setTransfiniteCurve(right, NODES_PER_SIDE)
+    gmsh.model.geo.mesh.setTransfiniteCurve(bottom, nodes_per_side)
+    gmsh.model.geo.mesh.setTransfiniteCurve(top, nodes_per_side)
+    gmsh.model.geo.mesh.setTransfiniteCurve(left, nodes_per_side)
+    gmsh.model.geo.mesh.setTransfiniteCurve(right, nodes_per_side)
     gmsh.model.geo.mesh.setTransfiniteSurface(surface)
     gmsh.model.geo.mesh.setRecombine(2, surface)
     gmsh.model.geo.synchronize()
@@ -81,72 +80,14 @@ function generate_square_mesh!()
     gmsh.model.mesh.generate(2)
 end
 
-function assemble_boundary_penalty!(kʷʷ, nodes, entities)
-    fᵅ = zeros(size(kʷʷ, 1))
-    w_boundary(x, y, z) = 0.0
-    for side in ("left", "right", "top", "bottom")
-        elements = getElements(nodes, entities[side])
-        prescribe!(elements, :α => α, :g => w_boundary)
-        set𝝭!(elements)
-        (∫αwwdΓ => elements)(kʷʷ, fᵅ)
-    end
-    return fᵅ
-end
-
-function assemble_case()
-    generate_square_mesh!()
-
-    entities = getPhysicalGroups()
-    for name in ("domain", "left", "right", "top", "bottom")
-        haskey(entities, name) || error("missing physical group: $name")
-    end
-
-    nodes = get𝑿ᵢ()
-    nʷ = length(nodes)
-    nᵠ = length(nodes)
-
-    kʷʷ = zeros(nʷ, nʷ)
-    kᵠᵠ = zeros(2*nᵠ, 2*nᵠ)
-    kᵠʷ = zeros(2*nᵠ, nʷ)
-    kᴳʷʷ = zeros(nʷ, nʷ)
-    kᴳᵠᵠ = zeros(2*nᵠ, 2*nᵠ)
-
-    elements = getElements(nodes, entities["domain"])
-    prescribe!(elements, :E => E, :ν => ν, :h => h)
-    set∇𝝭!(elements)
-    (∫wwdΩ => elements)(kʷʷ)
-    (∫φwdΩ => elements)(kᵠʷ)
-    ([∫φφdΩ => elements, ∫κκdΩ => elements])(kᵠᵠ)
-
-    σ₁₁(x, y, z) = 1.0
-    σ₂₂(x, y, z) = 0.0
-    σ₁₂(x, y, z) = 0.0
-    prescribe!(elements, :σ₁₁ => σ₁₁, :σ₂₂ => σ₂₂, :σ₁₂ => σ₁₂)
-    (∫∇wσ∇wdΩ => elements)(kᴳʷʷ)
-    (∫∇φσ∇φdΩ => elements)(kᴳᵠᵠ)
-
-    assemble_boundary_penalty!(kʷʷ, nodes, entities)
-
-    K = [kᵠᵠ kᵠʷ; kᵠʷ' kʷʷ]
-    KG = [
-        kᴳᵠᵠ zeros(2*nᵠ, nʷ)
-        zeros(nʷ, 2*nᵠ) kᴳʷʷ
-    ]
-
-    return nodes, elements, K, KG
-end
-
-function is_real_finite_value(lambda)
-    return isfinite(real(lambda)) &&
-           isfinite(imag(lambda)) &&
-           abs(imag(lambda)) < EIGEN_IMAG_TOL &&
-           real(lambda) > 0.0
-end
-
-function is_real_finite_vector(v)
-    all(isfinite, real.(v)) || return false
-    all(isfinite, imag.(v)) || return false
-    return norm(imag.(v)) <= EIGEN_IMAG_TOL*max(norm(real.(v)), eps(Float64))
+function selected_eigenpair(λᵢ, vᵢ)
+    return isfinite(real(λᵢ)) &&
+           isfinite(imag(λᵢ)) &&
+           abs(imag(λᵢ)) < eigen_imag_tol &&
+           real(λᵢ) > 0.0 &&
+           all(isfinite, real.(vᵢ)) &&
+           all(isfinite, imag.(vᵢ)) &&
+           norm(imag.(vᵢ)) <= eigen_imag_tol*max(norm(real.(vᵢ)), eps(Float64))
 end
 
 function center_node_id(nodes)
@@ -154,194 +95,30 @@ function center_node_id(nodes)
     return nodes[argmin(distances)].𝐼
 end
 
-function normalize_mode(v, nodes)
-    nᵠ = length(nodes)
-    mode = real.(v)
-    w = mode[2*nᵠ + 1:end]
+function normalize_mode(vᵢ, nodes, nᵠ)
+    dm = real.(vᵢ)
+    w = dm[2*nᵠ+1:end]
     max_abs_w = maximum(abs.(w))
     max_abs_w > 0.0 || error("mode has zero transverse displacement.")
-    mode ./= max_abs_w
+    dm ./= max_abs_w
 
     center_id = center_node_id(nodes)
-    if mode[2*nᵠ + center_id] < -sqrt(eps(Float64))
-        mode .*= -1.0
+    if dm[2*nᵠ + center_id] < -sqrt(eps(Float64))
+        dm .*= -1.0
     end
-    return mode
+    return dm
 end
 
-function relative_residual(K, KG, lambda::Float64, v::Vector{Float64})
-    Kv = K*v
-    KGv = KG*v
-    residual = Kv - lambda*KGv
-    denominator = max(norm(Kv), abs(lambda)*norm(KGv), eps(Float64))
+function relative_residual(K, Kᴳ, λᵢ, vᵢ)
+    Kv = K*vᵢ
+    Kᴳv = Kᴳ*vᵢ
+    residual = Kv - λᵢ*Kᴳv
+    denominator = max(norm(Kv), abs(λᵢ)*norm(Kᴳv), eps(Float64))
     return norm(residual)/denominator
 end
 
-function solve_full_eigen(nodes, K, KG)
-    F = eigen(K, KG)
-    ids = [
-        i for i in eachindex(F.values)
-        if is_real_finite_value(F.values[i]) && is_real_finite_vector(F.vectors[:, i])
-    ]
-    sort!(ids, by = i -> real(F.values[i]))
-    isempty(ids) && error("no positive finite buckling eigenvalue found.")
-
-    lambdas = Float64[real(F.values[i]) for i in ids]
-    full_modes = [normalize_mode(F.vectors[:, i], nodes) for i in ids]
-    full_residuals = [
-        relative_residual(K, KG, lambdas[i], full_modes[i])
-        for i in eachindex(lambdas)
-    ]
-    return lambdas, full_modes, full_residuals
-end
-
-function solve_case()
-    nodes, elements, K, KG = assemble_case()
-    lambdas, full_modes, full_residuals = solve_full_eigen(nodes, K, KG)
-    return BucklingSolution(nodes, elements, K, KG, lambdas, full_modes, full_residuals)
-end
-
-csv_line(values) = join(values, ",")
-
-function write_eigen_check(path, solution::BucklingSolution)
-    mkpath(dirname(path))
-    open(path, "w") do io
-        println(io, csv_line((
-            "mode",
-            "lambda",
-            "k_num",
-            "k_ref",
-            "relative_error_vs_ref",
-            "full_relative_residual",
-            "residual_within_tolerance",
-            "lambda_isfinite",
-            "lambda_is_positive",
-            "vector_isfinite",
-            "selected_positive_mode",
-        )))
-
-        for mode in eachindex(solution.lambdas)
-            lambda = solution.lambdas[mode]
-            k_num = bending_k(lambda)
-            rel_error = abs(k_num - K_REF_FIRST_MODE)/abs(K_REF_FIRST_MODE)
-            vector_isfinite = all(isfinite, solution.full_modes[mode])
-            println(io, csv_line((
-                mode,
-                lambda,
-                k_num,
-                K_REF_FIRST_MODE,
-                rel_error,
-                solution.full_residuals[mode],
-                solution.full_residuals[mode] < RESIDUAL_WARN_TOL,
-                isfinite(lambda),
-                lambda > 0.0,
-                vector_isfinite,
-                true,
-            )))
-        end
-    end
-end
-
-function write_mode_data(summary_path, node_path, solution::BucklingSolution)
-    nodes = solution.nodes
-    nᵠ = length(nodes)
-    mkpath(dirname(summary_path))
-
-    open(summary_path, "w") do summary_io
-        println(summary_io, csv_line((
-            "mode",
-            "vtk_w_field",
-            "lambda",
-            "k_num",
-            "k_ref",
-            "w_min",
-            "w_min_node",
-            "w_max",
-            "w_max_node",
-            "max_abs_w",
-            "w_norm",
-            "phi_1_norm",
-            "phi_2_norm",
-            "normalized_max_abs_w",
-            "rebuild_error",
-            "relative_rebuild_error",
-        )))
-
-        open(node_path, "w") do node_io
-            println(node_io, csv_line((
-                "mode",
-                "vtk_w_field",
-                "lambda",
-                "k_num",
-                "node_row",
-                "node_id",
-                "x",
-                "y",
-                "w_normalized",
-                "phi_1",
-                "phi_2",
-            )))
-
-            for mode in eachindex(solution.full_modes)
-                dm = solution.full_modes[mode]
-                phi_1 = dm[1:2:2*nᵠ]
-                phi_2 = dm[2:2:2*nᵠ]
-                w = dm[2*nᵠ + 1:end]
-                rebuilt = zeros(3*nᵠ)
-                rebuilt[1:2:2*nᵠ] .= phi_1
-                rebuilt[2:2:2*nᵠ] .= phi_2
-                rebuilt[2*nᵠ + 1:end] .= w
-                rebuild_error = norm(rebuilt - dm)
-                relative_rebuild_error = rebuild_error/max(norm(dm), eps(Float64))
-
-                w_min, w_min_node = findmin(w)
-                w_max, w_max_node = findmax(w)
-                max_abs_w = maximum(abs.(w))
-                lambda = solution.lambdas[mode]
-                k_num = bending_k(lambda)
-
-                println(summary_io, csv_line((
-                    mode,
-                    "w$(mode)",
-                    lambda,
-                    k_num,
-                    K_REF_FIRST_MODE,
-                    w_min,
-                    w_min_node,
-                    w_max,
-                    w_max_node,
-                    max_abs_w,
-                    norm(w),
-                    norm(phi_1),
-                    norm(phi_2),
-                    isapprox(max_abs_w, 1.0; atol=1.0e-12, rtol=1.0e-12),
-                    rebuild_error,
-                    relative_rebuild_error,
-                )))
-
-                for (node_row, node) in enumerate(nodes)
-                    node_id = node.𝐼
-                    println(node_io, csv_line((
-                        mode,
-                        "w$(mode)",
-                        lambda,
-                        k_num,
-                        node_row,
-                        node_id,
-                        node.x,
-                        node.y,
-                        w[node_id],
-                        phi_1[node_id],
-                        phi_2[node_id],
-                    )))
-                end
-            end
-        end
-    end
-end
-
-function vtk_cell(element)
-    node_ids = [node.𝐼 for node in element.𝓒]
+function vtk_cell(elm)
+    node_ids = [xᵢ.𝐼 for xᵢ in elm.𝓒]
     if length(node_ids) == 4
         return MeshCell(VTKCellTypes.VTK_QUAD, node_ids)
     elseif length(node_ids) == 3
@@ -351,94 +128,319 @@ function vtk_cell(element)
     end
 end
 
-function write_vtu(path, solution::BucklingSolution)
-    nodes = solution.nodes
-    nᵠ = length(nodes)
-    points = zeros(3, nᵠ)
-    for node in nodes
-        points[1, node.𝐼] = node.x
-        points[2, node.𝐼] = node.y
-        points[3, node.𝐼] = 0.0
-    end
-    cells = [vtk_cell(element) for element in solution.elements]
+gmsh.initialize()
+gmsh.option.setNumber("General.Terminal", 0)
 
-    mkpath(dirname(path))
-    vtk_grid(path, points, cells; ascii=true, append=false, compress=false) do vtk
-        vtk["lambda", WriteVTK.VTKFieldData()] = solution.lambdas
-        vtk["k_num", WriteVTK.VTKFieldData()] = bending_k.(solution.lambdas)
-        vtk["k_ref_first_mode", WriteVTK.VTKFieldData()] = fill(K_REF_FIRST_MODE, length(solution.lambdas))
-        vtk["full_relative_residual", WriteVTK.VTKFieldData()] = solution.full_residuals
-        vtk["alpha_boundary_penalty", WriteVTK.VTKFieldData()] = [α]
-        vtk["color_range_min", WriteVTK.VTKFieldData()] = [-1.0]
-        vtk["color_range_max", WriteVTK.VTKFieldData()] = [1.0]
+integrationOrder = 3
+integrationOrder_shear = 2
 
-        for mode in eachindex(solution.full_modes)
-            dm = solution.full_modes[mode]
-            w = dm[2*nᵠ + 1:end]
-            phi_1 = dm[1:2:2*nᵠ]
-            phi_2 = dm[2:2:2*nᵠ]
-            vtk["w$(mode)"] = w
-            vtk["phi_1_$(mode)"] = phi_1
-            vtk["phi_2_$(mode)"] = phi_2
+@timeit to "generate Q4 square mesh" generate_square_mesh!(nodes_per_side)
+@timeit to "get entities" entities = getPhysicalGroups()
+@timeit to "get nodes" nodes = get𝑿ᵢ()
+
+nʷ = length(nodes)
+nᵠ = length(nodes)
+kʷʷ = zeros(nʷ, nʷ)
+kᵠᵠ = zeros(2*nᵠ, 2*nᵠ)
+kᵠʷ = zeros(2*nᵠ, nʷ)
+kᴳʷʷ = zeros(nʷ, nʷ)
+kᴳᵠᵠ = zeros(2*nᵠ, 2*nᵠ)
+
+@timeit to "calculate ∫κκdΩ, ∫wwdΩ, ∫φφdΩ, ∫φwdΩ" begin
+    @timeit to "get elements" elements = getElements(nodes, entities["domain"], integrationOrder)
+    @timeit to "get shear elements" elements_s = getElements(nodes, entities["domain"], integrationOrder_shear)
+    prescribe!(elements, :E=>E, :ν=>ν, :h=>h)
+    prescribe!(elements_s, :E=>E, :ν=>ν, :h=>h)
+    @timeit to "calculate shape functions" set∇𝝭!(elements)
+    @timeit to "calculate shear shape functions" set∇𝝭!(elements_s)
+
+    𝑎ʷʷ = ∫wwdΩ=>elements_s
+    𝑎ᵠʷ = ∫φwdΩ=>elements_s
+    𝑎ᵠᵠ = [
+        ∫φφdΩ=>elements_s,
+        ∫κκdΩ=>elements,
+    ]
+    @timeit to "assemble Kww" 𝑎ʷʷ(kʷʷ)
+    @timeit to "assemble Kφw" 𝑎ᵠʷ(kᵠʷ)
+    @timeit to "assemble Kφφ" 𝑎ᵠᵠ(kᵠᵠ)
+
+    prescribe!(elements, :σ₁₁=>σ₁₁, :σ₂₂=>σ₂₂, :σ₁₂=>σ₁₂)
+    𝑎ᴳʷʷ = ∫∇wσ∇wdΩ=>elements
+    𝑎ᴳᵠᵠ = ∫∇φσ∇φdΩ=>elements
+    @timeit to "assemble KGww" 𝑎ᴳʷʷ(kᴳʷʷ)
+    @timeit to "assemble KGφφ" 𝑎ᴳᵠᵠ(kᴳᵠᵠ)
+
+    global elements_domain = elements
+end
+
+@timeit to "calculate ∫αwwdΓ" begin
+    @timeit to "get left elements" elements_left = getElements(nodes, entities["left"], integrationOrder)
+    @timeit to "get right elements" elements_right = getElements(nodes, entities["right"], integrationOrder)
+    @timeit to "get top elements" elements_top = getElements(nodes, entities["top"], integrationOrder)
+    @timeit to "get bottom elements" elements_bottom = getElements(nodes, entities["bottom"], integrationOrder)
+
+    w_boundary(x, y, z) = 0.0
+    prescribe!(elements_left, :α=>α, :g=>w_boundary)
+    prescribe!(elements_right, :α=>α, :g=>w_boundary)
+    prescribe!(elements_top, :α=>α, :g=>w_boundary)
+    prescribe!(elements_bottom, :α=>α, :g=>w_boundary)
+    @timeit to "calculate left shape functions" set𝝭!(elements_left)
+    @timeit to "calculate right shape functions" set𝝭!(elements_right)
+    @timeit to "calculate top shape functions" set𝝭!(elements_top)
+    @timeit to "calculate bottom shape functions" set𝝭!(elements_bottom)
+
+    𝑎ʷ = ∫αwwdΓ=>elements_left∪elements_right∪elements_top∪elements_bottom
+    fᵅ = zeros(nʷ)
+    @timeit to "assemble boundary penalty" 𝑎ʷ(kʷʷ, fᵅ)
+end
+
+@timeit to "solve buckling eigenvalue" begin
+    K = [kᵠᵠ kᵠʷ; kᵠʷ' kʷʷ]
+    Kᴳ = [
+        kᴳᵠᵠ zeros(2*nᵠ, nʷ)
+        zeros(nʷ, 2*nᵠ) kᴳʷʷ
+    ]
+    F = eigen(K, Kᴳ)
+    λ = F.values
+    V = F.vectors
+
+    mode_ids = sort!(
+        collect(i for i in eachindex(λ) if selected_eigenpair(λ[i], V[:, i])),
+        by = i -> real(λ[i]),
+    )
+    isempty(mode_ids) && error("no positive finite buckling eigenvalue found")
+
+    dm_modes = [normalize_mode(V[:, mode_id], nodes, nᵠ) for mode_id in mode_ids]
+    residuals = [
+        relative_residual(K, Kᴳ, real(λ[mode_id]), dm_modes[mode_rank])
+        for (mode_rank, mode_id) in enumerate(mode_ids)
+    ]
+
+    λcr = real(λ[first(mode_ids)])
+    k_num = λcr*b^2/(π^2*Dᵇ)
+    rel_error = abs(k_num - k_exact)/abs(k_exact)
+end
+
+gmsh.finalize()
+
+println(to)
+
+println("2D Mindlin SSSS Q4 5x5 buckling case")
+println("nodes: ", length(nodes))
+println("selected positive finite modes: ", length(mode_ids))
+println("λcr: ", λcr)
+println("λcr_exact_thin_plate_reference: ", λcr_exact)
+println("k_num: ", k_num)
+println("k_exact_thin_plate_reference: ", k_exact)
+println("rel_error_vs_thin_plate_reference: ", rel_error)
+println("max full relative residual: ", maximum(residuals))
+if maximum(residuals) >= residual_warn_tol
+    @printf("warning: some full residuals exceed %.1e; check %s\n", residual_warn_tol, eigen_check_path)
+end
+
+function write_eigen_check(filepath, K, Kᴳ, λ, V, mode_ids, dm_modes, residuals)
+    mkpath(dirname(filepath))
+    open(filepath, "w") do io
+        println(io, join([
+            "mode_rank",
+            "eigen_index",
+            "lambda_real",
+            "lambda_imag",
+            "k_num",
+            "k_ref",
+            "relative_error_vs_ref",
+            "vector_isfinite",
+            "norm_v",
+            "norm_Kv",
+            "norm_KGv",
+            "residual_norm",
+            "full_relative_residual",
+            "residual_within_tolerance",
+            "KGv_over_v",
+            "selected_positive_mode",
+        ], ","))
+
+        selected = Set(mode_ids)
+        for (mode_rank, mode_id) in enumerate(mode_ids)
+            λᵢ = λ[mode_id]
+            dm = dm_modes[mode_rank]
+            Kv = K*dm
+            Kᴳv = Kᴳ*dm
+            residual = Kv - real(λᵢ)*Kᴳv
+            residual_norm = norm(residual)
+            norm_v = norm(dm)
+            norm_Kv = norm(Kv)
+            norm_Kᴳv = norm(Kᴳv)
+            relative_residual = residuals[mode_rank]
+            KGv_over_v = norm_Kᴳv/max(norm_v, eps(Float64))
+            k_numᵢ = real(λᵢ)*b^2/(π^2*Dᵇ)
+
+            println(io, join([
+                mode_rank,
+                mode_id,
+                real(λᵢ),
+                imag(λᵢ),
+                k_numᵢ,
+                k_exact,
+                abs(k_numᵢ - k_exact)/abs(k_exact),
+                all(isfinite, dm),
+                norm_v,
+                norm_Kv,
+                norm_Kᴳv,
+                residual_norm,
+                relative_residual,
+                relative_residual < residual_warn_tol,
+                KGv_over_v,
+                mode_id in selected,
+            ], ","))
         end
     end
 end
 
-function write_outputs(solution::BucklingSolution)
-    eigen_path = joinpath(OUTPUT_DIR, "$(CASE_PREFIX)_eigen_check.csv")
-    summary_path = joinpath(OUTPUT_DIR, "$(CASE_PREFIX)_mode_summary.csv")
-    node_path = joinpath(OUTPUT_DIR, "$(CASE_PREFIX)_mode_node_values.csv")
-    vtu_path = joinpath(OUTPUT_DIR, "$(CASE_PREFIX)_modes.vtu")
+write_eigen_check(eigen_check_path, K, Kᴳ, λ, V, mode_ids, dm_modes, residuals)
+println("eigen check csv: ", eigen_check_path)
 
-    write_eigen_check(eigen_path, solution)
-    write_mode_data(summary_path, node_path, solution)
-    write_vtu(vtu_path, solution)
-    return eigen_path, summary_path, node_path, vtu_path
-end
+function write_mode_data(summary_path, node_path, nodes, λ, nᵠ, mode_ids, dm_modes)
+    mkpath(dirname(summary_path))
 
-function assert_solution(solution::BucklingSolution)
-    !isempty(solution.lambdas) || error("no selected finite positive modes")
-    all(isfinite, solution.lambdas) || error("non-finite eigenvalue detected")
-    all(>(0.0), solution.lambdas) || error("non-positive eigenvalue detected")
+    open(summary_path, "w") do summary_io
+        println(summary_io, join([
+            "mode_rank",
+            "eigen_index",
+            "vtk_w_field",
+            "lambda_real",
+            "lambda_imag",
+            "k_num",
+            "k_ref",
+            "selected_positive_mode",
+            "vector_isfinite",
+            "vector_norm",
+            "w_norm",
+            "w_min",
+            "w_min_node",
+            "w_max",
+            "w_max_node",
+            "max_abs_w",
+            "phi_1_norm",
+            "phi_2_norm",
+            "normalized_max_abs_w",
+            "rebuild_error",
+            "relative_rebuild_error",
+        ], ","))
 
-    nᵠ = length(solution.nodes)
-    for (mode, dm) in enumerate(solution.full_modes)
-        w = dm[2*nᵠ + 1:end]
-        isapprox(maximum(abs.(w)), 1.0; atol=1.0e-12, rtol=1.0e-12) ||
-            error("mode $mode is not normalized by max(abs(w))")
-    end
-end
+        open(node_path, "w") do node_io
+            println(node_io, join([
+                "mode_rank",
+                "eigen_index",
+                "vtk_w_field",
+                "lambda_real",
+                "lambda_imag",
+                "k_num",
+                "node_row",
+                "node_id",
+                "x",
+                "y",
+                "w_normalized",
+                "phi_1",
+                "phi_2",
+            ], ","))
 
-function main()
-    gmsh.initialize()
-    try
-        gmsh.option.setNumber("General.Terminal", 0)
-        solution = solve_case()
-        assert_solution(solution)
-        eigen_path, summary_path, node_path, vtu_path = write_outputs(solution)
+            for (mode_rank, mode_id) in enumerate(mode_ids)
+                λᵢ = λ[mode_id]
+                dm = dm_modes[mode_rank]
+                phi_1 = dm[1:2:2*nᵠ]
+                phi_2 = dm[2:2:2*nᵠ]
+                w = dm[2*nᵠ+1:end]
 
-        @printf("2D Mindlin SSSS Q4 5x5 buckling case\n")
-        @printf("nodes = %d, selected positive finite modes = %d\n", length(solution.nodes), length(solution.lambdas))
-        @printf("h/b = %.6f, E = %.6e, nu = %.6f\n", h_over_b, E, ν)
-        @printf("first lambda = %.12e\n", solution.lambdas[1])
-        @printf("first k_num  = %.12f (thin-plate reference %.6f)\n", bending_k(solution.lambdas[1]), K_REF_FIRST_MODE)
-        @printf("max full residual = %.6e\n", maximum(solution.full_residuals))
-        if maximum(solution.full_residuals) >= RESIDUAL_WARN_TOL
-            @printf("warning: some full residuals exceed %.1e; check *_eigen_check.csv\n", RESIDUAL_WARN_TOL)
+                rebuilt = similar(dm)
+                rebuilt[1:2:2*nᵠ] .= phi_1
+                rebuilt[2:2:2*nᵠ] .= phi_2
+                rebuilt[2*nᵠ+1:end] .= w
+                rebuild_error = norm(rebuilt - dm)
+                relative_rebuild_error = rebuild_error/max(norm(dm), eps(Float64))
+
+                w_min, w_min_node = findmin(w)
+                w_max, w_max_node = findmax(w)
+                max_abs_w = maximum(abs.(w))
+                k_numᵢ = real(λᵢ)*b^2/(π^2*Dᵇ)
+
+                println(summary_io, join([
+                    mode_rank,
+                    mode_id,
+                    "w$(mode_rank)",
+                    real(λᵢ),
+                    imag(λᵢ),
+                    k_numᵢ,
+                    k_exact,
+                    true,
+                    all(isfinite, dm),
+                    norm(dm),
+                    norm(w),
+                    w_min,
+                    w_min_node,
+                    w_max,
+                    w_max_node,
+                    max_abs_w,
+                    norm(phi_1),
+                    norm(phi_2),
+                    isapprox(max_abs_w, 1.0; atol=1.0e-12, rtol=1.0e-12),
+                    rebuild_error,
+                    relative_rebuild_error,
+                ], ","))
+
+                for (node_row, node) in enumerate(nodes)
+                    node_id = node.𝐼
+                    println(node_io, join([
+                        mode_rank,
+                        mode_id,
+                        "w$(mode_rank)",
+                        real(λᵢ),
+                        imag(λᵢ),
+                        k_numᵢ,
+                        node_row,
+                        node_id,
+                        node.x,
+                        node.y,
+                        w[node_id],
+                        phi_1[node_id],
+                        phi_2[node_id],
+                    ], ","))
+                end
+            end
         end
-        println("eigen check csv: $eigen_path")
-        println("mode summary csv: $summary_path")
-        println("mode node values csv: $node_path")
-        println("VTU output: $vtu_path")
-    finally
-        gmsh.finalize()
     end
 end
 
-function should_run_main()
-    return !isinteractive() || abspath(PROGRAM_FILE) == abspath(@__FILE__)
+write_mode_data(mode_summary_path, mode_node_path, nodes, λ, nᵠ, mode_ids, dm_modes)
+println("mode summary csv: ", mode_summary_path)
+println("mode node values csv: ", mode_node_path)
+
+cells = [vtk_cell(elm) for elm in elements_domain]
+nₚ = length(nodes)
+points = zeros(3, nₚ)
+for node in nodes
+    points[1, node.𝐼] = node.x
+    points[2, node.𝐼] = node.y
+    points[3, node.𝐼] = 0.0
 end
 
-if should_run_main()
-    Base.invokelatest(main)
+vtk_grid(vtu_path, points, cells; ascii=true, append=false, compress=false) do vtk
+    λ_selected = [real(λ[mode_id]) for mode_id in mode_ids]
+    vtk["lambda", WriteVTK.VTKFieldData()] = λ_selected
+    vtk["k_num", WriteVTK.VTKFieldData()] = λ_selected .* b^2 ./ (π^2*Dᵇ)
+    vtk["k_ref_first_mode", WriteVTK.VTKFieldData()] = fill(k_exact, length(mode_ids))
+    vtk["full_relative_residual", WriteVTK.VTKFieldData()] = residuals
+    vtk["alpha_boundary_penalty", WriteVTK.VTKFieldData()] = [α]
+    vtk["color_range_min", WriteVTK.VTKFieldData()] = [-1.0]
+    vtk["color_range_max", WriteVTK.VTKFieldData()] = [1.0]
+
+    for (mode_rank, dm) in enumerate(dm_modes)
+        w = dm[2*nᵠ+1:end]
+        phi_1 = dm[1:2:2*nᵠ]
+        phi_2 = dm[2:2:2*nᵠ]
+        vtk["w$(mode_rank)"] = w
+        vtk["phi_1_$(mode_rank)"] = phi_1
+        vtk["phi_2_$(mode_rank)"] = phi_2
+    end
 end
+println("VTU output: ", vtu_path)
