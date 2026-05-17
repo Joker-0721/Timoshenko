@@ -439,8 +439,8 @@ vtk_grid(vtu_path, points, cells; ascii=true, append=false, compress=false) do v
         phi_1 = dm[1:2:2*nᵠ]
         phi_2 = dm[2:2:2*nᵠ]
         vtk["w$(mode_rank)"] = w
-        vtk["phi_1_$(mode_rank)"] = phi_1
-        vtk["phi_2_$(mode_rank)"] = phi_2
+        # vtk["phi_1_$(mode_rank)"] = phi_1
+        # vtk["phi_2_$(mode_rank)"] = phi_2
     end
 end
 println("VTU output: ", vtu_path)
