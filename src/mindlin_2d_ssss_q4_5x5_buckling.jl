@@ -432,6 +432,10 @@ function main()
     end
 end
 
-if abspath(PROGRAM_FILE) == @__FILE__ || !isinteractive()
+function should_run_main()
+    return !isinteractive() || abspath(PROGRAM_FILE) == abspath(@__FILE__)
+end
+
+if should_run_main()
     main()
 end
