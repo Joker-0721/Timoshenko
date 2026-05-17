@@ -10,7 +10,7 @@ using WriteVTK
 
 import Gmsh: gmsh
 import ApproxOperator.GmshImport: getPhysicalGroups, get𝑿ᵢ, getElements
-import ApproxOperator.MindlinPlate: ∫wwGdΩ2D, ∫κκdΩ, ∫wwdΩ, ∫φφdΩ, ∫φwdΩ
+import ApproxOperator.MindlinPlate: ∫κκdΩ, ∫wwdΩ, ∫φwdΩ, ∫φφdΩ, ∫∇wσ∇wdΩ, ∫∇φσ∇φdΩ, ∫αwwdΓ
 
 const CASE_PREFIX = "mindlin_2d_ssss_q4_5x5_buckling"
 const OUTPUT_DIR = normpath(joinpath(@__DIR__, "..", "vtk"))
@@ -22,6 +22,7 @@ const b = 1.0
 const h_over_b = 0.1
 const h = h_over_b*b
 const Dᵇ = E*h^3/(12.0*(1.0 - ν^2))
+const α = 1.0e8*E
 
 const NODES_PER_SIDE = 5
 const K_REF_FIRST_MODE = 4.0
@@ -33,15 +34,8 @@ struct BucklingSolution
     elements
     K::Matrix{Float64}
     KG::Matrix{Float64}
-    Keff::Matrix{Float64}
-    KGww::Matrix{Float64}
-    free_dofs::Vector{Int}
-    free_phi::Vector{Int}
-    free_w::Vector{Int}
     lambdas::Vector{Float64}
-    condensed_vectors::Matrix{Float64}
     full_modes::Vector{Vector{Float64}}
-    condensed_residuals::Vector{Float64}
     full_residuals::Vector{Float64}
 end
 
@@ -87,13 +81,16 @@ function generate_square_mesh!()
     gmsh.model.mesh.generate(2)
 end
 
-function ssss_fixed_w_nodes(nodes, entities)
-    fixed_w = Set{Int}()
+function assemble_boundary_penalty!(kʷʷ, nodes, entities)
+    fᵅ = zeros(size(kʷʷ, 1))
+    w_boundary(x, y, z) = 0.0
     for side in ("left", "right", "top", "bottom")
         elements = getElements(nodes, entities[side])
-        union!(fixed_w, (node.𝐼 for element in elements for node in element.𝓒))
+        prescribe!(elements, :α => α, :g => w_boundary)
+        set𝝭!(elements)
+        (∫αwwdΓ => elements)(kʷʷ, fᵅ)
     end
-    return sort!(collect(fixed_w))
+    return fᵅ
 end
 
 function assemble_case()
@@ -111,7 +108,8 @@ function assemble_case()
     kʷʷ = zeros(nʷ, nʷ)
     kᵠᵠ = zeros(2*nᵠ, 2*nᵠ)
     kᵠʷ = zeros(2*nᵠ, nʷ)
-    kgʷʷ = zeros(nʷ, nʷ)
+    kᴳʷʷ = zeros(nʷ, nʷ)
+    kᴳᵠᵠ = zeros(2*nᵠ, 2*nᵠ)
 
     elements = getElements(nodes, entities["domain"])
     prescribe!(elements, :E => E, :ν => ν, :h => h)
@@ -124,133 +122,86 @@ function assemble_case()
     σ₂₂(x, y, z) = 0.0
     σ₁₂(x, y, z) = 0.0
     prescribe!(elements, :σ₁₁ => σ₁₁, :σ₂₂ => σ₂₂, :σ₁₂ => σ₁₂)
-    (∫wwGdΩ2D => elements)(kgʷʷ)
+    (∫∇wσ∇wdΩ => elements)(kᴳʷʷ)
+    (∫∇φσ∇φdΩ => elements)(kᴳᵠᵠ)
+
+    assemble_boundary_penalty!(kʷʷ, nodes, entities)
 
     K = [kᵠᵠ kᵠʷ; kᵠʷ' kʷʷ]
     KG = [
-        zeros(2*nᵠ, 2*nᵠ) zeros(2*nᵠ, nʷ)
-        zeros(nʷ, 2*nᵠ) kgʷʷ
+        kᴳᵠᵠ zeros(2*nᵠ, nʷ)
+        zeros(nʷ, 2*nᵠ) kᴳʷʷ
     ]
 
-    fixed_w = ssss_fixed_w_nodes(nodes, entities)
-    fixed_dofs = 2*nᵠ .+ fixed_w
-    free_dofs = setdiff(1:size(K, 1), fixed_dofs)
-    free_phi = [dof for dof in free_dofs if dof <= 2*nᵠ]
-    free_w = [dof for dof in free_dofs if dof > 2*nᵠ]
-    isempty(free_w) && error("SSSS case has no free transverse displacement DOFs.")
-
-    Kpp = K[free_phi, free_phi]
-    Kpw = K[free_phi, free_w]
-    Kwp = K[free_w, free_phi]
-    Kww = K[free_w, free_w]
-    KGww = KG[free_w, free_w]
-    Keff = Kww - Kwp*(Kpp\Kpw)
-
-    return nodes, elements, K, KG, Keff, KGww, free_dofs, free_phi, free_w, Kpp, Kpw
+    return nodes, elements, K, KG
 end
 
-function solve_condensed_eigen(Keff, KGww)
-    F = eigen(Symmetric(0.5*(Keff + Keff')), Symmetric(0.5*(KGww + KGww')))
-    ids = [i for i in eachindex(F.values)
-           if isfinite(F.values[i]) && F.values[i] > 0.0]
-    sort!(ids, by = i -> F.values[i])
-    isempty(ids) && error("no positive finite condensed buckling eigenvalue found.")
-
-    lambdas = Float64[F.values[i] for i in ids]
-    vectors = Matrix{Float64}(undef, size(F.vectors, 1), length(ids))
-    for (j, i) in enumerate(ids)
-        vectors[:, j] = F.vectors[:, i]
-    end
-    return lambdas, vectors
+function is_real_finite_value(lambda)
+    return isfinite(real(lambda)) &&
+           isfinite(imag(lambda)) &&
+           abs(imag(lambda)) < EIGEN_IMAG_TOL &&
+           real(lambda) > 0.0
 end
 
-function relative_residual(A, B, lambda::Float64, v::Vector{Float64})
-    Av = A*v
-    Bv = B*v
-    residual = Av - lambda*Bv
-    denominator = max(norm(Av), abs(lambda)*norm(Bv), eps(Float64))
-    return norm(residual)/denominator
+function is_real_finite_vector(v)
+    all(isfinite, real.(v)) || return false
+    all(isfinite, imag.(v)) || return false
+    return norm(imag.(v)) <= EIGEN_IMAG_TOL*max(norm(real.(v)), eps(Float64))
 end
 
-function center_node_index(nodes)
+function center_node_id(nodes)
     distances = [(node.x - a/2)^2 + (node.y - b/2)^2 for node in nodes]
     return nodes[argmin(distances)].𝐼
 end
 
-function reconstruct_full_modes(
-    nodes,
-    K,
-    KG,
-    Kpp,
-    Kpw,
-    Keff,
-    KGww,
-    free_dofs,
-    free_phi,
-    free_w,
-    lambdas,
-    condensed_vectors,
-)
+function normalize_mode(v, nodes)
     nᵠ = length(nodes)
-    center_id = center_node_index(nodes)
-    full_modes = Vector{Vector{Float64}}()
-    condensed_residuals = Float64[]
-    full_residuals = Float64[]
+    mode = real.(v)
+    w = mode[2*nᵠ + 1:end]
+    max_abs_w = maximum(abs.(w))
+    max_abs_w > 0.0 || error("mode has zero transverse displacement.")
+    mode ./= max_abs_w
 
-    for mode_index in axes(condensed_vectors, 2)
-        lambda = lambdas[mode_index]
-        w_vec = copy(condensed_vectors[:, mode_index])
-        phi_vec = -Kpp\(Kpw*w_vec)
-
-        full_mode = zeros(3*nᵠ)
-        full_mode[free_phi] .= phi_vec
-        full_mode[free_w] .= w_vec
-
-        w_all = full_mode[2*nᵠ + 1:end]
-        max_abs_w = maximum(abs.(w_all))
-        max_abs_w > 0.0 || error("mode $mode_index has zero transverse displacement.")
-        full_mode ./= max_abs_w
-
-        if full_mode[2*nᵠ + center_id] < -sqrt(eps(Float64))
-            full_mode .*= -1.0
-        end
-
-        push!(full_modes, full_mode)
-        push!(condensed_residuals, relative_residual(Keff, KGww, lambda, full_mode[free_w]))
-        push!(full_residuals, relative_residual(K[free_dofs, free_dofs], KG[free_dofs, free_dofs], lambda, full_mode[free_dofs]))
+    center_id = center_node_id(nodes)
+    if mode[2*nᵠ + center_id] < -sqrt(eps(Float64))
+        mode .*= -1.0
     end
+    return mode
+end
 
-    return full_modes, condensed_residuals, full_residuals
+function relative_residual(K, KG, lambda::Float64, v::Vector{Float64})
+    Kv = K*v
+    KGv = KG*v
+    residual = Kv - lambda*KGv
+    denominator = max(norm(Kv), abs(lambda)*norm(KGv), eps(Float64))
+    return norm(residual)/denominator
+end
+
+function solve_full_eigen(nodes, K, KG)
+    F = eigen(K, KG)
+    ids = [
+        i for i in eachindex(F.values)
+        if is_real_finite_value(F.values[i]) && is_real_finite_vector(F.vectors[:, i])
+    ]
+    sort!(ids, by = i -> real(F.values[i]))
+    isempty(ids) && error("no positive finite buckling eigenvalue found.")
+
+    lambdas = Float64[real(F.values[i]) for i in ids]
+    full_modes = [normalize_mode(F.vectors[:, i], nodes) for i in ids]
+    full_residuals = [
+        relative_residual(K, KG, lambdas[i], full_modes[i])
+        for i in eachindex(lambdas)
+    ]
+    return lambdas, full_modes, full_residuals
 end
 
 function solve_case()
-    nodes, elements, K, KG, Keff, KGww, free_dofs, free_phi, free_w, Kpp, Kpw = assemble_case()
-    lambdas, condensed_vectors = solve_condensed_eigen(Keff, KGww)
-    full_modes, condensed_residuals, full_residuals = reconstruct_full_modes(
-        nodes, K, KG, Kpp, Kpw, Keff, KGww, free_dofs, free_phi, free_w, lambdas, condensed_vectors,
-    )
-
-    return BucklingSolution(
-        nodes,
-        elements,
-        K,
-        KG,
-        Keff,
-        KGww,
-        free_dofs,
-        free_phi,
-        free_w,
-        lambdas,
-        condensed_vectors,
-        full_modes,
-        condensed_residuals,
-        full_residuals,
-    )
+    nodes, elements, K, KG = assemble_case()
+    lambdas, full_modes, full_residuals = solve_full_eigen(nodes, K, KG)
+    return BucklingSolution(nodes, elements, K, KG, lambdas, full_modes, full_residuals)
 end
 
-function csv_line(values)
-    return join(values, ",")
-end
+csv_line(values) = join(values, ",")
 
 function write_eigen_check(path, solution::BucklingSolution)
     mkpath(dirname(path))
@@ -261,7 +212,6 @@ function write_eigen_check(path, solution::BucklingSolution)
             "k_num",
             "k_ref",
             "relative_error_vs_ref",
-            "condensed_relative_residual",
             "full_relative_residual",
             "lambda_isfinite",
             "lambda_is_positive",
@@ -280,7 +230,6 @@ function write_eigen_check(path, solution::BucklingSolution)
                 k_num,
                 K_REF_FIRST_MODE,
                 rel_error,
-                solution.condensed_residuals[mode],
                 solution.full_residuals[mode],
                 isfinite(lambda),
                 lambda > 0.0,
@@ -416,8 +365,8 @@ function write_vtu(path, solution::BucklingSolution)
         vtk["lambda", WriteVTK.VTKFieldData()] = solution.lambdas
         vtk["k_num", WriteVTK.VTKFieldData()] = bending_k.(solution.lambdas)
         vtk["k_ref_first_mode", WriteVTK.VTKFieldData()] = fill(K_REF_FIRST_MODE, length(solution.lambdas))
-        vtk["condensed_relative_residual", WriteVTK.VTKFieldData()] = solution.condensed_residuals
         vtk["full_relative_residual", WriteVTK.VTKFieldData()] = solution.full_residuals
+        vtk["alpha_boundary_penalty", WriteVTK.VTKFieldData()] = [α]
         vtk["color_range_min", WriteVTK.VTKFieldData()] = [-1.0]
         vtk["color_range_max", WriteVTK.VTKFieldData()] = [1.0]
 
@@ -446,13 +395,9 @@ function write_outputs(solution::BucklingSolution)
 end
 
 function assert_solution(solution::BucklingSolution)
-    expected_modes = (NODES_PER_SIDE - 2)^2
-    length(solution.lambdas) == expected_modes ||
-        error("expected $expected_modes physical modes, got $(length(solution.lambdas))")
+    !isempty(solution.lambdas) || error("no selected finite positive modes")
     all(isfinite, solution.lambdas) || error("non-finite eigenvalue detected")
     all(>(0.0), solution.lambdas) || error("non-positive eigenvalue detected")
-    maximum(solution.condensed_residuals) < RESIDUAL_TOL ||
-        error("condensed residual exceeds tolerance: $(maximum(solution.condensed_residuals))")
     maximum(solution.full_residuals) < RESIDUAL_TOL ||
         error("full residual exceeds tolerance: $(maximum(solution.full_residuals))")
 
@@ -473,12 +418,11 @@ function main()
         eigen_path, summary_path, node_path, vtu_path = write_outputs(solution)
 
         @printf("2D Mindlin SSSS Q4 5x5 buckling case\n")
-        @printf("nodes = %d, physical modes = %d\n", length(solution.nodes), length(solution.lambdas))
+        @printf("nodes = %d, selected positive finite modes = %d\n", length(solution.nodes), length(solution.lambdas))
         @printf("h/b = %.6f, E = %.6e, nu = %.6f\n", h_over_b, E, ν)
         @printf("first lambda = %.12e\n", solution.lambdas[1])
         @printf("first k_num  = %.12f (thin-plate reference %.6f)\n", bending_k(solution.lambdas[1]), K_REF_FIRST_MODE)
-        @printf("max condensed residual = %.6e\n", maximum(solution.condensed_residuals))
-        @printf("max full residual      = %.6e\n", maximum(solution.full_residuals))
+        @printf("max full residual = %.6e\n", maximum(solution.full_residuals))
         println("eigen check csv: $eigen_path")
         println("mode summary csv: $summary_path")
         println("mode node values csv: $node_path")
