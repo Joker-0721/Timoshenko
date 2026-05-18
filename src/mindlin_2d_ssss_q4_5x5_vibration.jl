@@ -13,7 +13,7 @@ using TimerOutputs
 using WriteVTK
 import Gmsh: gmsh
 
-case_prefix = "mindlin_2d_ssss_q4_5x5_vibration"
+case_prefix = "mindlin_2d_ssss_q4_17x17_vibration"
 output_dir = normpath(joinpath(@__DIR__, "..", "vtk"))
 
 E = 1.0e8
@@ -25,7 +25,7 @@ h = h_over_b*b
 ρ = 1.0
 α = 1.0e8*E
 
-nodes_per_side = 5
+nodes_per_side = 17
 eigen_imag_tol = 1.0e-7
 omega_sq_tol = 1.0e-12
 residual_warn_tol = 1.0e-6
@@ -39,7 +39,7 @@ const to = TimerOutput()
 
 function generate_square_mesh!(nodes_per_side)
     gmsh.clear()
-    gmsh.model.add("mindlin_2d_ssss_q4_5x5_vibration")
+    gmsh.model.add("mindlin_2d_ssss_q4_17x17_vibration")
 
     p1 = gmsh.model.geo.addPoint(0.0, 0.0, 0.0)
     p2 = gmsh.model.geo.addPoint(a, 0.0, 0.0)
