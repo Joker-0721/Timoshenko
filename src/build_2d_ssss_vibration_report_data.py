@@ -12,7 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
 CASE_DIR = DATA_DIR / "2d_ssss"
 
-INPUT_5X5 = DATA_DIR / "2d_ssss_vibration.csv"
+INPUT_5X5_SUMMARY = CASE_DIR / "mindlin_2d_ssss_q4_5x5_vibration_mode_summary.csv"
+INPUT_5X5_EIGEN = CASE_DIR / "mindlin_2d_ssss_q4_5x5_vibration_eigen_check.csv"
 INPUT_17X17_SUMMARY = CASE_DIR / "mindlin_2d_ssss_q4_17x17_vibration_mode_summary.csv"
 INPUT_17X17_EIGEN = CASE_DIR / "mindlin_2d_ssss_q4_17x17_vibration_eigen_check.csv"
 
@@ -115,8 +116,18 @@ def exact_bending_modes(n_modes: int, params: PlateParams) -> pd.DataFrame:
 
 
 def load_5x5() -> pd.DataFrame:
-    data = pd.read_csv(INPUT_5X5)
-    return data.rename(columns={"omega": "omega_num", "freq_hz": "freq_num_hz"})
+    summary = pd.read_csv(INPUT_5X5_SUMMARY)
+    eigen = pd.read_csv(INPUT_5X5_EIGEN)
+    summary["mode_rank"] = summary["mode_rank"].astype(int)
+    eigen["mode_rank"] = eigen["mode_rank"].astype(int)
+
+    merged = summary[["mode_rank", "omega", "omega_sq", "vector_norm", "w_norm"]].merge(
+        eigen[["mode_rank", "relative_residual", "residual_within_tolerance"]],
+        on="mode_rank",
+        how="left",
+    )
+    merged["freq_num_hz"] = merged["omega"] / (2.0 * math.pi)
+    return merged.rename(columns={"omega": "omega_num"})
 
 
 def load_17x17() -> pd.DataFrame:
