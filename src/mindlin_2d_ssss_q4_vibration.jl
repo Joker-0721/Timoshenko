@@ -148,8 +148,8 @@ end
 gmsh.initialize()
 gmsh.option.setNumber("General.Terminal", 0)
 
-integrationOrder = 3
-integrationOrder_shear = 2
+integrationOrder = 2
+integrationOrder_shear = 1
 
 @timeit to "generate Q4 square mesh" generate_square_mesh!(nodes_per_side)
 @timeit to "get entities" entities = getPhysicalGroups()
