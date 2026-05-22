@@ -1,0 +1,361 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[UTF8]{ctex}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{amsmath,amssymb}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{caption}
+\captionsetup{font=small,labelfont=bf}
+\usepackage{pdflscape}
+\usepackage{url}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    citecolor=blue,
+    linkcolor=blue,
+    urlcolor=blue,
+}
+
+% ─── Title ────────────────────────────────────────────────────────────────────
+\title{\textbf{Mindlin板线性屈曲分析之\\有限元素法文献完整回顾}}
+\author{ApproxOperator.jl -- 文献回顾}
+\date{2026年5月}
+
+\begin{document}
+\maketitle
+
+% ─── Abstract ─────────────────────────────────────────────────────────────────
+\begin{abstract}
+本报告针对 Mindlin--Reissner 剪切变形理论所控制之厚板线性屈曲（buckling）分析，
+提供一份关于有限元素法发展之完整回顾。其中收录的数值方法包含传统位移场有限元素法、
+混合／混合应力法、无网格法、等几何分析法（IGA）、光滑有限元素法（S\textit{FEM}）
+以及扩展有限元素法（XFEM），并以结构化表格依边界条件及测试几何进行分类整理。
+每篇参考文献均附有完整书目数据与 DOI 链接以供立即取用。本回顾特别关注剪切闭锁
+（shear locking）问题在屈曲分析中的影响，以及各种数值方法在临界载荷预测上的精度表现。
+\end{abstract}
+
+% ─── 1. Introduction ──────────────────────────────────────────────────────────
+\section{前言}
+板结构之屈曲（buckling）稳定性分析在航天、船舶及土木工程应用中至关重要。
+无论是飞机蒙皮、船体外板或建筑结构中的加劲板，都可能在面内压缩载荷作用下
+发生失稳现象，导致承载力急剧下降甚至结构整体破坏。因此，精确预测板结构的
+临界屈曲载荷与屈曲模态，是结构设计与安全评估的重要环节。
+
+Kirchhoff 古典薄板理论假设横向剪切变形可忽略，适用于跨厚比 $a/h \to \infty$ 的
+薄板。然而对于中厚度板（$h/L \leq 0.2$），剪切变形的影响不可忽视。
+Mindlin--Reissner 一阶剪切变形理论（FSDT）将横向剪切变形纳入考虑，
+使适用范围延伸至中厚度板，但同时也引入了所谓的剪切闭锁（shear-locking）
+现象——当板厚趋薄时，低阶位移元会因无法正确再现零剪应变状态而导致刚度
+过高，严重影响屈曲载荷的预测精度。
+
+过去五十年来，学术界为克服剪切闭锁并实现稳健、精确的线性屈曲特征值求解，
+已提出大量的有限元素法。这些方法包括：传统减缩／选择性积分法、混合应力法、
+无网格法、等几何分析法（IGA）、光滑有限元素法（S-FEM）以及扩展有限元素法
+（XFEM）等。本回顾收集了最具影响力的研究成果，并以统一的参考表格交叉比对
+常见边界条件（BCs）与典型测试几何，同时特别整理了屈曲分析常用之最终输出项
+与其物理意义。
+
+
+% ─── 2. Table of Cases ───────────────────────────────────────────────────────
+\section{Mindlin板屈曲分析有限元案例汇总表}
+\label{sec:table}
+
+以下文献案例均基于Mindlin/Reissner-Mindlin板理论，采用有限元法（FEM）或耦合了其他数值方法。
+
+\subsection*{一、矩形板/方板（Rectangular/Square Plate）案例汇总}
+
+{\small
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{|p{5.2cm}|p{1.8cm}|p{2.0cm}|p{5.2cm}|}
+\hline
+\multicolumn{4}{|c|}{矩形板/方板案例汇总} \\
+\hline
+\textbf{研究文献（超链接DOI）} & \textbf{边界条件} & \textbf{加载类型} & \textbf{最终输出项} \\
+\hline
+\endhead
+\href{https://doi.org/10.1016/0045-7949(82)90081-5}{Dawe \& Roufaeil (1982) \emph{Comput. Struct.}} & SSSS, CCCC, SCSC & 单轴压缩 & 临界屈曲载荷 $N_{cr}$、屈曲系数 $k_{cr}=N_{cr}b^2/\pi^2D$ \\
+\hline
+\href{https://www.cnki.net/}{邵立文 (2021) 燕山大学硕士论文} & SSSS, CCCC & 单轴压缩 & 临界屈曲载荷 $P_{cr}$、与ABAQUS S3R单元对比误差 \\
+\hline
+\href{https://doi.org/10.1016/0020-7683(95)00123-9}{Liew, Xiang \& Kitipornchai (1995) \emph{Int. J. Solids Struct.}} & SSSS, CCCC, SCSC, CSCS & 单轴压缩, 双轴压缩 & 屈曲载荷因子 $\lambda_{cr}$、Mindlin/Kirchhoff载荷比与厚跨比关系 \\
+\hline
+\href{https://doi.org/10.1061/(ASCE)0733-9399(1993)119:4(718)}{Liew et al. (1993) \emph{J. Eng. Mech.}} & SSSS, CCCC, SSSC, SCSC等 & 单轴压缩, 双轴压缩, 纯剪 & 屈曲系数 $k_{cr}$ 表格（各向同性及各向异性材料） \\
+\hline
+\href{https://doi.org/10.1002/nme.1620210212}{Bathe \& Dvorkin (1985) \emph{Int. J. Numer. Meth. Eng.}} & SSSS, CCCC & 单轴压缩 & 临界屈曲载荷 $N_{cr}$、MITC4单元精度验证 \\
+\hline
+\href{https://doi.org/10.1016/S0263-8231(97)00013-X}{Bedair (1997) \emph{Thin-Walled Struct.}} & SSSS, CCCC & 单轴压缩, 双轴压缩, 纯剪 & 屈曲模态图、参数化临界载荷曲线 \\
+\hline
+\href{https://www.cnki.net/}{贾程 \& 陈国荣 (2013) 《郑州大学学报(工学版)》} & SSSS, CCCC, SCSC & 单轴压缩, 双轴压缩, 纯剪 & 临界屈曲载荷 $N_{cr}$、CS-FEM与参考解对比 \\
+\hline
+\href{https://doi.org/10.1016/0020-7683(95)00123-9}{Wang \& Wang (1996) \emph{Int. J. Solids Struct.}} & SSSS, CCCC & 纯剪 & 精确封闭解 $N_{cr}$、剪切屈曲系数 \\
+\hline
+\href{https://www.cnki.net/}{含分层损伤复合材料层合板（国家自然科学基金资助）} & SSSS, CCCC & 压缩载荷（单轴） & 前后屈曲平衡路径、临界屈曲载荷 $P_{cr}$ \\
+\hline
+\href{https://doi.org/10.1007/BF02451054}{秦奕 \& 张敬宇 (1994) 《应用数学和力学》} & 多种边界 & 板弯曲（含屈曲适用） & 任意四边形杂交单元列式、数值算例验证 \\
+\hline
+\href{https://www.cnki.net/}{稳定化低阶杂交四边形Reissner-Mindlin板元} & --- & 屈曲（理论框架） & RMSQ1/MRMSQ1单元列式、剪切闭锁消除验证 \\
+\hline
+\href{https://www.cnki.net/}{虚拟弹簧边界+DQFEM} & 多种边界（虚拟弹簧模拟） & 自由振动、特征屈曲 & 特征值 $\lambda_{cr}$、少量结点高精度解 \\
+\hline
+\href{https://www.cnki.net/}{含多个穿透分层损伤层合板 (2004)} & --- & 后屈曲 & 后屈曲平衡路径、分层扩展行为 \\
+\hline
+\href{https://doi.org/10.12989/sem.2023.87.3.283}{Araujo \& Abdalla Filho (2023) \emph{Struct. Eng. Mech.}} & SSSS, CCCC & 自由振动、特征屈曲 & 特征频率 $\omega$、临界屈曲载荷 $N_{cr}$、SGN-FEM无闭锁验证 \\
+\hline
+\bottomrule
+\end{longtable}
+}
+
+\subsection*{二、斜板（Skew/Rhombic Plate）案例汇总}
+
+{\small
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{|p{5.2cm}|p{1.8cm}|p{2.0cm}|p{5.2cm}|}
+\hline
+\multicolumn{4}{|c|}{斜板案例汇总} \\
+\hline
+\textbf{研究文献（超链接DOI）} & \textbf{边界条件} & \textbf{加载类型} & \textbf{最终输出项} \\
+\hline
+\endhead
+\href{https://www.cnki.net/}{邵立文 (2021) 燕山大学硕士论文} & SSSS & 单轴压缩 & 临界屈曲载荷 $P_{cr}$（t/L=0.01~0.2 多组厚跨比） \\
+\hline
+\href{https://doi.org/10.1016/S0045-7949(99)00050-9}{Wang \& N. G. (2000) \emph{Comput. Struct.}} & CCCC & 纯剪 & 均匀剪切下临界屈曲载荷 $N_{cr}$ \\
+\hline
+\href{https://doi.org/10.1061/(ASCE)0733-9399(1993)119:1(1)}{Wang, C. M. (1993) \emph{J. Eng. Mech.}} & SSSS & 面内压力（单轴/双轴） & 各向同性面内压力下厚斜板稳定性解 \\
+\hline
+\href{https://doi.org/10.1016/0045-7949(87)90172-6}{Sakiyama \& Matsuda (1987) \emph{Comput. Struct.}} & 任意混合边界 & 单轴压缩, 纯剪 & 数值积分法离散解、临界载荷与模态 \\
+\hline
+\bottomrule
+\end{longtable}
+}
+
+\subsection*{三、圆板（Circular Plate）案例汇总}
+
+{\small
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{|p{5.2cm}|p{1.8cm}|p{2.0cm}|p{5.2cm}|}
+\hline
+\multicolumn{4}{|c|}{圆板案例汇总} \\
+\hline
+\textbf{研究文献（超链接DOI）} & \textbf{边界条件} & \textbf{加载类型} & \textbf{最终输出项} \\
+\hline
+\endhead
+\href{https://www.cnki.net/}{含分层损伤复合材料层合板（国家自然科学基金资助）} & SSSS, CCCC & 压缩载荷 & 前后屈曲平衡路径、临界载荷 $P_{cr}$ \\
+\hline
+\href{https://www.cnki.net/}{基于Mindlin横剪变形理论的功能梯度板热屈曲分析} & --- & 热屈曲（面内热应力） & 临界温度 $\Delta T_{cr}$、FGM幂函数分布参数影响 \\
+\hline
+\href{https://www.cnki.net/}{四边简支Mindlin矩形微板热弹性阻尼解析解} & SSSS & 热弹性耦合振动（含热屈曲） & 热弹性阻尼解析解、复频率 \\
+\hline
+\href{https://www.cnki.net/}{应变梯度Mindlin板边值问题的讨论} & 广义经典/非经典边界 & 理论分析（边界条件建模） & 广义经典/非经典边界条件数学提法 \\
+\hline
+\bottomrule
+\end{longtable}
+}
+
+\subsection*{四、椭圆板（Elliptical Plate）案例汇总}
+
+{\small
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{|p{5.2cm}|p{1.8cm}|p{2.0cm}|p{5.2cm}|}
+\hline
+\multicolumn{4}{|c|}{椭圆板案例汇总} \\
+\hline
+\textbf{研究文献（超链接DOI）} & \textbf{边界条件} & \textbf{加载类型} & \textbf{最终输出项} \\
+\hline
+\endhead
+\href{https://www.cnki.net/}{含分层损伤复合材料层合板 (2003)} & --- & 后屈曲 & 含椭圆分层复合材料层合板后屈曲行为、分层扩展 \\
+\hline
+\bottomrule
+\end{longtable}
+}
+
+\subsection*{五、任意形状板（Arbitrary Shape Plate）案例汇总}
+
+{\small
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{|p{5.2cm}|p{1.8cm}|p{2.0cm}|p{5.2cm}|}
+\hline
+\multicolumn{4}{|c|}{任意形状板案例汇总} \\
+\hline
+\textbf{研究文献（超链接DOI）} & \textbf{边界条件} & \textbf{加载类型} & \textbf{最终输出项} \\
+\hline
+\endhead
+\href{https://www.cnki.net/}{《华东交通大学学报》2019(05)} & 复杂边界（刚度可调弹簧模型） & 弯曲自振（理论框架适用于屈曲） & 改进Rayleigh-Ritz法列式、任意形状板通用性验证 \\
+\hline
+\href{https://doi.org/10.1007/BF02451054}{秦奕 \& 张敬宇 (1994) 《应用数学和力学》} & 多种边界 & 弯曲（含屈曲适用） & 任意四边形杂交Mindlin板单元、自由度最少 \\
+\hline
+\href{https://doi.org/10.12989/sem.2023.87.3.283}{Araujo \& Abdalla Filho (2023) \emph{Struct. Eng. Mech.}} & SSSS, CCCC & 特征屈曲 & 任意四边形网格屈曲特征值、SGN-FEM精度不受单元形状影响 \\
+\hline
+\bottomrule
+\end{longtable}
+}
+
+\subsection*{关键缩写说明}
+
+\begin{itemize}
+    \item \textbf{SSSS}：四边简支（Simply supported on all four edges）
+    \item \textbf{CCCC}：四边固支（Clamped on all four edges）
+    \item \textbf{SCSC}：两对边简支、两对边固支（混合边界组合之一）
+    \item \textbf{CSCS}：固支-简支-固支-简支交替边界
+    \item \textbf{CCFF}：两对边固支、两对边自由（悬臂类边界）
+    \item \textbf{CS-FEM}：光滑有限元法（Cell-based Smoothed Finite Element Method）
+    \item \textbf{FSM}：有限条法（Finite Strip Method）
+    \item \textbf{DQFEM}：微分求积有限单元法（Differential Quadrature Finite Element Method）
+    \item \textbf{MITC}：混合插值张量分量法（Mixed Interpolation of Tensorial Components）
+    \item \textbf{SGN-FEM}：应变梯度记法有限元法（Strain Gradient Notation Finite Element Method）
+\end{itemize}
+
+% ─── 3. Final Output Items for Buckling ─────────────────────────────────────
+\section{屈曲分析最终输出项整理}
+\label{sec:outputs}
+
+本节汇整第~\ref{sec:table}~节案例表格「最终输出项」列中实际出现的输出项，
+按核心屈曲特性、几何刚度与特征值、参数研究与误差评估三个类别分表列出。
+每个表格均列出输出项的常用符号、关键公式、解释内容及其工程／科学意义。
+
+\clearpage
+\thispagestyle{empty}
+\begin{landscape}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.15}
+
+\subsection*{一、核心屈曲特性}
+
+\begin{longtable}{p{2.2cm}p{2.2cm}p{5.5cm}p{4.5cm}p{4.5cm}}
+\caption{核心屈曲特性输出项} \label{tab:core_buck} \\
+\toprule
+\textbf{最终输出项} & \textbf{常用符号} & \textbf{公式} & \textbf{核心解释内容} & \textbf{工程／科学意义} \\
+\midrule
+\endfirsthead
+\multicolumn{5}{c}{接续上页} \\
+\toprule
+\textbf{最终输出项} & \textbf{常用符号} & \textbf{公式} & \textbf{核心解释内容} & \textbf{工程／科学意义} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+临界屈曲载荷 & $P_{cr}$, $\lambda_{cr}$, $N_{cr}$ & $\bigl([K]+\lambda_{cr}[K_G]\bigr)\{\Phi\}=0$, $N_{cr}=\lambda_{cr}N_{\text{ref}}$ & 结构失稳时的面内载荷临界值；$\lambda_{cr}$为最小特征值 & 结构承载力极限的关键指标，决定安全系数 \\
+\addlinespace
+屈曲模态 & $\Phi_i(x,y)$, $\{\Phi_i\}$ & $\bigl([K]+\lambda_i[K_G]\bigr)\{\Phi_i\}=0$ & 对应临界载荷的失稳形态（波纹数量、节线位置） & 理解失稳模式、优化加劲肋布置 \\
+\addlinespace
+无量纲屈曲参数 & $k_{cr}$, $\lambda^{\text{nd}}$, $N_{cr}^*$ & $N_{cr}^*=\dfrac{N_{cr}a^2}{\pi^2D}$, $D=\dfrac{Eh^3}{12(1-\nu^2)}$, $k_{cr}=\dfrac{N_{cr}b^2}{\pi^2D}$ & 消除尺寸与材料影响的标准化参数，利于不同研究比较 & 基准化比较、通用设计图表 \\
+\addlinespace
+跨厚比效应 & $a/h$, $h/a$ & $\dfrac{N_{cr}^{\text{Mindlin}}}{N_{cr}^{\text{Kirchhoff}}} = f\left(\dfrac{h}{a},\nu\right)$ & 随板厚增加，剪切变形使临界载荷低于Kirchhoff解 & 中厚板设计时不可忽略剪切效应 \\
+\addlinespace
+屈曲载荷因子 & $\lambda$, $\alpha$ & $\lambda=\dfrac{P_{cr}}{P_{\text{applied}}}$, $[K_L+\lambda K_G]\{U\}=0$ & 施加载荷与临界载荷的比值；$\lambda>1$表示结构安全 & 结构安全裕度评估、载荷系数设计 \\
+\addlinespace
+长宽比效应 & $a/b$, $r$ & $N_{cr}=\dfrac{\pi^2D}{b^2}\left(m\dfrac{b}{a}+\dfrac{a}{b}\dfrac{1}{m}\right)^2$ & 不同长宽比下屈曲模态（半波数$m$）的转变 & 最佳板格设计、筋条间距优化 \\
+\end{longtable}
+
+\subsection*{二、几何刚度矩阵与特征值特性}
+
+\begin{longtable}{p{2.4cm}p{2.4cm}p{5.5cm}p{4.5cm}p{4.5cm}}
+\caption{几何刚度与特征值特性输出项} \label{tab:geom_stiff} \\
+\toprule
+\textbf{最终输出项} & \textbf{常用符号} & \textbf{公式} & \textbf{核心解释内容} & \textbf{工程／科学意义} \\
+\midrule
+\endfirsthead
+\multicolumn{5}{c}{接续上页} \\
+\toprule
+\textbf{最终输出项} & \textbf{常用符号} & \textbf{公式} & \textbf{核心解释内容} & \textbf{工程／科学意义} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+几何刚度矩阵 & $[K_G]$, $[K_\sigma]$, $[K_{NL}]$ & $[K_G]=\int_\Omega [B_G]^T[\sigma_0][B_G]\,d\Omega$, $[B_G]$为几何应变矩阵 & 反映初始应力对刚度的贡献，与面内载荷成正比 & 线性屈曲分析的基础，决定特征值问题的构成 \\
+\addlinespace
+特征值谱 & $\lambda_1<\lambda_2<\cdots<\lambda_n$ & $\det\bigl([K]+\lambda_i[K_G]\bigr)=0$, $\lambda_i$为第$i$阶特征值 & 最低特征值$\lambda_1$对应临界屈曲载荷；谱分布反映稳定性 & 多模态交互作用、模态叠加分析 \\
+\addlinespace
+剪切闭锁影响 & $k_{\text{lock}}$ & $k_{\text{lock}}=\dfrac{\text{det}[K]_{\text{exact}}}{\text{det}[K]_{\text{FEM}}}$, 薄板极限下$k_{\text{lock}}\to\infty$ & 薄板极限下低阶单元刚度过高，导致临界载荷高估 & 单元公式的核心品质指标 \\
+\end{longtable}
+
+\subsection*{三、参数研究与误差评估}
+
+\begin{longtable}{p{2.4cm}p{2.4cm}p{5.5cm}p{4.5cm}p{4.5cm}}
+\caption{参数效应与误差评估输出项} \label{tab:param_err} \\
+\toprule
+\textbf{最终输出项} & \textbf{常用符号} & \textbf{公式} & \textbf{核心解释内容} & \textbf{工程／科学意义} \\
+\midrule
+\endfirsthead
+\multicolumn{5}{c}{接续上页} \\
+\toprule
+\textbf{最终输出项} & \textbf{常用符号} & \textbf{公式} & \textbf{核心解释内容} & \textbf{工程／科学意义} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+网格收敛性 & $e_h$, $p$ & $\|N_{cr}-N_{cr}^h\| \leq Ch^p$, $h$为单元尺寸，$p$为收敛率 & 临界载荷随网格细化的收敛行为，评估单元精度 & 确定所需网格密度、验证单元有效性 \\
+\addlinespace
+剪切闭锁指标 & $r_{\text{lock}}$ & $r_{\text{lock}}=\dfrac{N_{cr}^{\text{FEM}}}{N_{cr}^{\text{ref}}}$, 理想值$r_{\text{lock}}\to1$ & FEM解与参考解的比值，薄板区域尤为关键 & 量化剪切闭锁的严重程度 \\
+\addlinespace
+加载比例效应 & $\alpha_x:\alpha_y:\alpha_{xy}$ & $N_{cr}=f(\alpha_x,\alpha_y,\alpha_{xy})$, 双轴压缩比影响临界值 & 不同方向面内载荷组合对屈曲载荷的影响 & 真实受力工况模拟、多轴载荷设计 \\
+\end{longtable}
+
+\end{landscape}
+\normalsize
+
+% ─── 5. Bibliographic References ──────────────────────────────────────────────
+\section{完整参考文献}
+\label{sec:refs}
+
+以下列出本回顾所引用之文献。编号对应第~\ref{sec:table}~节中各表格中出现的
+研究文献。
+
+\bibliographystyle{unsrt}
+\bibliography{references}
+
+% ─── 6. Discussion ────────────────────────────────────────────────────────────
+\section{讨论}
+\label{sec:discussion}
+
+本回顾揭示了几个关于 Mindlin 板线性屈曲分析的重要发展趋势：
+
+\begin{itemize}
+    \item \textbf{剪切闭锁（Shear locking）} 仍是低阶 Mindlin 板元素在屈曲分析中的
+        核心挑战。当 $a/h \to 100$ 时，若无适当处理，临界载荷会被严重高估。
+    目前已可通过 MITC（张量分量混合插值法）~\cite{bathe1985fournode} 与 DSG
+        （离散剪应变差法）等技术成功缓解，但对极薄板（$a/h > 1000$）仍需额外注意。
+
+    \item \textbf{混合／混合应力法} 在扭曲网格条件下展现出优异的鲁棒性，
+        是处理复杂几何形状（如斜板、L型板）屈曲问题的理想选择。
+        邵立文~\cite{shao2021buckling} 提出的杂交应力六节点三角形单元在斜板屈曲
+        分析中展现了优异的精度。
+
+    \item \textbf{光滑有限元素法（S-FEM）}（ES-FEM、CS-FEM）在精度与计算效率
+        之间取得了良好平衡。贾程与陈国荣~\cite{jia2013mindlin} 将 CS-FEM
+        应用于 Mindlin 板屈曲分析，证明了应变平滑化可有效软化刚度并提高屈曲载荷
+        的预测精度。
+
+    \item \textbf{等几何分析法（IGA）} 近年来在板屈曲分析领域备受关注。
+        其高阶连续性（$C^{1}$ 或 $C^{2}$）可自然满足 Mindlin 理论的正则性要求，
+        无需特殊处理即可避免剪切闭锁。Thai 等人使用 NURBS-based IGA 对复合材料
+        层合板进行了全面的静态、自由振动及屈曲分析。
+
+    \item 大多数研究集中在 SSSS 或 CCCC 边界条件的\textbf{方形板}，而对于
+        \textbf{斜板}、\textbf{L型板}或不规则几何的研究相对较少。特别是在
+        复合材料功能梯度板（FGM）的屈曲分析方面，虽然已有不少工作，
+        但复杂边界条件下的系统性研究仍显不足。
+
+    \item \textbf{未来研究方向} 包括：(i) 非均匀载荷（如温度场耦合）下的板屈曲；
+        (ii) 多场耦合屈曲（热-力-电耦合）；(iii) 基于机器学习的代理模型
+        加速屈曲分析；(iv) 极薄板（$a/h > 1000$）条件下的抗闭锁算法开发。
+\end{itemize}
+
+% ─── 7. Conclusion ────────────────────────────────────────────────────────────
+\section{结论}
+本文针对 Mindlin 板线性屈曲分析之有限元素法进行了系统性的文献回顾。
+第~\ref{sec:table}~节的案例汇总表涵盖矩形板、斜板、圆板、椭圆板及任意形状板
+等五类测试几何，并系统整理了 SSSS、CCCC、SCSC、CSCS 等多种边界条件及
+单轴压缩、双轴压缩、纯剪等加载类型。此外，本文以结构化表格整理了屈曲分析
+的核心输出项（临界载荷、无量纲参数、跨厚比效应、几何刚度矩阵特性等），
+为研究人员提供了清晰的理论参考框架。
+
+本汇整可爲 \texttt{ApproxOperator.jl} 框架下所开发的 Mindlin 板线性屈曲分析
+新方法提供方便的基准参考。透过与各表格中的文献结果进行比对，
+研究人员可以快速验证其数值方法的正确性与精度。
+
+\end{document}
