@@ -1,3 +1,7 @@
+#動力問題分析
+#2d_ssss
+#mindlin plate
+
 using ApproxOperator
 import ApproxOperator.GmshImport: getPhysicalGroups, get𝑿ᵢ, getElements
 import ApproxOperator.MindlinPlate: ∫κκdΩ, ∫wwdΩ, ∫φwdΩ, ∫φφdΩ, ∫∇wσ∇wdΩ, ∫∇φσ∇φdΩ, ∫αwwdΓ
@@ -23,10 +27,10 @@ k_exact = 4.0
 const to = TimerOutput()
 
 gmsh.initialize()
-integrationOrder = 3
-integrationOrder_shear = 2
-# @timeit to "open msh file" gmsh.open("./msh/patchtest_quad4_4.msh")
-@timeit to "open msh file" gmsh.open("./msh/bui_2011_square_5x5.msh")
+integrationOrder = 2
+integrationOrder_shear = 1
+# @timeit to "open msh file" gmsh.open("./msh/struct_quad_17.msh")
+@timeit to "open msh file" gmsh.open("./msh/struct_tri_17.msh")
 @timeit to "get entities" entities = getPhysicalGroups()
 @timeit to "get nodes" nodes = get𝑿ᵢ()
 
