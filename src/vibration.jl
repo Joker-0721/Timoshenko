@@ -1,5 +1,6 @@
 # 2D Mindlin plate vibration analysis with SSSS boundary conditions using Q4 elements
-# 新增：讀取解析解 CSV，透過 MAC 自動配對模態
+# 新增：讀取解析解 CSV，透過 MAC 自動配對模態；保留所有特徵值至 CSV；終端僅顯示有效模態對比
+# 摘要 CSV 包含 Omega_FEM 和 Omega_exact
 
 const LOCAL_APPROX_OPERATOR = normpath(joinpath(@__DIR__, "..", "..", "ApproxOperator.jl"))
 if isdir(LOCAL_APPROX_OPERATOR) && !(LOCAL_APPROX_OPERATOR in LOAD_PATH)
@@ -97,14 +98,6 @@ function vtk_cell(elm)
 end
 
 # ---------------------- 解析解讀取與 MAC 計算 ----------------------
-"""
-     read_exact_csv(csv_path)
-讀取解析解 CSV 檔案，回傳:
-  - exact_nodes::Vector{Node} (自訂結構，含 x, y, id)
-  - modes::Vector{ExactMode}，其中 ExactMode 包含 (m,n, w, φx, φy)
-注意：假設 CSV 欄位為 node_id, x, y, w1, φx1, φy1, w2, φx2, φy2, ...
-且模態數量由欄位數推得。
-"""
 struct ExactMode
     m::Int
     n::Int
@@ -118,22 +111,10 @@ function read_exact_csv(csv_path)
     headers = data[2][:]
     values = data[1]
     n_rows = size(values, 1)
-    # 解析標題，取得模態資訊
-    mode_cols = Dict{Int,Tuple{Int,Int}}()  # mode_index -> (m,n)
-    # 標題格式範例: "w1", "φx1", "φy1", "w2", ...
-    # 我們需要從 "w1" 中提取 1，但沒有儲存 m,n。實際 (m,n) 並未寫在 CSV 中。
-    # 因此我們必須從外部知道 (m,n) 順序。替代方案：假設 CSV 中的模態順序與 generate_mn_pairs 一致，
-    # 但由於沒有儲存 (m,n)，我們無法在此取得。因此建議修改 exact_vibration.jl 將 (m,n) 寫入 CSV 的額外欄位。
-    # 為了讓此函數通用，我們改為期望 CSV 包含 "m1","n1","m2","n2",... 欄位。
-    # 如果沒有，我們只能回傳模式索引，由外部提供 (m,n) 列表。
-    # 這裡我們假設 CSV 中已經存在 "m1","n1","m2","n2",... 欄位（需修改 exact_vibration.jl）。
-    # 若無，則回傳空的 modes，呼叫者改用頻率匹配。
-    # 為了簡化，我們先檢查是否有 "m1" 欄位。
     if !any(startswith.(headers, "m"))
         @warn "CSV 缺少 (m,n) 資訊，將使用頻率匹配代替 MAC 配對。"
         return nothing, nothing
     end
-    # 解析模態數量
     mode_indices = Set{Int}()
     for h in headers
         if startswith(h, "w")
@@ -143,20 +124,17 @@ function read_exact_csv(csv_path)
     end
     n_modes = length(mode_indices)
     modes = ExactMode[]
-    # 提取節點座標
     nodes = []
     for i in 1:n_rows
         x = values[i, 2]
         y = values[i, 3]
         push!(nodes, (id=i, x=x, y=y))
     end
-    # 提取每個模態的 (m,n) 及向量
     for k in 1:n_modes
-        # 找 m_k, n_k
         m_col = "m$k"
         n_col = "n$k"
         if !(m_col in headers) || !(n_col in headers)
-            error("CSV 缺少 m$k 或 n$k 欄位")
+            error("CSV 缺少 $m_col 或 $n_col 欄位")
         end
         m = Int(values[1, findfirst(==(m_col), headers)])
         n = Int(values[1, findfirst(==(n_col), headers)])
@@ -176,13 +154,7 @@ function read_exact_csv(csv_path)
     return nodes, modes
 end
 
-"""
-    compute_mac(u1, u2, nᵠ)
-計算兩個振型的 MAC 值。u1, u2 為完整自由度向量 [φx; φy; w]。
-MAC = |u1' * u2|^2 / ((u1'*u1)*(u2'*u2))
-"""
 function compute_mac(u1::Vector{Float64}, u2::Vector{Float64}, nᵠ::Int)
-    # u1, u2 長度應為 2*nᵠ + nʷ，但 nʷ = nᵠ (因為節點數相同)
     dot_ij = dot(u1, u2)
     norm_i = dot(u1, u1)
     norm_j = dot(u2, u2)
@@ -192,19 +164,12 @@ function compute_mac(u1::Vector{Float64}, u2::Vector{Float64}, nᵠ::Int)
     return (dot_ij^2) / (norm_i * norm_j)
 end
 
-"""
-    align_exact_to_numerical_nodes(exact_nodes, exact_modes, numerical_nodes)
-將解析解的模態向量重新排序，使其對應到數值節點的順序（基於座標匹配）。
-回傳新的 ExactMode 列表，其中 w, φx, φy 已按 numerical_nodes 順序排列。
-"""
 function align_exact_to_numerical_nodes(exact_nodes, exact_modes, numerical_nodes)
-    # 建立座標到索引的映射 (精確到小數點後 12 位)
     coord_to_idx = Dict{Tuple{Float64,Float64}, Int}()
     for (i, node) in enumerate(numerical_nodes)
         key = (round(node.x, digits=12), round(node.y, digits=12))
         coord_to_idx[key] = i
     end
-    # 檢查每個 exact node 是否都能找到
     new_modes = []
     for mode in exact_modes
         w_new = zeros(length(numerical_nodes))
@@ -224,6 +189,13 @@ function align_exact_to_numerical_nodes(exact_nodes, exact_modes, numerical_node
         push!(new_modes, ExactMode(mode.m, mode.n, w_new, φx_new, φy_new))
     end
     return new_modes
+end
+
+# ---------------------- 輔助函數：薄板頻率解析解 ---------------------
+function exact_omega_sq(m, n, a, b, D, ρ, h)
+    Ω_exact = π^2 * (m^2 + n^2)
+    ω_exact = Ω_exact * sqrt(D / (ρ * h)) / a^2
+    return ω_exact, Ω_exact
 end
 
 # ---------------------- 主程式 ----------------------
@@ -273,12 +245,9 @@ for mesh_file in mesh_files
         @timeit to "assemble Kφφ" 𝑎ᵠᵠ(kᵠᵠ)
 
         @timeit to "assemble consistent mass" begin
-            # 注意：∫ρhwwdΩ 和 ∫ρIφφdΩ 應返回矩陣，這裡假設它們可直接累加到 mʷʷ, mᵠᵠ
-            # 如果它們是算子，需用 (∫ρhwwdΩ(ρ, h) => elements)(mʷʷ) 形式
-            # 根據用戶之前提供的程式碼，應該是算子形式，但用戶寫成了賦值，需修正。
-            # 這裡更正為正確的算子呼叫：
-            (∫ρhwwdΩ(ρ, h) => elements)(mʷʷ)
-            (∫ρIφφdΩ(ρ, h) => elements)(mᵠᵠ)
+            prescribe!(elements, :ρ => ρ)
+            (∫ρhwwdΩ => elements)(mʷʷ)
+            (∫ρIφφdΩ => elements)(mᵠᵠ)
         end
 
         global elements_Ω = elements
@@ -292,7 +261,7 @@ for mesh_file in mesh_files
             elements_bottom = getElements(nodes, entities["Γ⁴"], integrationOrder)
         end
 
-        w_boundary(x, y) = 0.0
+        w_boundary(x, y, z) = 0.0
         prescribe!(elements_left,   :α => α, :g => w_boundary)
         prescribe!(elements_right,  :α => α, :g => w_boundary)
         prescribe!(elements_top,    :α => α, :g => w_boundary)
@@ -318,11 +287,38 @@ for mesh_file in mesh_files
         ω² = F.values
         V = F.vectors
 
+        # 保存所有特徵值 (包括無效的)
+        all_eigen_csv = joinpath(output_dir, "$(case_prefix)_all_eigenvalues.csv")
+        open(all_eigen_csv, "w") do io
+            println(io, "index,omega_sq_real,omega_sq_imag,Omega,is_finite,is_positive,is_real_mode")
+            for (idx, λ) in enumerate(ω²)
+                ω²_real = real(λ)
+                ω²_imag = imag(λ)
+                # 計算 Omega (無因次頻率)
+                if ω²_real > 0
+                    ω = sqrt(ω²_real)
+                    Omega = ω * a^2 * sqrt(ρ * h / Dᵇ)
+                else
+                    Omega = NaN
+                end
+                is_fin = isfinite(ω²_real) && isfinite(ω²_imag)
+                is_pos = is_fin && ω²_real > omega_sq_tol
+                is_real = abs(ω²_imag) < eigen_imag_tol
+                println(io, join([idx, ω²_real, ω²_imag, Omega, is_fin, is_pos, is_real], ","))
+            end
+        end
+        println("所有特徵值已儲存至: ", all_eigen_csv)
+
+        # 篩選有效模態
         mode_ids = sort!(
             collect(i for i in eachindex(ω²) if selected_eigenpair(ω²[i], V[:, i])),
-            by=i -> real(ω²[i]),
+            by = i -> real(ω²[i]),
         )
         isempty(mode_ids) && error("no positive finite vibration eigenvalue found")
+
+        println("總特徵值數量: ", length(ω²))
+        println("有效模態數量: ", length(mode_ids))
+        println("已過濾無效模態數量: ", length(ω²) - length(mode_ids))
 
         dm_modes = [normalize_mode(V[:, mode_id], nodes, nᵠ) for mode_id in mode_ids]
         residuals = [
@@ -339,10 +335,6 @@ for mesh_file in mesh_files
     end
 
     # ==================== 讀取解析解 CSV ====================
-    # 根據 mesh_name 推測解析解檔案名稱（假設解析解已生成）
-    # 例如 "struct_quad_17" 對應 "2d4s_vi_q4_ex_17x17.csv" (因為 exact_vibration.jl 使用 nodes_per_side)
-    # 但 mesh_name 是 "struct_quad_17"，我們需要提取 17 -> "17x17"
-    # 更通用：從 mesh_file 中提取數字部分。假設檔名為 struct_quad_17.msh，則數字為 17。
     m = match(r"(\d+)", mesh_name)
     if m === nothing
         @warn "無法從網格名稱提取節點數，跳過解析解比對"
@@ -352,12 +344,11 @@ for mesh_file in mesh_files
         n_side = parse(Int, m.captures[1])
         exact_csv_path = joinpath(output_dir_csv, "2d4s_vi_q4_ex_$(n_side)x$(n_side).csv")
         if !isfile(exact_csv_path)
-            @warn "解析解 CSV 檔案不存在: $exact_csv_path，跳過比對"
+            @warn "解析解 CSV 檔案不存在: $exact_csv_path,跳過比對"
             exact_nodes, exact_modes = nothing, nothing
         else
             exact_nodes, exact_modes = read_exact_csv(exact_csv_path)
             if exact_modes !== nothing
-                # 將解析解振型對齊到數值節點順序
                 exact_modes = align_exact_to_numerical_nodes(exact_nodes, exact_modes, nodes)
                 println("成功讀取解析解，共 $(length(exact_modes)) 個模態")
             end
@@ -365,33 +356,27 @@ for mesh_file in mesh_files
     end
 
     # ==================== 模態配對（MAC） ====================
-    mac_matches = []  # 每個元素為 (mode_rank, matched_mode_index, mac_value, m, n)
+    mac_matches = []
     if exact_modes !== nothing && length(exact_modes) > 0
         n_modes_num = length(dm_modes)
         n_modes_exact = length(exact_modes)
         mac_matrix = zeros(n_modes_num, n_modes_exact)
-        # 組裝數值模態完整向量 [φx; φy; w]
         num_vecs = []
         for dm in dm_modes
             φx = dm[1:2:2*nᵠ]
             φy = dm[2:2:2*nᵠ]
             w = dm[2*nᵠ+1:end]
-            vec = vcat(φx, φy, w)
-            push!(num_vecs, vec)
+            push!(num_vecs, vcat(φx, φy, w))
         end
-        # 組裝解析模態完整向量
         exact_vecs = []
         for mode in exact_modes
-            vec = vcat(mode.φx, mode.φy, mode.w)
-            push!(exact_vecs, vec)
+            push!(exact_vecs, vcat(mode.φx, mode.φy, mode.w))
         end
-        # 計算 MAC 矩陣
         for i in 1:n_modes_num
             for j in 1:n_modes_exact
                 mac_matrix[i,j] = compute_mac(num_vecs[i], exact_vecs[j], nᵠ)
             end
         end
-        # 為每個數值模態找到最佳匹配的解析模態
         for i in 1:n_modes_num
             best_j = argmax(mac_matrix[i,:])
             best_mac = mac_matrix[i, best_j]
@@ -399,8 +384,7 @@ for mesh_file in mesh_files
             push!(mac_matches, (i, best_j, best_mac, matched_mode.m, matched_mode.n))
         end
     else
-        # 若無解析解，則使用頻率匹配（原有方式，但需要 exact_omega_sq 函數）
-        # 注意：原程式已有 exact_omega_sq，這裡保留作為備用
+        # 備用頻率匹配
         for r in 1:length(dm_modes)
             ω²ᵢ = real(ω²[mode_ids[r]])
             ωᵢ = sqrt(ω²ᵢ)
@@ -417,11 +401,11 @@ for mesh_file in mesh_files
                     end
                 end
             end
-            push!(mac_matches, (r, 0, 0.0, best_mn[1], best_mn[2]))  # MAC 設為 0
+            push!(mac_matches, (r, 0, 0.0, best_mn[1], best_mn[2]))
         end
     end
 
-    # ==================== 輸出結果 ====================
+    # ==================== 輸出結果（僅有效模態） ====================
     println("\n結果摘要 ($(mesh_name)):")
     println("  節點數: ", length(nodes))
     println("  選取的有效模態數: ", length(mode_ids))
@@ -432,7 +416,6 @@ for mesh_file in mesh_files
         @printf("  警告: 部分殘差超過 %.1e\n", residual_warn_tol)
     end
 
-    # ---- 模態比較表（使用 MAC 配對結果） ----
     println("\n  模態比較 (MAC 配對):")
     println("  " * @sprintf("%-8s %-8s %-12s %-12s %-12s", "mode", "(m,n)", "MAC", "Ω_FEM", "residual"))
     n_modes_show = min(length(dm_modes), 15)
@@ -476,24 +459,31 @@ for mesh_file in mesh_files
             vtk["φx$(mode_rank)"] = φx
             vtk["φy$(mode_rank)"] = φy
         end
-        # 可選：將解析振型也寫入 VTK (需對齊節點順序)
-        # 這裡省略以保持檔案簡潔
     end
     println("  VTU 輸出模態數: $n_modes_output")
     println("  VTU 輸出: ", vtu_path)
 
-    # ---- 寫入 CSV 摘要（含配對資訊）----
+    # ---- 寫入 CSV 摘要（有效模態 + Omega_exact）----
     csv_summary_path = joinpath(output_dir, "$(case_prefix)_modes.csv")
     open(csv_summary_path, "w") do io
-        println(io, join(["mode_rank", "eigen_index", "omega_sq", "omega", "Omega_dimensionless",
-                          "matched_m", "matched_n", "MAC", "relative_residual", "residual_ok"], ","))
+        # 表頭：增加 Omega_exact
+        println(io, join(["mode_rank", "eigen_index", "omega_sq", "omega",
+                          "Omega_FEM", "Omega_exact", "matched_m", "matched_n",
+                          "MAC", "relative_residual", "residual_ok"], ","))
         for r in 1:length(dm_modes)
             mode_id = mode_ids[r]
             ω²ᵢ = real(ω²[mode_id])
             ωᵢ = sqrt(ω²ᵢ)
             Ω_FEM = ωᵢ * a^2 * sqrt(ρ * h / Dᵇ)
             _, _, mac_val, m, n = mac_matches[r]
-            println(io, join([r, mode_id, ω²ᵢ, ωᵢ, Ω_FEM, m, n, mac_val, residuals[r],
+            # 計算 Omega_exact
+            if m != 0 && n != 0
+                Ω_exact = π^2 * (m^2 + n^2)
+            else
+                Ω_exact = NaN
+            end
+            println(io, join([r, mode_id, ω²ᵢ, ωᵢ, Ω_FEM, Ω_exact,
+                              m, n, mac_val, residuals[r],
                               residuals[r] < residual_warn_tol], ","))
         end
     end
