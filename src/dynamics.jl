@@ -18,7 +18,7 @@ import Gmsh: gmsh
 
 E = 200e9
 ν = 0.3
-h = 1e-2
+h = 1e-1
 a = 1.0
 b = 1.0
 Dᵇ = E*h^3/12/(1-ν^2)
@@ -114,7 +114,6 @@ end
     )
     isempty(mode_ids) && error("no positive finite buckling eigenvalue found")
     
-    # 【導師修正】：排序和計算都需要乘上 h 和 σ₁₁ 來獲得真正的臨界載荷 N_cr
     sort!(mode_ids, by = i -> abs(real(λ[i])*h*σ₁₁*b^2/(π^2*Dᵇ) - k_exact))
 
     println(λ)
