@@ -1,6 +1,11 @@
-#動力問題分析
+#屈曲問題分析
 #2d_ssss
 #mindlin plate
+
+const LOCAL_APPROX_OPERATOR = normpath(joinpath(@__DIR__, "..", "..", "ApproxOperator.jl"))
+if isdir(LOCAL_APPROX_OPERATOR) && !(LOCAL_APPROX_OPERATOR in LOAD_PATH)
+    pushfirst!(LOAD_PATH, LOCAL_APPROX_OPERATOR)
+end
 
 using ApproxOperator
 import ApproxOperator.GmshImport: getPhysicalGroups, get𝑿ᵢ, getElements
@@ -13,7 +18,7 @@ import Gmsh: gmsh
 
 E = 200e9
 ν = 0.3
-h = 1e-0
+h = 1e-2
 a = 1.0
 b = 1.0
 Dᵇ = E*h^3/12/(1-ν^2)
@@ -29,8 +34,8 @@ const to = TimerOutput()
 gmsh.initialize()
 integrationOrder = 2
 integrationOrder_shear = 1
-# @timeit to "open msh file" gmsh.open("./msh/struct_quad_17.msh")
-@timeit to "open msh file" gmsh.open("./msh/struct_tri_17.msh")
+@timeit to "open msh file" gmsh.open("./msh/struct_quad_17.msh")
+# @timeit to "open msh file" gmsh.open("./msh/struct_tri_17.msh")
 @timeit to "get entities" entities = getPhysicalGroups()
 @timeit to "get nodes" nodes = get𝑿ᵢ()
 
@@ -108,11 +113,16 @@ end
         by = i -> real(λ[i]),
     )
     isempty(mode_ids) && error("no positive finite buckling eigenvalue found")
-    sort!(mode_ids, by = i -> abs(real(λ[i])*b^2/(π^2*Dᵇ) - k_exact))
+    
+    # 【導師修正】：排序和計算都需要乘上 h 和 σ₁₁ 來獲得真正的臨界載荷 N_cr
+    sort!(mode_ids, by = i -> abs(real(λ[i])*h*σ₁₁*b^2/(π^2*Dᵇ) - k_exact))
 
     println(λ)
     λcr = real(λ[first(mode_ids)])
-    k_num = λcr*b^2/(π^2*Dᵇ)
+    
+    # 計算真正的物理量
+    N_cr = λcr * h * σ₁₁
+    k_num = N_cr * b^2 / (π^2 * Dᵇ)
     rel_error = abs(k_num - k_exact)/abs(k_exact)
 end
  
@@ -192,8 +202,8 @@ function write_eigen_check(filepath, K, Kᴳ, λ, V, mode_ids)
     end
 end
 
-write_eigen_check("./vtk/mindlin_T3int_noGG_eigen_check.csv", K, Kᴳ, λ, V, mode_ids)
-println("eigen check csv: ./vtk/mindlin_T3int_noGG_eigen_check.csv")
+write_eigen_check("./data/dynamics_Q4int_eigen_check.csv", K, Kᴳ, λ, V, mode_ids)
+println("eigen check csv: ./data/dynamics_Q4int_eigen_check.csv")
 
 function write_mode_data(summary_path, node_path, nodes, λ, V, nᵠ, mode_ids)
     mkpath(dirname(summary_path))
@@ -296,20 +306,20 @@ function write_mode_data(summary_path, node_path, nodes, λ, V, nᵠ, mode_ids)
 end
 
 write_mode_data(
-    "./vtk/mindlin_T3int_noGG_mode_summary.csv",
-    "./vtk/mindlin_T3int_noGG_mode_node_values.csv",
+    "./data/dynamics_Q4int_summary.csv",
+    "./data/dynamics_Q4int_node_values.csv",
     nodes,
     λ,
     V,
     nᵠ,
     mode_ids,
 )
-println("mode summary csv: ./vtk/mindlin_T3int_noGG_mode_summary.csv")
-println("mode node values csv: ./vtk/mindlin_T3int_noGG_mode_node_values.csv")
+println("mode summary csv: ./data/dynamics_Q4int_summary.csv")
+println("mode node values csv: ./data/dynamics_Q4int_node_values.csv")
 
 
-cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
-# cells = [MeshCell(VTKCellTypes.VTK_QUAD, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
+# cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
+cells = [MeshCell(VTKCellTypes.VTK_QUAD, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
 
 nₚ = length(nodes)
 points = zeros(3,nₚ)
@@ -319,8 +329,8 @@ for (i,node) in enumerate(nodes)
     points[3,i] = 0.0
 end
 
-# vtk_grid("./vtk/mindlin_Q4int_noGG_modes.vtu", points, cells;
-vtk_grid("./vtk/mindlin_T3int_noGG_modes.vtu", points, cells;
+vtk_grid("./vtk/dynamics_Q4int_modes.vtu", points, cells;
+# vtk_grid("./vtk/dynamics_T3int_modes.vtu", points, cells;
          ascii=true, append=false, compress=false) do vtk
 
     vtk_mode_ids = collect(eachindex(λ))

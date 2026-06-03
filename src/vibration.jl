@@ -213,8 +213,8 @@ for mesh_file in mesh_files
     case_prefix = "mindlin_2d_ssss_$(mesh_name)_vibration"
     vtu_path = joinpath(output_dir, "$(case_prefix)_modes.vtu")
 
-    integrationOrder = 3
-    integrationOrder_shear = 2
+    integrationOrder = 2
+    integrationOrder_shear = 1
 
     gmsh.clear()
     @timeit to "open msh file" gmsh.open(mesh_file)

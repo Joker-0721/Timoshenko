@@ -1,0 +1,77 @@
+\section{全域質量矩陣之底層動能弱形式推導與代碼映射}
+
+在系統剛度矩陣 $\mathbf{K}$ 完成常應變再現性與邊界罰函數組裝驗證後，為了精確捕捉 Mindlin 中厚板的高階自由振動特性，必須建立包含平移慣量與轉動慣量耦合的全域一致質量矩陣 $\mathbf{M}$。廣義特徵值方程中的質量矩陣分塊形式如下：
+\begin{equation}
+\mathbf{M} = \begin{bmatrix} \mathbf{M}_{\phi\phi} & \mathbf{0} \\ \mathbf{0} & \mathbf{M}_{ww} \end{bmatrix}
+\end{equation}
+其中，$\mathbf{M}_{\phi\phi}$ 為轉動慣量矩陣，$\mathbf{M}_{ww}$ 為橫向平移質量矩陣。兩者在全域自由度排序中完全解耦。
+
+\subsection{橫向平移質量矩陣 $\mathbf{M}_{ww}$}
+橫向平移質量矩陣源於板在 $z$ 方向的平移加速度，其單元層面的弱形式積分公式定義為：
+\begin{equation}
+\mathbf{M}_{ww, IJ} = \int_{\Omega} \rho h N_I N_J d\Omega
+\end{equation}
+其中 $\rho$ 為材料密度，$h$ 為板厚度，$N_I, N_J$ 為 Q4 四節點等參單元的形函數。在自編核心模組 \texttt{thick\_plate.jl} 中，該項透過函數 \texttt{∫ρhwwdΩ} 進行高斯積分組裝：
+
+\begin{lstlisting}[caption={thick\_plate.jl 中橫向平移質量矩陣 \texttt{∫ρhwwdΩ} 實作}]
+function ∫ρhwwdΩ(ap::T, k::AbstractMatrix) where T<:AbstractElement
+    𝓒 = ap.𝓒
+    𝓖 = ap.𝓖
+    ρh = ap.ρ * ap.h
+    for ξ in 𝓖
+        N = ξ[:𝝭]
+        𝑤 = ξ.𝑤
+        for (i, xᵢ) in enumerate(𝓒)
+            I = xᵢ.𝐼
+            for (j, xⱼ) in enumerate(𝓒)
+                J = xⱼ.𝐼
+                k[I, J] += ρh * N[i] * N[j] * 𝑤
+            end
+        end
+    end
+end
+\end{lstlisting}
+
+\subsection{轉動慣量矩陣 $\mathbf{M}_{\phi\phi}$}
+中厚板理論不同於薄板之處，在於必須考慮橫截面繞 $x$ 與 $y$ 軸旋轉時產生的轉動慣量。其弱形式積分公式為：
+\begin{equation}
+\mathbf{M}_{\phi\phi} = \begin{bmatrix} \mathbf{M}_{\phi_x\phi_x} & \mathbf{0} \\ \mathbf{0} & \mathbf{M}_{\phi_y\phi_y} \end{bmatrix}
+\end{equation}
+\begin{equation}
+\mathbf{M}_{\phi_x\phi_x, IJ} = \mathbf{M}_{\phi_y\phi_y, IJ} = \int_{\Omega} \left( \frac{\rho h^3}{12} \right) N_I N_J d\Omega
+\end{equation}
+其中 $\rho I = \frac{\rho h^3}{12}$ 為單位面積的轉動慣量。該項在 \texttt{thick\_plate.jl} 中透過 \texttt{∫ρIφφdΩ} 函數實作，其自由度索引精確對齊轉角分量：
+
+\begin{lstlisting}[caption={thick\_plate.jl 中轉動慣量矩陣 \texttt{∫ρIφφdΩ} 實作}]
+function ∫ρIφφdΩ(ap::T, k::AbstractMatrix) where T<:AbstractElement
+    𝓒 = ap.𝓒
+    𝓖 = ap.𝓖
+    ρI = ap.ρ * ap.h^3 / 12.0
+    for ξ in 𝓖
+        N = ξ[:𝝭]
+        𝑤 = ξ.𝑤
+        for (i, xᵢ) in enumerate(𝓒)
+            I = xᵢ.𝐼
+            for (j, xⱼ) in enumerate(𝓒)
+                J = xⱼ.𝐼
+                val = ρI * N[i] * N[j] * 𝑤
+                k[2I-1, 2J-1] += val  % \phi_x 自由度組裝
+                k[2I,   2J]   += val  % \phi_y 自由度組裝
+            end
+        end
+    end
+end
+\end{lstlisting}
+
+\subsection{全域質量矩陣分塊組裝控制}
+在全域特徵值求解控制程式 \texttt{vibration.jl} 中，利用分塊對角矩陣邏輯，將上述獨立積分出來的 \texttt{mʷʷ} 與 \texttt{mᵠᵠ} 拼接成全域質量矩陣 $\mathbf{M}$：
+
+\begin{lstlisting}[caption={vibration.jl 中全域一致質量矩陣組裝控制片段}]
+# 呼叫底層算子組裝分塊一致質量矩陣
+(∫ρhwwdΩ => elements)(mʷʷ)
+(∫ρIφφdΩ => elements)(mᵠᵠ)
+
+# 組裝成廣義特徵值問題所需的全域對角分塊質量矩陣 M
+M = [mᵠᵠ zeros(2*nᵠ, nʷ);
+     zeros(nʷ, 2*nᵠ) mʷʷ]
+\end{lstlisting}

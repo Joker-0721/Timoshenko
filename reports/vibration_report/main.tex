@@ -1,0 +1,56 @@
+\documentclass[11pt,journal,onecolumn]{IEEEtran}
+\usepackage{xeCJK}
+\setCJKmainfont{Microsoft JhengHei} % 設定中文字體
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{booktabs} % 高階學術三線表
+\usepackage{graphicx}
+\usepackage{listings} % 程式碼排版
+\usepackage{xcolor}
+\usepackage{bm}
+\usepackage{subcaption}
+
+% 定義 Julia 語言（Listings 預設不支援）
+\lstdefinelanguage{Julia}{
+    morekeywords={using,function,return,struct,mutable,import,export,
+        module,end,if,else,elseif,for,while,begin,let,do,try,catch,
+        finally,typeof,true,false,nothing,println,print,include,abstract,
+        type,immutable,quote,in,isa,where,const,global,local},
+    sensitive=true,
+    morecomment=[l]{\#},
+    morestring=[b]",
+    morestring=[b]',
+}
+% Listings 樣式設定
+\lstset{
+    backgroundcolor=\color{gray!5},
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    captionpos=b,
+    commentstyle=\color{green!50!darkgray},
+    keywordstyle=\color{blue},
+    stringstyle=\color{purple},
+    frame=single,
+    language=Julia,
+    keepspaces=true,
+}
+
+
+\title{基於選擇性降階積分之 Mindlin 中厚板自由振動有限元素分析與重根模態子空間旋轉現象探討}
+\author{結構力學研究小組}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+% 導入各章節模組
+\input{sec_mass_matrix.tex}
+\input{sec_mac_analysis.tex}
+\input{sec_patch_test.tex}
+\input{sec_vibration_results.tex}
+\input{sec_mode_shapes_visualization.tex}
+
+
+\end{document}
