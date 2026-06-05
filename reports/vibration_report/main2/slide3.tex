@@ -1,0 +1,28 @@
+\begin{frame}{全域剛度與質量矩陣底層組裝 (Matrix Assemblies)}
+    \begin{itemize}
+        \item \textbf{廣義特徵值控制方程}：$\mathbf{K}\mathbf{v} = \omega^2 \mathbf{M}\mathbf{v}$
+    \end{itemize}
+    \begin{columns}
+        \begin{column}{0.5\textwidth}
+            \begin{block}{分塊剛度矩陣與選擇性降階積分 (SRI)}
+                $$\mathbf{K} = \begin{bmatrix} \mathbf{K}_{\phi\phi} & \mathbf{K}_{\phi w} \\ \mathbf{K}_{\phi w}^T & \mathbf{K}_{ww} \end{bmatrix}$$
+                \begin{itemize}
+                    \item \textbf{彎曲剛度項 (\texttt{∫κκdΩ})}：採用 $2 \times 2$ 高斯點進行\textbf{足額積分} (\texttt{integrationOrder = 2})。
+                    \item \textbf{剪切剛度項 (\texttt{∫wwdΩ, ∫φφdΩ, ∫φwdΩ})}：引入 $5/6$ 剪切修正係數，採用 $1 \times 1$ 中心點進行\textbf{降階積分} (\texttt{integrationOrder\_shear = 1}) 以釋放鎖死。
+                \end{itemize}
+            \end{block}
+        \end{column}
+        \begin{column}{0.5\textwidth}
+            \begin{block}{一致質量矩陣分塊 (平移與轉動慣量)}
+                $$\mathbf{M} = \begin{bmatrix} \mathbf{M}_{\phi\phi} & \mathbf{0} \\ \mathbf{0} & \mathbf{M}_{ww} \end{bmatrix}$$
+                \begin{itemize}
+                    \item \textbf{平移質量 (\texttt{∫ρhwwdΩ})}：\\
+                          $\mathbf{M}_{ww, IJ} = \int_{\Omega} \rho h N_I N_J d\Omega$
+                    \item \textbf{轉動慣量 (\texttt{∫ρIφφdΩ})}：\\
+                          $\mathbf{M}_{\phi\phi, IJ} = \int_{\Omega} \frac{\rho h^3}{12} N_I N_J d\Omega$ \\
+                          \alert{高階動力分析中轉動慣量不可忽略}。
+                \end{itemize}
+            \end{block}
+        \end{column}
+    \end{columns}
+\end{frame}

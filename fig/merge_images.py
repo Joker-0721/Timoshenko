@@ -78,26 +78,31 @@ if __name__ == "__main__":
     all_files = [os.path.join(base_dir, f) for f in os.listdir(base_dir) if f.lower().endswith('.png')]
     
     # 篩選出 解析解 (ex) 與 有限元素解 (FEM) 的檔案
-    ex_files = [f for f in all_files if os.path.basename(f).startswith("2d_17x17_ex_w")]
+    # ex_files = [f for f in all_files if os.path.basename(f).startswith("2d_17x17_ex_w")]
     fem_files = [f for f in all_files if os.path.basename(f).startswith("2d_17x17_FEM_w")]
+    fem_noint_files = [f for f in all_files if os.path.basename(f).startswith("2d_17x17_FEM_001noint_w")]
     
     # 3. 執行關鍵的「自然排序」
-    ex_files.sort(key=extract_w_number)
+    # ex_files.sort(key=extract_w_number)
     fem_files.sort(key=extract_w_number)
     
     # 4. 依照 w1~w9 與 w10~w15 進行數據流分段
-    ex_w1_9 = [f for f in ex_files if 1 <= extract_w_number(f) <= 9]
-    ex_w10_15 = [f for f in ex_files if 10 <= extract_w_number(f) <= 15]
+    # ex_w1_9 = [f for f in ex_files if 1 <= extract_w_number(f) <= 9]
+    # ex_w10_15 = [f for f in ex_files if 10 <= extract_w_number(f) <= 15]
     
     fem_w1_9 = [f for f in fem_files if 1 <= extract_w_number(f) <= 9]
-    fem_w10_15 = [f for f in fem_files if 10 <= extract_w_number(f) <= 15]
+    # fem_w10_15 = [f for f in fem_files if 10 <= extract_w_number(f) <= 15]
+
+    fem_noint_w1_9 = [f for f in fem_noint_files if 1 <= extract_w_number(f) <= 9]
     
     # 5. 開始原本設定的拼裝與輸出
-    # print("--- 執行標準分段拼裝作業 ---")
+    print("--- 執行標準分段拼裝作業 ---")
     # create_3x3_grid(ex_w1_9, os.path.join(output_dir, "17x17_ex_w1_9_grid.png"))
     # create_2x3_grid(ex_w10_15, os.path.join(output_dir, "17x17_ex_w10_15_grid.png"))
-    # create_3x3_grid(fem_w1_9, os.path.join(output_dir, "17x17_FEM_w1_9_grid.png"))
+    create_3x3_grid(fem_w1_9, os.path.join(output_dir, "17x17_FEM_w1_9_grid.png"))
     # create_2x3_grid(fem_w10_15, os.path.join(output_dir, "17x17_FEM_w10_15_grid.png"))
+    create_3x3_grid(fem_noint_w1_9, os.path.join(output_dir, "17x17_FEM_001noint_w1_9_grid.png"))
+
 
 
     # ============================================================
@@ -124,8 +129,9 @@ if __name__ == "__main__":
                 print(f"  提示 [{prefix_label}]: 剩餘的圖片剩下 {len(batch)} 張 (不足 9 張)，跳過自動生成九宮格。")
 
     # 💡 想要使用的話，把下面這兩行的「#」刪除（取消註解）即可：
-    auto_batch_all_to_3x3(ex_files, "ex_all")
+    # auto_batch_all_to_3x3(ex_files, "ex_all")
     auto_batch_all_to_3x3(fem_files, "FEM_all")
+    auto_batch_all_to_3x3(fem_noint_files, "FEM_001noint_all")
 
 
     # --------------------------------------------------------

@@ -18,7 +18,7 @@ import Gmsh: gmsh
 
 E = 200e9
 ν = 0.3
-h = 1e-1
+h = 1e-2
 a = 1.0
 b = 1.0
 Dᵇ = E*h^3/12/(1-ν^2)
@@ -34,8 +34,8 @@ const to = TimerOutput()
 gmsh.initialize()
 integrationOrder = 2
 integrationOrder_shear = 1
-@timeit to "open msh file" gmsh.open("./msh/struct_quad_17.msh")
-# @timeit to "open msh file" gmsh.open("./msh/struct_tri_17.msh")
+@timeit to "open msh file" gmsh.open("./msh/st_q_17.msh")
+# @timeit to "open msh file" gmsh.open("./msh/st_t_17.msh")
 @timeit to "get entities" entities = getPhysicalGroups()
 @timeit to "get nodes" nodes = get𝑿ᵢ()
 
@@ -201,8 +201,8 @@ function write_eigen_check(filepath, K, Kᴳ, λ, V, mode_ids)
     end
 end
 
-write_eigen_check("./data/dynamics_Q4int_eigen_check.csv", K, Kᴳ, λ, V, mode_ids)
-println("eigen check csv: ./data/dynamics_Q4int_eigen_check.csv")
+write_eigen_check("./data/dynamics/dynamics_Q4int_eigen_check.csv", K, Kᴳ, λ, V, mode_ids)
+println("eigen check csv: ./data/dynamics/dynamics_Q4int_eigen_check.csv")
 
 function write_mode_data(summary_path, node_path, nodes, λ, V, nᵠ, mode_ids)
     mkpath(dirname(summary_path))
@@ -305,16 +305,16 @@ function write_mode_data(summary_path, node_path, nodes, λ, V, nᵠ, mode_ids)
 end
 
 write_mode_data(
-    "./data/dynamics_Q4int_summary.csv",
-    "./data/dynamics_Q4int_node_values.csv",
+    "./data/dynamics/dynamics_Q4int_summary.csv",
+    "./data/dynamics/dynamics_Q4int_node_values.csv",
     nodes,
     λ,
     V,
     nᵠ,
     mode_ids,
 )
-println("mode summary csv: ./data/dynamics_Q4int_summary.csv")
-println("mode node values csv: ./data/dynamics_Q4int_node_values.csv")
+println("mode summary csv: ./data/dynamics/dynamics_Q4int_summary.csv")
+println("mode node values csv: ./data/dynamics/dynamics_Q4int_node_values.csv")
 
 
 # cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
@@ -328,8 +328,8 @@ for (i,node) in enumerate(nodes)
     points[3,i] = 0.0
 end
 
-vtk_grid("./vtk/dynamics_Q4int_modes.vtu", points, cells;
-# vtk_grid("./vtk/dynamics_T3int_modes.vtu", points, cells;
+vtk_grid("./vtk/dynamics_Q4int.vtu", points, cells;
+# vtk_grid("./vtk/dynamics_T3int.vtu", points, cells;
          ascii=true, append=false, compress=false) do vtk
 
     vtk_mode_ids = collect(eachindex(λ))

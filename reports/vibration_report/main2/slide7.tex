@@ -1,0 +1,16 @@
+\begin{frame}{科學解密：數值不相容與機器硬體精度溢出}
+    \begin{block}{矩陣內部的真實數量級相撞}
+        \begin{itemize}
+            \item \textbf{實體彎曲剛度劇烈萎縮}：$D^b \propto h^3$。當 $h=0.001, E=10^8$ 時，$D^b \approx \mathbf{0.009157}$。
+            \item \textbf{邊界罰剛度恆定巨大}：罰參數 $\alpha = 10^8 \times E = \mathbf{10^{16}}$。
+        \end{itemize}
+    \end{block}
+    \begin{block}{條件數超越硬體精度生死線 (Float64 尾數極限為 $9.0 \times 10^{15}$)}
+        \begin{itemize}
+            \item \textbf{$h=0.01$ 時}：真實剛度比例 $\frac{\alpha}{D^b} \approx \frac{10^{16}}{9.157} = \mathbf{1.09 \times 10^{15}}$。\\
+                  \alert{恰好小於硬體防線}！程式在鋼索邊緣死裡逃生，算出誤差 $-0.21\%$ 的完美解。
+            \item \textbf{$h=0.001$ 時}：真實剛度比例飆升至 $\frac{10^{16}}{0.009157} = \mathbf{1.09 \times 10^{18}}$！\\
+                  \alert{徹底踩斷硬體防線}！發生數值湮滅，微小的實體剛度資訊被直接抹平截斷，導致全面雪崩。
+        \end{itemize}
+    \end{block}
+\end{frame}

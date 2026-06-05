@@ -15,17 +15,19 @@ from paraview.simple import (
     SaveScreenshot,
     Show,
     XMLUnstructuredGridReader,
-    GetScalarBar,  # 新增導入：用來控制獨立的 Colorbar 物件
+    GetScalarBar,  # 控制獨立的 Colorbar 物件
 )
 
 # ============================================================
-# Settings
+# Settings (全域參數設定)
 # ============================================================
 OUTPUT_ROOT = Path(r"D:\Joker\Timoshenko\fig\2D_ssss\2d4s_vi_q4_ex")
 VTK_DIR = Path(r"D:\Joker\Timoshenko\vtk")
 
-MAX_MODES = None   # set to None for all modes
-# 【修改】將解析度改為絕對正方形，這樣拿掉 Colorbar 後，網格輸出的圖片就是完美的正方形
+# 【關鍵修改】原本是 None (代表輸出所有模態)，現在直接指定為 20
+MAX_MODES = 20   # 限制只截取前 20 階 w 圖片 (若 VTU 檔內少於 20 階，則自動輸出最大可用階數)
+
+# 將解析度改為絕對正方形，拿掉 Colorbar 後網格就是完美的正方形
 IMAGE_SIZE = [1200, 1200]
 
 # Color bar settings
@@ -33,7 +35,7 @@ NORMALIZE_W = True
 NORMALIZED_RANGE = [-1.0, 1.0]
 NORMALIZED_ARRAY_NAME = "w_normalized"
 
-# Blue-white-red diverging color map (same as ParaView's "Blue to Red Rainbow")
+# Blue-white-red diverging color map
 DIVERGING_RGB_POINTS = [
     -1.0, 0.0, 0.0, 1.0,      # blue at -1
      0.0, 1.0, 1.0, 1.0,      # white at 0
@@ -42,8 +44,8 @@ DIVERGING_RGB_POINTS = [
 
 # Files to process
 FILES_INFO = [
-    {"filename": "mindlin_2d_ssss_struct_quad_17_exact_modes.vtu", "mesh_size": "17x17",  "type": "ex"},
-    {"filename": "mindlin_2d_ssss_struct_quad_17_vibration_modes.vtu", "mesh_size": "17x17",  "type": "FEM"},
+    # {"filename": "vibration_st_q_17_ex.vtu", "mesh_size": "17x17",  "type": "ex"},
+    {"filename": "vibration_noint_st_q_17.vtu",    "mesh_size": "17x17",  "type": "FEM"},
 ]
 
 
@@ -95,8 +97,9 @@ def process_vtu_file(file_info):
         return
 
     n_modes = len(w_arrays)
+    # 這裡的邏輯會自動調用你設定的 MAX_MODES = 20，限制迴圈次數
     n_output = min(n_modes, MAX_MODES) if MAX_MODES else n_modes
-    print(f"  Total modes: {n_modes}, output: {n_output}")
+    print(f"  Total modes found in file: {n_modes}, scheduled for export: {n_output}")
 
     # Create render view
     view = CreateView("RenderView")
@@ -108,8 +111,6 @@ def process_vtu_file(file_info):
 
     previous_color = None
     previous_normalized = None
-
-    # 用來記錄最後一次迭代的顏色映射，供單獨輸出 Colorbar 使用
     last_color_func = None 
 
     for idx in range(n_output):
@@ -164,7 +165,7 @@ def process_vtu_file(file_info):
             color.RescaleTransferFunction(data_range[0], data_range[1])
             opacity.RescaleTransferFunction(data_range[0], data_range[1])
 
-        # 【關鍵修改】振態截圖時，強制關閉 Colorbar 可見性，確保輸出的圖片是純淨的正方形網格
+        # 強制關閉 Colorbar 可見性，確保網格圖片為純淨正方形
         display.SetScalarBarVisibility(view, False)
         previous_color = color
 
@@ -173,38 +174,31 @@ def process_vtu_file(file_info):
         ResetCamera(view)
         Render(view)
 
-        # Save screenshot (此時是完美的正方形振態圖)
-        output_filename = f"2d_{mesh_size}_{file_type}_w{idx+1}.png"
+        # Save screenshot
+        output_filename = f"2d_{mesh_size}_{file_type}_001noint_w{idx+1}.png"
         output_path = output_subdir / output_filename
         SaveScreenshot(str(output_path), view, ImageResolution=IMAGE_SIZE)
         print("OK")
 
-    # ============================================================
-    # 【全新新增】單獨擷取該檔案的 Colorbar（橫向大圖）
-    # ============================================================
+    # Standalone Colorbar export logic
     if last_color_func is not None:
         print(f"  Exporting standalone colorbar for {file_type}... ", end="", flush=True)
-        
-        # 1. 重新開啟 Colorbar，並將網格的透明度設為 0 (完全隱形，只留下 Colorbar)
         display.SetScalarBarVisibility(view, True)
         display.Opacity = 0.0 
         
-        # 2. 取得 Colorbar 物件並將其設定為「橫向（Horizontal）」
         sb = GetScalarBar(last_color_func, view)
         sb.Orientation = 'Horizontal'
         sb.Title = 'Normalized Displacement w'
         sb.ComponentTitle = ''
-        sb.TitleColor = [0.0, 0.0, 0.0]  # 黑色字體
-        sb.LabelColor = [0.0, 0.0, 0.0]  # 黑色字體
+        sb.TitleColor = [0.0, 0.0, 0.0]
+        sb.LabelColor = [0.0, 0.0, 0.0]
         
-        # 3. 將視窗臨時調整為適合放橫向 Colorbar 的扁平長方形比例 (例如 1200 x 250)
         view.ViewSize = [1200, 250]
         view.Update()
-        ResetCamera(view)  # 重新對齊視角
+        ResetCamera(view)
         Render(view)
         
-        # 4. 獨立儲存 Colorbar 圖片
-        colorbar_path = output_subdir / f"17x17_{file_type}_colorbar.png"
+        colorbar_path = output_subdir / f"17x17_{file_type}_001noint_colorbar.png"
         SaveScreenshot(str(colorbar_path), view, ImageResolution=[1200, 250])
         print("OK")
 

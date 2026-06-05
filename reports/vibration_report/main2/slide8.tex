@@ -1,0 +1,22 @@
+\begin{frame}{特徵簡併現象：重根模態子空間旋轉 (MAC $\approx 0.50$)}
+    \begin{block}{簡併子空間不變性與隨機旋轉}
+        正方形板幾何完全對稱，理論上 $(2,1)$ 與 $(1,2)$ 具有完全相同的重根特徵值（$\Omega=49.348$）。數值特徵值求解器在應對重根時，拋出的兩個向量本質上是理論純模態\textbf{隨機旋轉了約 $45^\circ$ 的線性組合}。
+    \end{block}
+    \vfill
+    \begin{columns}
+        \begin{column}{0.48\textwidth}
+            \begin{block}{幾何投影定理的精確驗證}
+                將混合的對角線棋盤狀波形投影回純理論軸向波形時，其指標值依據投影定理：
+                $$\text{MAC} \approx \cos^2(45^\circ) = 0.50$$
+            \end{block}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \begin{block}{數據退化鏈的有力證實}
+                \begin{itemize}
+                    \item 在 $h=0.1$ 的厚板微小擾動下，重根 MAC 在 $0.45 \sim 0.49$ 之間擺動。
+                    \item 到了 $h=0.01$ 的純淨薄板極限下，對稱性達到極致，第 5、6 階 MAC \textbf{精確收斂至 $0.5000$}。
+                \end{itemize}
+            \end{block}
+        \end{column}
+    \end{columns}
+\end{frame}

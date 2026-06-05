@@ -18,8 +18,8 @@ b = 1.0   # 板寬 (y 方向)
 
 # 要分析的网格文件（与数值计算使用相同的 mesh 文件）
 mesh_files = [
-    normpath(joinpath(@__DIR__, "..", "msh", "struct_quad_17.msh")),
-    # normpath(joinpath(@__DIR__, "..", "msh", "struct_tri_17.msh"))
+    normpath(joinpath(@__DIR__, "..", "msh", "st_q_17.msh")),
+    # normpath(joinpath(@__DIR__, "..", "msh", "st_t_17.msh"))
 ]
 
 output_dir = normpath(joinpath(@__DIR__, "..", "vtk"))
@@ -100,7 +100,7 @@ for mesh_file in mesh_files
 
     # ---- 输出 VTU ----
     vtu_path = joinpath(output_dir,
-                        "mindlin_2d_ssss_$(mesh_name)_exact_modes.vtu")
+                        "vibration_$(mesh_name)_ex.vtu")
     vtk_grid(vtu_path, points, cells; ascii = true, append = false, compress = false) do vtk
         for (mode_idx, (m, n)) in enumerate(mn_pairs)
             w_exact = zeros(nₚ)

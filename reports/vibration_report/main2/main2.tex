@@ -1,0 +1,33 @@
+\documentclass[serif,aspectratio=169]{beamer} % 設定 16:9 寬螢幕學術比例
+\usetheme{Madrid}
+\usecolortheme{whale} % 採用嚴謹的學術深藍色調
+
+\usepackage{xeCJK}
+\setCJKmainfont{Microsoft JhengHei} % 設定 Windows 常見的高清晰中文字體
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{booktabs} % 高階學術三線表
+\usepackage{graphicx}
+\usepackage{bm}
+\usepackage{subcaption}
+
+\title[Mindlin 板自由振動與超薄極限病態]{選擇性降階積分之 Mindlin 中厚板自由振動分析}
+\author[結構力學研究小組]{何祖彥}
+\institute[U]{導師：吳俊超}
+\date{\today}
+
+\begin{document}
+
+% 依序導入全新結構之投影片模組
+\input{slide1.tex}     % 封面頁
+\input{slide2.tex}     % 參數設定
+\input{slide3.tex}     % 矩陣組裝
+\input{slide4.tex}     % Patch Test
+\input{slide5.tex}     % 數據表格 (h=0.1~0.001對齊)
+
+\input{slide7.tex}     % 機器硬體精度 10^18 數值湮滅解密
+\input{slide8.tex}% 【全新插入頁】自由振動模態視覺化大圖對比 (包含獨立 Colorbar)
+\input{slide9.tex}     % 重根模態子空間旋轉數學證明
+
+\end{document}

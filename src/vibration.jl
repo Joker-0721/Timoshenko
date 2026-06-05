@@ -23,7 +23,7 @@ E = 1.0e8
 ν = 0.3
 a = 1.0
 b = 1.0
-h_over_b = 0.1
+h_over_b = 0.01
 h = h_over_b * b
 ρ = 1.0
 α = 1.0e8 * E
@@ -37,8 +37,8 @@ residual_warn_tol = 1.0e-6
 
 # 要分析的網格檔案
 mesh_files = [
-    normpath(joinpath(@__DIR__, "..", "msh", "struct_quad_17.msh")),
-    # normpath(joinpath(@__DIR__, "..", "msh", "struct_tri_17.msh"))
+    normpath(joinpath(@__DIR__, "..", "msh", "st_q_17.msh")),
+    # normpath(joinpath(@__DIR__, "..", "msh", "st_t_17.msh"))
 ]
 
 output_dir = normpath(joinpath(@__DIR__, "..", "vtk"))
@@ -210,11 +210,11 @@ for mesh_file in mesh_files
     println("分析：$(mesh_name) 網格")
     println("="^70)
 
-    case_prefix = "mindlin_2d_ssss_$(mesh_name)_vibration"
-    vtu_path = joinpath(output_dir, "$(case_prefix)_modes.vtu")
+    case_prefix = "vibration_noint_$(mesh_name)"
+    vtu_path = joinpath(output_dir, "$(case_prefix).vtu")
 
     integrationOrder = 2
-    integrationOrder_shear = 1
+    integrationOrder_shear = 2
 
     gmsh.clear()
     @timeit to "open msh file" gmsh.open(mesh_file)
@@ -490,7 +490,7 @@ for mesh_file in mesh_files
     println("  CSV 摘要輸出: ", csv_summary_path)
 
     # ---- 輸出節點數據 CSV（數值模態）----
-    csv_nodal_path = joinpath(output_dir_csv, "2d4s_vi_FEM_$(mesh_name).csv")
+    csv_nodal_path = joinpath(output_dir_csv, "2d4s_vi_FEM_noint_$(mesh_name).csv")
     open(csv_nodal_path, "w") do io
         header = ["node_id", "x", "y"]
         for k in 1:n_modes_output
