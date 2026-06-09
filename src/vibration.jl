@@ -19,17 +19,19 @@ using DelimitedFiles
 import Gmsh: gmsh
 
 # ==================== 參數設定 ====================
-E = 1.0e8
+E = 1.0e6
 ν = 0.3
 a = 1.0
 b = 1.0
-h_over_b = 0.01
+h_over_b = 0.001
 h = h_over_b * b
 ρ = 1.0
-α = 1.0e8 * E
+# α = 1.0e8 * E
 
 # 薄板彎曲剛度
 Dᵇ = E * h^3 / 12 / (1 - ν^2)
+
+α = 1.0e8 * Dᵇ
 
 eigen_imag_tol = 1.0e-7
 omega_sq_tol = 1.0e-12
@@ -210,11 +212,10 @@ for mesh_file in mesh_files
     println("分析：$(mesh_name) 網格")
     println("="^70)
 
-    case_prefix = "vibration_noint_$(mesh_name)"
-    vtu_path = joinpath(output_dir, "$(case_prefix).vtu")
+    case_prefix = "vibration_0001$(mesh_name)"
 
     integrationOrder = 2
-    integrationOrder_shear = 2
+    integrationOrder_shear = 1
 
     gmsh.clear()
     @timeit to "open msh file" gmsh.open(mesh_file)
@@ -294,7 +295,6 @@ for mesh_file in mesh_files
             for (idx, λ) in enumerate(ω²)
                 ω²_real = real(λ)
                 ω²_imag = imag(λ)
-                # 計算 Omega (無因次頻率)
                 if ω²_real > 0
                     ω = sqrt(ω²_real)
                     Omega = ω * a^2 * sqrt(ρ * h / Dᵇ)
@@ -384,7 +384,6 @@ for mesh_file in mesh_files
             push!(mac_matches, (i, best_j, best_mac, matched_mode.m, matched_mode.n))
         end
     else
-        # 備用頻率匹配
         for r in 1:length(dm_modes)
             ω²ᵢ = real(ω²[mode_ids[r]])
             ωᵢ = sqrt(ω²ᵢ)
@@ -428,7 +427,10 @@ for mesh_file in mesh_files
                                 r, m, n, mac_val, Ω_FEM, residuals[r]))
     end
 
-    # ---- 寫入 VTK（數值模態）----
+    # ==============================================================================
+    # 🌟 【綜合欄位優化】將 w, phi1, phi2 全部寫在同一個綜合 VTU 文件檔案中
+    # 🌟 命名規則嚴格對齊自動化截圖腳本 (Mode_X_w, Mode_X_phi1, Mode_X_phi2)
+    # ==============================================================================
     cells = [vtk_cell(elm) for elm in elements_Ω]
     nₚ = length(nodes)
     points = zeros(3, nₚ)
@@ -439,7 +441,11 @@ for mesh_file in mesh_files
     end
     n_modes_output = min(length(dm_modes), nₚ)
 
-    vtk_grid(vtu_path, points, cells; ascii=true, append=false, compress=false) do vtk
+    # 建立綜合單一全欄位 VTU 路徑
+    vtu_path = joinpath(output_dir, "$(case_prefix).vtu")
+
+    # 定義閉包內共用的 Field Data 寫入函數
+    function write_common_field_data!(vtk)
         ω²_selected = [real(ω²[mode_id]) for mode_id in mode_ids[1:n_modes_output]]
         Ω_selected = [sqrt(ω²ᵢ) * a^2 * sqrt(ρ * h / Dᵇ) for ω²ᵢ in ω²_selected]
         vtk["omega_sq", WriteVTK.VTKFieldData()] = ω²_selected
@@ -450,23 +456,24 @@ for mesh_file in mesh_files
         vtk["alpha_boundary_penalty", WriteVTK.VTKFieldData()] = [α]
         vtk["color_range_min", WriteVTK.VTKFieldData()] = [-1.0]
         vtk["color_range_max", WriteVTK.VTKFieldData()] = [1.0]
+    end
 
+    # 單一網格檔案開啟，連鎖寫入所有分量場
+    vtk_grid(vtu_path, points, cells; ascii=true, append=false, compress=false) do vtk
+        write_common_field_data!(vtk)
         for (mode_rank, dm) in enumerate(dm_modes[1:n_modes_output])
-            w = dm[2*nᵠ+1:end]
-            φx = dm[1:2:2*nᵠ]
-            φy = dm[2:2:2*nᵠ]
-            vtk["w$(mode_rank)"] = w
-            vtk["φx$(mode_rank)"] = φx
-            vtk["φy$(mode_rank)"] = φy
+            # 精確解耦並儲存三大物理自由度分量
+            vtk["Mode_$(mode_rank)_w"]    = dm[2*nᵠ+1:end]
+            vtk["Mode_$(mode_rank)_phi1"] = dm[1:2:2*nᵠ]
+            vtk["Mode_$(mode_rank)_phi2"] = dm[2:2:2*nᵠ]
         end
     end
-    println("  VTU 輸出模態數: $n_modes_output")
-    println("  VTU 輸出: ", vtu_path)
+    println("  [VTU] 綜合全欄位單一檔案輸出成功: ", vtu_path)
+
 
     # ---- 寫入 CSV 摘要（有效模態 + Omega_exact）----
     csv_summary_path = joinpath(output_dir, "$(case_prefix)_modes.csv")
     open(csv_summary_path, "w") do io
-        # 表頭：增加 Omega_exact
         println(io, join(["mode_rank", "eigen_index", "omega_sq", "omega",
                           "Omega_FEM", "Omega_exact", "matched_m", "matched_n",
                           "MAC", "relative_residual", "residual_ok"], ","))
@@ -476,7 +483,6 @@ for mesh_file in mesh_files
             ωᵢ = sqrt(ω²ᵢ)
             Ω_FEM = ωᵢ * a^2 * sqrt(ρ * h / Dᵇ)
             _, _, mac_val, m, n = mac_matches[r]
-            # 計算 Omega_exact
             if m != 0 && n != 0
                 Ω_exact = π^2 * (m^2 + n^2)
             else
@@ -490,7 +496,7 @@ for mesh_file in mesh_files
     println("  CSV 摘要輸出: ", csv_summary_path)
 
     # ---- 輸出節點數據 CSV（數值模態）----
-    csv_nodal_path = joinpath(output_dir_csv, "2d4s_vi_FEM_noint_$(mesh_name).csv")
+    csv_nodal_path = joinpath(output_dir_csv, "2d4s_vi_FEM_$(mesh_name).csv")
     open(csv_nodal_path, "w") do io
         header = ["node_id", "x", "y"]
         for k in 1:n_modes_output
