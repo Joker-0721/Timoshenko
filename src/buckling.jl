@@ -34,7 +34,7 @@ const to = TimerOutput()
 gmsh.initialize()
 integrationOrder = 2
 integrationOrder_shear = 1
-@timeit to "open msh file" gmsh.open("./msh/st_q_17.msh")
+@timeit to "open msh file" gmsh.open("./msh/cylinder_shell_q4.msh")
 @timeit to "get entities" entities = getPhysicalGroups()
 @timeit to "get nodes" nodes = get𝑿ᵢ()
 

@@ -1,56 +1,64 @@
 using Gmsh
 
-function generate_cylinder_mesh(R=1.0, L=2.0, t=0.01; mesh_size=0.05)
+function generate_cylinder_structured(R=1.0, L=2.0; n_circumference=20, n_axial=40)
     gmsh.initialize()
-    gmsh.model.add("cylinder_shell")
+    gmsh.model.add("cylinder_structured")
     
-    # 引入 OpenCASCADE 幾何引擎
     occ = gmsh.model.occ
     
-    # 1. 【核心修正】：先建立 3D 空間中的幾何點，取得它們的 Int32 標籤 (Tags)
+    # 1. 建立幾何控制點
     p1 = occ.addPoint(R, 0, 0)
     p_center = occ.addPoint(0, 0, 0)
     p2 = occ.addPoint(-R, 0, 0)
     
-    # 2. 利用點的標籤建立圓弧線段（起點、圓心、終點）
+    # 2. 建立兩個半圓弧
     c1 = occ.addCircleArc(p1, p_center, p2)
     c2 = occ.addCircleArc(p2, p_center, p1)
     
-    # 沿著 Z 軸（軸向）擠壓長度 L，生成兩個半圓柱面
+    # 3. 沿著 Z 軸擠壓生成兩個半圓柱面
     extru1 = occ.extrude([(1, c1)], 0, 0, L)
     extru2 = occ.extrude([(1, c2)], 0, 0, L)
     
     occ.synchronize()
     
-    # 3. 【優化安全機制】：從擠壓返回的元件中，過濾出 dim == 2 的拓撲結構，精確抓取曲面 ID
+    # 安全抓取兩個曲面的 ID
     surf1_id = [pair[2] for pair in extru1 if pair[1] == 2][1]
     surf2_id = [pair[2] for pair in extru2 if pair[1] == 2][1]
     
-    # 4. 強制網格重新組裝成四邊形 (Q4 Elements)
+    # ==========================================================================
+    # 【導師核心升級】：動態超限結構化網格設定
+    # ==========================================================================
+    # 遍歷模型中所有的「線段 (Dim=1)」
+    for (dim, tag) in gmsh.model.getEntities(1)
+        type = gmsh.model.getType(dim, tag)
+        
+        if type == "Line"
+            # 如果是直線（軸向長度方向），強制均勻切成 n_axial 等分
+            gmsh.model.mesh.setTransfiniteCurve(tag, n_axial + 1)
+        elseif type == "Circle"
+            # 如果是圓弧（周向圓周方向），強制均勻切成 n_circumference 等分
+            gmsh.model.mesh.setTransfiniteCurve(tag, n_circumference + 1)
+        end
+    end
+    
+    # 宣告這兩個曲面啟用超限映射演算法（強迫網格橫平豎直）
+    gmsh.model.mesh.setTransfiniteSurface(surf1_id)
+    gmsh.model.mesh.setTransfiniteSurface(surf2_id)
+    
+    # 結合 Recombine，產出 100% 純淨的結構化矩形單元
     gmsh.model.mesh.setRecombine(2, surf1_id)
     gmsh.model.mesh.setRecombine(2, surf2_id)
+    # ==========================================================================
     
-    # 設定網格特徵尺寸
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", mesh_size)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", mesh_size)
-    
-    # 5. 定義邊界條件與物理群組 (Physical Groups) —— 網格定義域
-    gmsh.model.addPhysicalGroup(2, [surf1_id, surf2_id], 1, "Ω")
-    
-    # 提取邊界：找出位於 z=0 和 z=L 的兩端全固支閉合曲線
-    boundary_entities = gmsh.model.getBoundary([(2, surf1_id), (2, surf2_id)], true, false, false)
-    boundary_curves = [entity[2] for entity in boundary_entities]
-    
-    gmsh.model.addPhysicalGroup(1, boundary_curves, 2, "Γ_clamped")
-    
-    # 6. 生成 2D 網格並儲存
+    # 4. 生成網格並儲存
     gmsh.model.mesh.generate(2)
     mkpath("./msh")
     gmsh.write("./msh/cylinder_shell_q4.msh")
     
     gmsh.finalize()
-    println("【成功】3D 圓柱殼 Q4 網格模型已生成：./msh/cylinder_shell_q4.msh")
+    println("【大成功】絕對結構化的 3D 圓柱殼 Q4 網格已順利生成！")
+    println("配置：圓周方向單側 $(n_circumference) 等分，軸向 $(n_axial) 等分。")
 end
 
-# 執行生成（半徑 1.0, 長度 2.0, 網格密度 0.05）
-generate_cylinder_mesh(1.0, 2.0, 0.01, mesh_size=0.05)
+# 執行生成（你可以自由調整這兩個控制參數來改變網格密度，這對收斂性分析超方便！）
+generate_cylinder_structured(1.0, 2.0, n_circumference=20, n_axial=40)
