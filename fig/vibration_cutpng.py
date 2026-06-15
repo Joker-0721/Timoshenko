@@ -50,7 +50,7 @@ DIVERGING_RGB_POINTS = [
 
 # 讀取的目標自由振動 VTU 檔案 (精確匹配 Julia 生成的 case_prefix 檔名)
 FILES_INFO = [
-    {"filename": "vibration_0001st_q_17.vtu", "mesh_size": "17x17",  "type": "FEM"},
+    {"filename": "vibration_mix_st_q_17.vtu", "mesh_size": "17x17",  "type": "FEM"},
 ]
 
 
@@ -182,7 +182,7 @@ def process_vtu_file(file_info):
             Render(view)
 
             # 儲存高畫質網格大圖
-            output_filename = f"0001_mode{mode_num}.png"
+            output_filename = f"mix_mode{mode_num}.png"
             output_path = output_subdir / output_filename
             SaveScreenshot(str(output_path), view, ImageResolution=IMAGE_SIZE)
 
