@@ -1,9 +1,6 @@
 # ==============================================================================
-#  2D Mindlin Plate Free Vibration Analysis - Multi-Mesh Log-Error Convergence
-#  流派：Meshfree-FE Hybrid Mixed Method (無網格-有限元高階多場混合變分原理)
-#  🌟 最新終極修正：
-#    1. 引入 3x3 Mindlin 連續域特徵矩陣，確保理論解頻譜起點完美對齊 1.0
-#    2. 恢復 scale_factor 幾何對齊，確保 Log-Log 圖恢復 2.28 完美超收斂斜率
+#  2D Mindlin Plate Free Vibration Analysis - Master All-In-One Loop (No L2)
+#  流派：Multi-Mesh 解耦混合離散法 (Mixtwo) - 終極自動化一體化迴圈版
 # ==============================================================================
 
 const LOCAL_APPROX_OPERATOR = normpath(joinpath(@__DIR__, "..", "..", "ApproxOperator.jl"))
@@ -13,200 +10,190 @@ end
 
 using ApproxOperator
 import ApproxOperator.GmshImport: getPhysicalGroups, get𝑿ᵢ, getElements, getPiecewiseElements, getPiecewiseBoundaryElements
-import ApproxOperator.MindlinPlate: ∫κκdΩ, ∫QQdΩ, ∫∇QwdΩ, ∫QwdΓ, ∫QφdΩ, ∫MMdΩ, ∫∇MφdΩ, ∫MφdΓ, ∫αwwdΓ, ∫αφφdΓ, ∫ρhwwdΩ, ∫ρIφφdΩ, L₂w, L₂φ, L₂Q  
+# 🌟 核心修正：完全刪除 L₂w, L₂φ, L₂Q 等所有與 L2 空間積分相關的引進
+import ApproxOperator.MindlinPlate: ∫κκdΩ, ∫QQdΩ, ∫∇QwdΩ, ∫QwdΓ, ∫QφdΩ, ∫MMdΩ, ∫∇MφdΩ, ∫MφdΓ, ∫αwwdΓ, ∫αφφdΓ, ∫ρhwwdΩ, ∫ρIφφdΩ  
 
 using LinearAlgebra
-using TimerOutputs, WriteVTK, Printf, Statistics
+using TimerOutputs, WriteVTK, Printf
 import Gmsh: gmsh
 
+# ==================== 1. 全域物理參數與理論解設定 ====================
 E = 1.0e6; ν = 0.3; a = 1.0; b = 1.0; h_over_b = 0.001; h = h_over_b * b; ρ = 1.0
-Dᵇ = E * h^3 / (12 * (1 - ν^2)); Dˢ = 5 / 6 * E * h / (2 * (1 + ν))
+I_moment = h^3 / 12; Dᵇ = E * h^3 / (12 * (1 - ν^2)); Dˢ = 5 / 6 * E * h / (2 * (1 + ν))
 αʷ = 1.0e8 * Dᵇ; αᵠ = 0.0            
 eigen_imag_tol = 1.0e-7; omega_sq_tol = 1.0e-12
-
 integrationOrder = 2; sʷ = 1.5; sᵠ = 1.5
-vtk_dir  = normpath(joinpath(@__DIR__, "..", "VTK")); data_dir = normpath(joinpath(@__DIR__, "..", "date"))
-mkpath(vtk_dir); mkpath(data_dir)
 
-# 🌟 真正的 Mindlin 3x3 矩陣解析解
+case_prefix = "vibration_mixtwo"
+data_dir = normpath(joinpath(@__DIR__, "..", "date"))
+if !ispath(data_dir); mkpath(data_dir); end
+
+# 真正的 Mindlin 3x3 矩陣解析解生成函數
 function exact_omega_sq(m, n, a, b, Dᵇ, ρ, h)
     ν_ex = 0.3
     E_ex = Dᵇ * 12 * (1 - ν_ex^2) / h^3
     Dˢ_ex = (5/6) * E_ex * h / (2 * (1 + ν_ex))
-    
     α_m = m * π / a; β_n = n * π / b; λ² = α_m^2 + β_n^2
-    
     K_ex = zeros(3,3)
     K_ex[1,1] = Dˢ_ex * λ²; K_ex[1,2] = Dˢ_ex * α_m; K_ex[1,3] = Dˢ_ex * β_n
     K_ex[2,1] = Dˢ_ex * α_m; K_ex[2,2] = Dᵇ * α_m^2 + Dᵇ * ((1-ν_ex)/2) * β_n^2 + Dˢ_ex; K_ex[2,3] = Dᵇ * ((1+ν_ex)/2) * α_m * β_n
     K_ex[3,1] = Dˢ_ex * β_n; K_ex[3,2] = K_ex[2,3]; K_ex[3,3] = Dᵇ * β_n^2 + Dᵇ * ((1-ν_ex)/2) * α_m^2 + Dˢ_ex
-    
     M_ex = zeros(3,3)
     M_ex[1,1] = ρ * h; M_ex[2,2] = ρ * h^3 / 12; M_ex[3,3] = ρ * h^3 / 12
-    
     vals = eigvals(K_ex, M_ex)
     ω_exact = sqrt(minimum(real.(vals)))
     w_h_exact = ω_exact * a^2 * sqrt(ρ * h / Dᵇ)
-    return w_h_exact, w_h_exact
+    return w_h_exact
 end
 
-function vtk_cell(elm)
-    return length(elm.𝓒) == 4 ? MeshCell(VTKCellTypes.VTK_QUAD, [x.𝐼 for x in elm.𝓒]) : MeshCell(VTKCellTypes.VTK_TRIANGLE, [x.𝐼 for x in elm.𝓒])
-end
-
-const to = TimerOutput()
+# 初始化主數據容器
 ndiv_series = 9:25
-h_plot_data = Float64[]; err_w_h_plot_data = Float64[]; err_w_plot_data = Float64[]; err_phi_plot_data = Float64[]; err_Q_plot_data = Float64[]
+master_results = []
 
-gmsh.initialize(); gmsh.option.setNumber("General.Terminal", 0)
+# ==================== 2. 自動化網格大迴圈 ====================
+println("🚀 開始執行全網格自動化特徵值計算 (無 L2 積分優化版)...")
 
 for n_div in ndiv_series
+    println("🔷 [網格級別] 正在計算 n_div = $n_div ...")
+    
+    gmsh.initialize()
+    gmsh.option.setNumber("General.Terminal", 0)
+    gmsh.clear()
+    
     ndiv_w = n_div - 2; ndiv_φ = n_div; ndiv = n_div
     mesh_file_w = normpath(joinpath(@__DIR__, "..", "msh", "st_q_$(ndiv_w).msh"))
     mesh_file_φ = normpath(joinpath(@__DIR__, "..", "msh", "st_q_$(ndiv_φ).msh"))
     mesh_file_s = normpath(joinpath(@__DIR__, "..", "msh", "st_q_$(ndiv).msh"))
-
-    case_prefix = "vibration_mixtwo_multi_mesh_w$(ndiv_w)_phi$(ndiv_φ)_s$(ndiv)"
-
-    type_w = :(ReproducingKernel{:Linear2D,:□,:CubicSpline}); type_φ = :(ReproducingKernel{:Linear2D,:□,:CubicSpline})
-    type_Q = :tri3; type_M = :(PiecewisePolynomial{:Linear2D})
     
-    s_size_w = 1.0 / (ndiv_w - 1); s_size_φ = 1.0 / (ndiv_φ - 1)
+    if !isfile(mesh_file_w) || !isfile(mesh_file_φ) || !isfile(mesh_file_s)
+        gmsh.finalize()
+        continue
+    end
+    
+    type_w = :(ReproducingKernel{:Linear2D,:□,:CubicSpline})
+    type_φ = :(ReproducingKernel{:Linear2D,:□,:CubicSpline})
+    type_Q = :tri3; type_M = :(PiecewisePolynomial{:Linear2D})
 
-    gmsh.clear(); gmsh.open(mesh_file_w); nodes_w = get𝑿ᵢ(); nʷ = length(nodes_w); s_w = 1.0 / (ndiv_w - 1)
-    push!(nodes_w, :s₁ => sʷ * s_w * ones(nʷ), :s₂ => sʷ * s_w * ones(nʷ), :s₃ => sʷ * s_w * ones(nʷ)); sp_w = RegularGrid(nodes_w.x, nodes_w.y, nodes_w.z, n=3, γ=5)
+    # ---- (A) 載入多場網格數據 ----
+    gmsh.open(mesh_file_w); nodes_w = get𝑿ᵢ(); nʷ = length(nodes_w); s_w = 1.0 / (ndiv_w - 1)
+    push!(nodes_w, :s₁ => sʷ * s_w * ones(nʷ), :s₂ => sʷ * s_w * ones(nʷ), :s₃ => sʷ * s_w * ones(nʷ))
+    sp_w = RegularGrid(nodes_w.x, nodes_w.y, nodes_w.z, n=3, γ=5)
 
     gmsh.clear(); gmsh.open(mesh_file_φ); nodes_φ = get𝑿ᵢ(); nᵠ = length(nodes_φ); s_𝜙 = 1.0 / (ndiv_φ - 1)
-    push!(nodes_φ, :s₁ => sᵠ * s_𝜙 * ones(nᵠ), :s₂ => sᵠ * s_𝜙 * ones(nᵠ), :s₃ => sᵠ * s_𝜙 * ones(nᵠ)); sp_φ = RegularGrid(nodes_φ.x, nodes_φ.y, nodes_φ.z, n=3, γ=5)
+    push!(nodes_φ, :s₁ => sᵠ * s_𝜙 * ones(nᵠ), :s₂ => sᵠ * s_𝜙 * ones(nᵠ), :s₃ => sᵠ * s_𝜙 * ones(nᵠ))
+    sp_φ = RegularGrid(nodes_φ.x, nodes_φ.y, nodes_φ.z, n=3, γ=5)
 
     gmsh.clear(); gmsh.open(mesh_file_s); nodes = get𝑿ᵢ(); entities = getPhysicalGroups(); nˢ = length(nodes)
 
+    # ==========================================================================
+    # ---- (B) 核心矩陣初始化與組裝 (使用 ApproxOperator 算子語法) ----
+    # ==========================================================================
     kˢˢ = zeros(2 * nˢ, 2 * nˢ); kˢʷ = zeros(2 * nˢ, nʷ); kˢᵠ = zeros(2 * nˢ, 2 * nᵠ)
     kᵅᵠᵠ = zeros(2 * nᵠ, 2 * nᵠ); kᵅʷʷ = zeros(nʷ, nʷ); mʷʷ = zeros(nʷ, nʷ); mᵠᵠ = zeros(2 * nᵠ, 2 * nᵠ)
 
-    @timeit to "assemble shear items" begin
-        elements_q = getElements(nodes, entities["Ω"], integrationOrder); prescribe!(elements_q, :E => E, :ν => ν, :h => h); set∇𝝭!(elements_q)
-        elements_w = getElements(nodes_w, entities["Ω"], eval(type_w), integrationOrder, sp_w); prescribe!(elements_w, :E => E, :ν => ν, :h => h); set𝝭!(elements_w)
-        elements_w_Γ = getElements(nodes_w, entities["Γ"], eval(type_w), integrationOrder, sp_w, normal=true); set𝝭!(elements_w_Γ)
-        elements_q_Γ = getElements(nodes, entities["Γ"], integrationOrder, normal=true); set𝝭!(elements_q_Γ)
-        (∫QQdΩ => elements_q)(kˢˢ); ([∫∇QwdΩ => (elements_q, elements_w), ∫QwdΓ => (elements_q_Γ, elements_w_Γ)])(kˢʷ)
-    end
+    # 組裝剪切項
+    elements_q = getElements(nodes, entities["Ω"], integrationOrder)
+    prescribe!(elements_q, :E => E, :ν => ν, :h => h); set∇𝝭!(elements_q)
+    elements_w = getElements(nodes_w, entities["Ω"], eval(type_w), integrationOrder, sp_w)
+    prescribe!(elements_w, :E => E, :ν => ν, :h => h); set𝝭!(elements_w)
+    elements_w_Γ = getElements(nodes_w, entities["Γ"], eval(type_w), integrationOrder, sp_w, normal=true)
+    set𝝭!(elements_w_Γ)
+    elements_q_Γ = getElements(nodes, entities["Γ"], integrationOrder, normal=true)
+    set𝝭!(elements_q_Γ)
+    
+    (∫QQdΩ => elements_q)(kˢˢ)
+    ([∫∇QwdΩ => (elements_q, elements_w), ∫QwdΓ => (elements_q_Γ, elements_w_Γ)])(kˢʷ)
 
+    # 組裝彎矩項
     nₑ = length(elements_q); nᵖ = ApproxOperator.get𝑛𝑝(eval(type_M)(𝑿ᵢ[], 𝑿ₛ[])); nᵐ = nₑ * nᵖ
     kᵐᵐ = zeros(3 * nᵐ, 3 * nᵐ); kᵐᵠ = zeros(3 * nᵐ, 2 * nᵠ)
 
-    @timeit to "assemble moment items" begin
-        elements_m = getPiecewiseElements(entities["Ω"], eval(type_M), integrationOrder); prescribe!(elements_m, :E => E, :ν => ν, :h => h); set∇𝝭!(elements_m)
-        elements_φ = getElements(nodes_φ, entities["Ω"], eval(type_φ), integrationOrder, sp_φ); prescribe!(elements_φ, :E => E, :ν => ν, :h => h); set∇𝝭!(elements_φ)
-        elements_φ_Γ = getElements(nodes_φ, entities["Γ"], eval(type_φ), integrationOrder, sp_φ, normal=true); set𝝭!(elements_φ_Γ)
-        elements_m_Γ = getPiecewiseBoundaryElements(entities["Γ"], entities["Ω"], eval(type_M), integrationOrder); set𝝭!(elements_m_Γ)
-        (∫MMdΩ => elements_m)(kᵐᵐ); ([∫∇MφdΩ => (elements_m, elements_φ), ∫MφdΓ => (elements_m_Γ, elements_φ_Γ)])(kᵐᵠ); (∫QφdΩ => (elements_q, elements_φ))(kˢᵠ)
-    end
+    elements_m = getPiecewiseElements(entities["Ω"], eval(type_M), integrationOrder)
+    prescribe!(elements_m, :E => E, :ν => ν, :h => h); set∇𝝭!(elements_m)
+    elements_φ = getElements(nodes_φ, entities["Ω"], eval(type_φ), integrationOrder, sp_φ)
+    prescribe!(elements_φ, :E => E, :ν => ν, :h => h); set∇𝝭!(elements_φ)
+    elements_φ_Γ = getElements(nodes_φ, entities["Γ"], eval(type_φ), integrationOrder, sp_φ, normal=true)
+    set𝝭!(elements_φ_Γ)
+    elements_m_Γ = getPiecewiseBoundaryElements(entities["Γ"], entities["Ω"], eval(type_M), integrationOrder)
+    set𝝭!(elements_m_Γ)
+    
+    (∫MMdΩ => elements_m)(kᵐᵐ)
+    ([∫∇MφdΩ => (elements_m, elements_φ), ∫MφdΓ => (elements_m_Γ, elements_φ_Γ)])(kᵐᵠ)
+    (∫QφdΩ => (elements_q, elements_φ))(kˢᵠ)
 
-    @timeit to "assemble boundary penalty" begin
-        boundary_names = ["Γ¹", "Γ²", "Γ³", "Γ⁴"]
-        elements_w_b = [getElements(nodes_w, entities[name], eval(type_w), integrationOrder, sp_w, normal=true) for name in boundary_names]
-        for el in elements_w_b; prescribe!(el, :α => αʷ, :g => (x,y,z)->0.0); set𝝭!(el); end
-        elements_φ_b = [getElements(nodes_φ, entities[name], eval(type_φ), integrationOrder, sp_φ, normal=true) for name in boundary_names]
-        for el in elements_φ_b; prescribe!(el, :α => αᵠ, :g₁ => (x,y,z)->0.0, :g₂ => (x,y,z)->0.0, :n₁₁ => 1.0, :n₁₂ => 0.0, :n₂₂ => 1.0); set𝝭!(el); end
-        dummy_fʷ = zeros(nʷ); dummy_fᵠ = zeros(2*nᵠ)
-        (∫αwwdΓ => elements_w_b[1] ∪ elements_w_b[2] ∪ elements_w_b[3] ∪ elements_w_b[4])(kᵅʷʷ, dummy_fʷ)
-        (∫αφφdΓ => elements_φ_b[1] ∪ elements_φ_b[2] ∪ elements_φ_b[3] ∪ elements_φ_b[4])(kᵅᵠᵠ, dummy_fᵠ)
-    end
+    # 組裝邊界懲罰項 (SSSS)
+    boundary_names = ["Γ¹", "Γ²", "Γ³", "Γ⁴"]
+    elements_w_b = [getElements(nodes_w, entities[name], eval(type_w), integrationOrder, sp_w, normal=true) for name in boundary_names]
+    for el in elements_w_b; prescribe!(el, :α => αʷ, :g => (x,y,z)->0.0); set𝝭!(el); end
+    elements_φ_b = [getElements(nodes_φ, entities[name], eval(type_φ), integrationOrder, sp_φ, normal=true) for name in boundary_names]
+    for el in elements_φ_b; prescribe!(el, :α => αᵠ, :g₁ => (x,y,z)->0.0, :g₂ => (x,y,z)->0.0, :n₁₁ => 1.0, :n₁₂ => 0.0, :n₂₂ => 1.0); set𝝭!(el); end
+    dummy_fʷ = zeros(nʷ); dummy_fᵠ = zeros(2*nᵠ)
+    (∫αwwdΓ => elements_w_b[1] ∪ elements_w_b[2] ∪ elements_w_b[3] ∪ elements_w_b[4])(kᵅʷʷ, dummy_fʷ)
+    (∫αφφdΓ => elements_φ_b[1] ∪ elements_φ_b[2] ∪ elements_φ_b[3] ∪ elements_φ_b[4])(kᵅᵠᵠ, dummy_fᵠ)
 
-    @timeit to "assemble mass matrix" begin
-        prescribe!(elements_w, :ρ => ρ, :h => h); (∫ρhwwdΩ => elements_w)(mʷʷ)
-        prescribe!(elements_φ, :ρ => ρ, :h => h); (∫ρIφφdΩ => elements_φ)(mᵠᵠ)
-        global M_total = [mᵠᵠ zeros(2*nᵠ, nʷ); zeros(nʷ, 2*nᵠ) mʷʷ]
-    end
+    # 組裝質量矩陣
+    prescribe!(elements_w, :ρ => ρ, :h => h); (∫ρhwwdΩ => elements_w)(mʷʷ)
+    prescribe!(elements_φ, :ρ => ρ, :h => h); (∫ρIφφdΩ => elements_φ)(mᵠᵠ)
+    M_total = [mᵠᵠ zeros(2*nᵠ, nʷ); zeros(nʷ, 2*nᵠ) mʷʷ]
 
-    global k_cond = -[kˢᵠ'*(kˢˢ\kˢᵠ)+kᵐᵠ'*(kᵐᵐ\kᵐᵠ)-kᵅᵠᵠ   kˢᵠ'*(kˢˢ\kˢʷ); kˢʷ'*(kˢˢ\kˢᵠ)                        kˢʷ'*(kˢˢ\kˢʷ)-kᵅʷʷ]
-    ks = Symmetric(0.5 * (k_cond + k_cond')); ms = Symmetric(0.5 * (M_total + M_total'))
-    F = eigen(ks, ms); ω² = F.values; V = F.vectors
+    # 🚨 混合法核心：矩陣舒爾凝聚 (Schur Condensation)
+    k_cond = -[kˢᵠ'*(kˢˢ\kˢᵠ)+kᵐᵠ'*(kᵐᵐ\kᵐᵠ)-kᵅᵠᵠ   kˢᵠ'*(kˢˢ\kˢʷ);
+               kˢʷ'*(kˢˢ\kˢᵠ)                        kˢʷ'*(kˢˢ\kˢʷ)-kᵅʷʷ]
+    ks = Symmetric(0.5 * (k_cond + k_cond'))
+    ms = Symmetric(0.5 * (M_total + M_total'))
 
+    # ==========================================================================
+    # ---- (C) 求解特徵值問題 ----
+    # ==========================================================================
+    F = eigen(ks, ms); ω² = F.values
+
+    # 篩選有效模態
     mode_ids = sort!([i for i in eachindex(ω²) if real(ω²[i]) > omega_sq_tol && abs(imag(ω²[i])) < eigen_imag_tol], by = i -> real(ω²[i]))
     n_modes_output = min(length(mode_ids), 20)
 
-    modal_post_records = []
-    
-    push!(nodes_w, :d => zeros(nʷ)); push!(nodes_φ, :d₁ => zeros(nᵠ), :d₂ => zeros(nᵠ)); push!(nodes, :q₁ => zeros(nˢ), :q₂ => zeros(nˢ))
-
-    for r in 1:length(mode_ids)
-        mode_id = mode_ids[r]; d_mode = V[:, mode_id]
-        vᵠ = d_mode[1:2*nᵠ]; vʷ = d_mode[2*nᵠ+1:end]
-        vˢ = kˢˢ \ (kˢᵠ * vᵠ + kˢʷ * vʷ)
+    # ==========================================================================
+    # ---- (D) 頻率對齊與誤差提取 (排除 L2，直接推入 Master 容器) ----
+    # ==========================================================================
+    for r in 1:n_modes_output
+        mode_id = mode_ids[r]
+        ω_real_m = sqrt(real(ω²[mode_id]))
+        w_h_FEM_m = ω_real_m * a^2 * sqrt(ρ * h / Dᵇ)
         
-        ω_real_m = sqrt(real(ω²[mode_id])); w_h_FEM_m = ω_real_m * a^2 * sqrt(ρ * h / Dᵇ)
+        # 尋找最佳理論匹配波數 (m, n)
         best_err = Inf; best_mn = (1, 1)
         for m_harm in 1:15, n_harm in 1:15
-            _, w_h_ex = exact_omega_sq(m_harm, n_harm, a, b, Dᵇ, ρ, h)
+            w_h_ex = exact_omega_sq(m_harm, n_harm, a, b, Dᵇ, ρ, h)
             if abs(w_h_FEM_m - w_h_ex) < best_err
-                best_err = abs(w_h_FEM_m - w_h_ex); best_mn = (m_harm, n_harm)
+                best_err = abs(w_h_FEM_m - w_h_ex)
+                best_mn = (m_harm, n_harm)
             end
         end
         m_match, n_match = best_mn
-        _, w_h_exact_m = exact_omega_sq(m_match, n_match, a, b, Dᵇ, ρ, h)
+        w_h_exact_m = exact_omega_sq(m_match, n_match, a, b, Dᵇ, ρ, h)
         log10_Error_w_h = log10(max(abs(w_h_FEM_m - w_h_exact_m)/w_h_exact_m, eps(Float64)))
 
-        # 🌟 恢復幾何振幅對齊 (scale_factor) 保證 L2 對數收斂完美直線
-        w_ex  = (x,y,z) -> sin(m_match * π * x / a) * sin(n_match * π * y / b)
-        φx_ex = (x,y,z) -> (m_match * π / a) * cos(m_match * π * x / a) * sin(n_match * π * y / b)
-        φy_ex = (x,y,z) -> (n_match * π / b) * sin(m_match * π * x / a) * cos(n_match * π * y / b)
-        q1_ex = (x,y,z) -> Dᵇ * ((m_match * π / a)^2 + (n_match * π / b)^2) * (m_match * π / a) * cos(m_match * π * x / a) * sin(n_match * π * y / b)
-        q2_ex = (x,y,z) -> Dᵇ * ((m_match * π / a)^2 + (n_match * π / b)^2) * (n_match * π / b) * sin(m_match * π * x / a) * cos(n_match * π * y / b)
-
-        max_idx = argmax(abs.(vʷ))
-        scale_factor = abs(vʷ[max_idx]) > 1e-12 ? w_ex(nodes_w[max_idx].x, nodes_w[max_idx].y, 0.0) / vʷ[max_idx] : 1.0
-        vʷ_scaled = vʷ .* scale_factor; vᵠ_scaled = vᵠ .* scale_factor; vˢ_scaled = vˢ .* scale_factor
-
-        for (i, node) in enumerate(nodes_w); node.d = vʷ_scaled[i]; end
-        for i in 1:length(nodes_φ); nodes_φ[i].d₁ = vᵠ_scaled[2*i-1]; nodes_φ[i].d₂ = vᵠ_scaled[2*i]; end
-        for i in 1:length(nodes); nodes[i].q₁ = vˢ_scaled[2*i-1]; nodes[i].q₂ = vˢ_scaled[2*i]; end
-
-        prescribe!(elements_w, :w => w_ex); prescribe!(elements_φ, :φ₁ => φx_ex, :φ₂ => φy_ex); prescribe!(elements_q, :Q₁ => q1_ex, :Q₂ => q2_ex)
-
-        L₂_w_m = L₂w(elements_w); L₂_φ_m = L₂φ(elements_φ); L₂_Q_m = L₂Q(elements_q)
-
-        push!(modal_post_records, (m_match, n_match, w_h_exact_m, log10_Error_w_h, log10(max(L₂_w_m, eps(Float64))), log10(max(L₂_φ_m, eps(Float64))), log10(max(L₂_Q_m, eps(Float64)))))
+        # 🌟 核心修正：將目前網格層級 n_div 搭配該模態數據，打包存入全域陣列
+        push!(master_results, (n_div, r, m_match, n_match, w_h_FEM_m, w_h_exact_m, log10_Error_w_h))
     end
 
-    map_w = [argmin([(nodes[i].x - nw.x)^2 + (nodes[i].y - nw.y)^2 for nw in nodes_w]) for i in 1:nˢ]
-    map_φ = [argmin([(nodes[i].x - n𝜙.x)^2 + (nodes[i].y - n𝜙.y)^2 for n𝜙 in nodes_φ]) for i in 1:nˢ]
-
-    cells = [vtk_cell(elm) for elm in elements_q]; points = zeros(3, nˢ); for node in nodes; points[1, node.𝐼] = node.x; points[2, node.𝐼] = node.y; points[3, node.𝐼] = 0.0; end
-    vtu_path = joinpath(vtk_dir, "$(case_prefix).vtu")
-    vtk_grid(vtu_path, points, cells; ascii=true, append=false, compress=false) do vtk
-        for (mode_rank, mode_id) in enumerate(mode_ids[1:n_modes_output])
-            d_mode = V[:, mode_id]
-            w_part = d_mode[2*nᵠ+1:end]; phi_part = d_mode[1:2*nᵠ]
-            w_nodal = zeros(nˢ); phi1_nodal = zeros(nˢ); phi2_nodal = zeros(nˢ)
-            for i in 1:nˢ
-                w_nodal[nodes[i].𝐼] = w_part[map_w[i]]; phi1_nodal[nodes[i].𝐼] = phi_part[2*map_φ[i]-1]; phi2_nodal[nodes[i].𝐼] = phi_part[2*map_φ[i]]
-            end
-            vtk["Mode_$(mode_rank)_w"] = w_nodal; vtk["Mode_$(mode_rank)_phi1"] = phi1_nodal; vtk["Mode_$(mode_rank)_phi2"] = phi2_nodal
-        end
-    end
-
-    csv_summary_path = joinpath(data_dir, "$(case_prefix)_multimesh_convergence.csv")
-    open(csv_summary_path, "w") do io
-        println(io, join(["mode_rank", "matched_m", "matched_n", "w_h_FEM", "w_h_exact", "log10_Error_w_h", "log10_Error_L2_w", "log10_Error_L2_phi", "log10_Error_L2_Q"], ","))
-        for r in 1:length(mode_ids)
-            m, n, w_h_ex, log10_err_wh, log10_l2_w, log10_l2_φ, log10_l2_Q = modal_post_records[r]
-            ω_real = sqrt(real(ω²[mode_ids[r]])); w_h_F = ω_real * a^2 * sqrt(ρ * h / Dᵇ)
-            println(io, join([r, m, n, @sprintf("%.4f", w_h_F), @sprintf("%.4f", w_h_ex), @sprintf("%.6f", log10_err_wh), @sprintf("%.6f", log10_l2_w), @sprintf("%.6f", log10_l2_φ), @sprintf("%.6f", log10_l2_Q)], ","))
-        end
-    end
-
-    m_1, n_1, w_h_ex_1, log10_err_wh_1, log10_l2_w_1, log10_l2_φ_1, log10_l2_Q_1 = modal_post_records[1]
-    push!(h_plot_data, 1.0 / n_div); push!(err_w_h_plot_data, log10_err_wh_1); push!(err_w_plot_data, log10_l2_w_1); push!(err_phi_plot_data, log10_l2_φ_1); push!(err_Q_plot_data, log10_l2_Q_1)
+    gmsh.finalize()
 end 
 
-h_convergence_csv = joinpath(data_dir, "vibration_h_mixtwo_line.csv")
-open(h_convergence_csv, "w") do io
-    println(io, "h,log10_h,log10_Error_w_h,log10_Error_L2_w,log10_Error_L2_phi,log10_Error_L2_Q")
-    for i in 1:length(h_plot_data)
-        println(io, join([h_plot_data[i], log10(h_plot_data[i]), err_w_h_plot_data[i], err_w_plot_data[i], err_phi_plot_data[i], err_Q_plot_data[i]], ","))
+# ==================== 3. 迴圈外部：全網格數據大匯總匯出 ====================
+csv_master_path = joinpath(data_dir, "$(case_prefix)_master_all_mesh.csv")
+
+open(csv_master_path, "w") do io
+    # 徹底移除所有 L2 相關欄位，只留下乾淨的網格、模態與頻率相對誤差數據
+    println(io, join(["n_div", "mode_rank", "matched_m", "matched_n", "w_h_FEM", "w_h_exact", "log10_Error_w_h"], ","))
+    for data in master_results
+        n_div, rank, m, n, w_FEM, w_exact, err_wh = data
+        println(io, join([
+            n_div, rank, m, n, 
+            @sprintf("%.4f", w_FEM), 
+            @sprintf("%.4f", w_exact), 
+            @sprintf("%.6f", err_wh)
+        ], ","))
     end
 end
-println("\n[完全成功] 多網格Mixtwo收斂率外殼大閉環！純淨版收斂折線已成功導出至: ", h_convergence_csv)
-gmsh.finalize()
+
+println("成功！")
