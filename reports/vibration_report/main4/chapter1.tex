@@ -1,0 +1,42 @@
+\chapter{設計參數與實驗方案配置}
+
+\section{基本物理與幾何參數設定}
+本報告針對二維中厚板（Mindlin Plate Theory）在四邊簡支（SSSS）邊界條件下的自由振動問題進行數值求解。系統所採用的基準設計參數如表~\ref{tab:parameters}~所示。
+
+\begin{table}[h]
+\centering
+\caption{Mindlin板數值計算基本參數配置}
+\label{tab:parameters}
+\begin{tabular}{lcc}
+\toprule
+參數名稱 & 符號表記 & 設定數值 \\
+\midrule
+楊氏模量 & $E$ & $1.0 \times 10^6$ \\
+泊松比 & $\nu$ & $0.3$ \\
+板幾何長度 & $a$ & $1.0$ \\
+板幾何寬度 & $b$ & $1.0$ \\
+材料質量密度 & $\rho$ & $1.0$ \\
+邊界罰參數 & $\alpha^w$ & $1.0 \times 10^8 \cdot D^b$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent 板的彎曲剛度 $D^b$ 與考慮剪切修正係數（$5/6$）的剪切剛度 $D^s$ 分別依據式~(\ref{eq:db})~與式~(\ref{eq:ds})~進行計算：
+\begin{equation}
+D^b = \frac{E h^3}{12(1-\nu^2)}
+\label{eq:db}
+\end{equation}
+\begin{equation}
+D^s = \frac{5}{6} \cdot \frac{E h}{2(1+\nu)}
+\label{eq:ds}
+\end{equation}
+
+\section{數值實驗方案}
+為了全面評估傳統有限元法（FEM Q4）、單網格混合離散法（Mix）與完全解耦多網格混合離散法（Mixtwo）的數值特性，本研究規劃了以下兩組對照實驗：
+
+\begin{enumerate}
+\item \textbf{實驗 1：網格收斂性測試} \\
+固定板的物理厚度為 $h = 0.001$。讓網格平分數 $n_{div}$ 自 15 逐步加密至 25（共用相同背景網格配置）。本實驗用以評估各方法隨自由度增加時的誤差收斂階數（Rate）。
+\item \textbf{實驗 2：厚度極限與剪切鎖死測試} \\
+固定數值網格平分數為 $17 \times 17$ 節點體系。讓板的物理厚度 $h$ 進行幾何級數遞減，測試區間為 $0.1, 0.01, 0.001, 0.0001$ 至 $0.00001$。本實驗用以評估各單元體系在超薄板極限下對剪切鎖死（Shear Locking）現象的免疫能力。
+\end{enumerate}

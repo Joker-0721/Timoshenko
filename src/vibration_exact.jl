@@ -1,5 +1,8 @@
+# ==============================================================================
 # 2D Mindlin plate exact vibration analysis with SSSS boundary conditions
-# 升級：全譜 CSV 滿載填入、加入 Navier 連續域純理論 w, phi1, phi2 能量分析
+# 🌟 最新修改：
+#   1. CSV 數據強制分流儲存至 ../date 資料夾
+#   2. VTU 雲圖強制分流儲存至 ../VTK 資料夾
 # ==============================================================================
 
 const LOCAL_APPROX_OPERATOR = normpath(joinpath(@__DIR__, "..", "..", "ApproxOperator.jl"))
@@ -10,26 +13,29 @@ end
 using ApproxOperator
 import ApproxOperator.GmshImport: getPhysicalGroups, get𝑿ᵢ, getElements
 
+using LinearAlgebra
 using WriteVTK, Printf
 import Gmsh: gmsh
 
 # ==================== 參數設定 ====================
-a = 1.0   # 板長 (x 方向)
-b = 1.0   # 板寬 (y 方向)
+a = 1.0
+E = 1.0e6
+ν = 0.3
+b = 1.0   
 h_over_b = 0.001
 h = h_over_b * b
 ρ = 1.0
-I_moment = h^3 / 12  # 板截面二次矩 (轉動慣量基底)
+I_moment = h^3 / 12  
+Dᵇ = E * h^3 / (12 * (1 - ν^2))
 
-# 要分析的网格文件
-mesh_files = [
-    normpath(joinpath(@__DIR__, "..", "msh", "st_q_17.msh")),
-]
 
-output_dir = normpath(joinpath(@__DIR__, "..", "vtk"))
-mkpath(output_dir)
-output_dir_csv = normpath(joinpath(@__DIR__, "..", "2d4s_vi_q4_FEM"))
-mkpath(output_dir_csv)
+mesh_files = [normpath(joinpath(@__DIR__, "..", "msh", "st_q_$i.msh")) for i in 15:25]
+
+# 🌟 實施路徑精密分流
+vtk_dir  = normpath(joinpath(@__DIR__, "..", "VTK"))
+data_dir = normpath(joinpath(@__DIR__, "..", "date"))
+mkpath(vtk_dir)
+mkpath(data_dir)
 
 function vtk_cell(elm)
     node_ids = [xᵢ.𝐼 for xᵢ in elm.𝓒]
@@ -42,7 +48,43 @@ function vtk_cell(elm)
     end
 end
 
-# SSSS 薄板的 exact 模态空间波形
+function exact_omega_sq(m, n, a, b, Dᵇ, ρ, h)
+    # 反推連續域的材料參數
+    ν = 0.3
+    E = Dᵇ * 12 * (1 - ν^2) / h^3
+    Dˢ = (5/6) * E * h / (2 * (1 + ν))
+    
+    α_m = m * π / a
+    β_n = n * π / b
+    λ² = α_m^2 + β_n^2
+    
+    # 建立 Mindlin 理論精確的 3x3 剛度矩陣
+    K_ex = zeros(3,3)
+    K_ex[1,1] = Dˢ * λ²
+    K_ex[1,2] = Dˢ * α_m
+    K_ex[1,3] = Dˢ * β_n
+    K_ex[2,1] = Dˢ * α_m
+    K_ex[2,2] = Dᵇ * α_m^2 + Dᵇ * ((1-ν)/2) * β_n^2 + Dˢ
+    K_ex[2,3] = Dᵇ * ((1+ν)/2) * α_m * β_n
+    K_ex[3,1] = Dˢ * β_n
+    K_ex[3,2] = K_ex[2,3]
+    K_ex[3,3] = Dᵇ * β_n^2 + Dᵇ * ((1-ν)/2) * α_m^2 + Dˢ
+    
+    # 建立 Mindlin 理論精確的 3x3 質量矩陣 (含轉動慣量)
+    M_ex = zeros(3,3)
+    M_ex[1,1] = ρ * h
+    M_ex[2,2] = ρ * h^3 / 12
+    M_ex[3,3] = ρ * h^3 / 12
+    
+    # 直接求解這組 3x3 矩陣，得到真實的 Mindlin 理論頻率
+    vals = eigvals(K_ex, M_ex)
+    ω_exact = sqrt(minimum(real.(vals)))
+    
+    # 轉化為無因次頻率
+    w_h_exact = ω_exact * a^2 * sqrt(ρ * h / Dᵇ)
+    return w_h_exact, w_h_exact
+end
+
 function exact_mode_shapes(x, y, m, n)
     wx = sin(m * π * x / a) * sin(n * π * y / b)
     φx = (m * π / a) * cos(m * π * x / a) * sin(n * π * y / b)
@@ -50,7 +92,6 @@ function exact_mode_shapes(x, y, m, n)
     return wx, φx, φy
 end
 
-# 生成 (m,n) 配对，按理论频率从小到大严格排序
 function generate_mn_pairs(max_modes)
     pairs = Tuple{Int,Int}[]
     max_mn = ceil(Int, sqrt(max_modes)) + 2
@@ -73,7 +114,7 @@ gmsh.option.setNumber("General.Terminal", 0)
 for mesh_file in mesh_files
     mesh_name = splitext(basename(mesh_file))[1]
     println("\n" * "="^60)
-    println("生成 exact 解與理論全譜能量解析：$(mesh_name)")
+    println("生成 exact 處理解析與理論全譜數據：$(mesh_name)")
     println("="^60)
 
     gmsh.clear()
@@ -87,13 +128,12 @@ for mesh_file in mesh_files
     points = zeros(3, nₚ)
     for node in nodes; points[1, node.𝐼] = node.x; points[2, node.𝐼] = node.y; points[3, node.𝐼] = 0.0; end
 
-    # 輸出模態總數等於全域節點自由度基底
     mn_pairs = generate_mn_pairs(nₚ)
     println("  節點數: $nₚ, 理論計算全譜總模態數: $(length(mn_pairs))")
 
-    # ---- 1. 輸出 VTU 圖形場（保持僅前 20 階，防止體積過大） ----
+    # ---- 1. 輸出 VTU 圖形場 至 ../VTK ----
     n_vtu_output = min(length(mn_pairs), 20)
-    vtu_path = joinpath(output_dir, "vibration_$(mesh_name)_ex.vtu")
+    vtu_path = joinpath(vtk_dir, "vibration_$(mesh_name)_ex.vtu")
     vtk_grid(vtu_path, points, cells; ascii=true, append=false, compress=false) do vtk
         for mode_idx in 1:n_vtu_output
             m_val, n_val = mn_pairs[mode_idx]
@@ -108,47 +148,17 @@ for mesh_file in mesh_files
     end
     println("  [VTU] 理論圖形場輸出成功 (前 $n_vtu_output 階): ", vtu_path)
 
-    # ---- 2. 🌟 新增：輸出理論全譜能量摘要 CSV (滿載全資料) ----
-    exact_summary_csv = joinpath(output_dir, "vibration_$(mesh_name)_ex_summary.csv")
-    open(exact_summary_csv, "w") do io
-        println(io, join(["mode_rank", "m", "n", "Omega_exact", "W_energy_pct", "Phi1_energy_pct", "Phi2_energy_pct"], ","))
+    # ---- 2. 🌟 輸出純淨的理論全譜 CSV 至 ../date ----
+    exact_csv = joinpath(data_dir, "vibration_$(mesh_name)_ex.csv")
+    open(exact_csv, "w") do io
+        println(io, join(["mode_rank", "m", "n", "w_h_exact"], ","))
         for (mode_idx, (m_val, n_val)) in enumerate(mn_pairs)
-            Omega_ex = π^2 * (m_val^2 + n_val^2)
-            
-            # 🌟 【Navier 全域連續體動能閉合積分公式】
-            T_w = ρ * h
-            T_𝜙x = ρ * I_moment * (m_val * π / a)^2
-            T_𝜙y = ρ * I_moment * (n_val * π / b)^2
-            T_total = T_w + T_𝜙x + T_𝜙y
-            
-            W_pct = (T_w / T_total) * 100
-            Phi1_pct = (T_𝜙x / T_total) * 100
-            Phi2_pct = (T_𝜙y / T_total) * 100
-            
-            println(io, join([mode_idx, m_val, n_val, @sprintf("%.4f", Omega_ex),
-                              @sprintf("%.6f", W_pct), @sprintf("%.6f", Phi1_pct), @sprintf("%.6f", Phi2_pct)], ","))
+            _, w_h_ex = exact_omega_sq(m_val, n_val, a, b, Dᵇ, ρ, h)
+            println(io, join([mode_idx, m_val, n_val, @sprintf("%.4f", w_h_ex)], ","))
         end
     end
-    println("  [CSV] 理論全譜能量摘要 CSV 成功導出: ", exact_summary_csv)
-
-    # ---- 3. 原本的空間節點場數據大 CSV (滿載) ----
-    m_regex = match(r"(\d+)", mesh_name)
-    n_side = m_regex === nothing ? "unknown" : m_regex.captures[1]
-    csv_path = joinpath(output_dir_csv, "2d4s_vi_q4_ex_$(n_side)x$(n_side).csv")
-    open(csv_path, "w") do io
-        header = ["node_id", "x", "y"]
-        for k in 1:length(mn_pairs); push!(header, "m$k", "n$k", "w$k", "φx$k", "φy$k"); end
-        println(io, join(header, ","))
-        for node in nodes
-            row = [string(node.𝐼), string(node.x), string(node.y)]
-            for (m_val, n_val) in mn_pairs
-                w, φx, φy = exact_mode_shapes(node.x, node.y, m_val, n_val)
-                push!(row, string(m_val), string(n_val), string(w), string(φx), string(φy))
-            end
-            println(io, join(row, ","))
-        end
-    end
-    println("  [CSV] 空間節點場 CSV 輸出: ", csv_path)
+    println("  [CSV] 純淨版理論全譜 CSV 成功導出: ", exact_csv)
 end
+
 gmsh.finalize()
-println("\n全部理論解析解計算完成！")
+println("\n全部純淨版理論解析解計算完成！")

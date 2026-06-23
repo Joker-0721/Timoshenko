@@ -1,0 +1,30 @@
+\section{第一章：模型參數設定與實驗設計}
+\label{sec:parameters}
+
+\subsection{材料與幾何參數設定}
+本報告所有數值實驗均基於二維正方形 Reissner-Mindlin 中厚板模型。基礎參數配置如下：
+\begin{itemize}
+    \item \textbf{材料彈性模數 ($E$)}：$200 \times 10^9 \text{ Pa}$
+    \item \textbf{材料波氏比 ($\nu$)}：$0.3$
+    \item \textbf{板面幾何尺寸 ($a \times b$)}：$1.0\text{ m} \times 1.0\text{ m}$
+    \item \textbf{邊界條件 (Boundary Conditions)}：四邊全簡支 Hard SSSS (S2 邊界)
+    \item \textbf{外載荷型式}：單軸均勻壓縮名義應力場 ($\sigma_{11} = 1.0$，$\sigma_{22} = 0.0$，$\sigma_{12} = 0.0$)
+    \item \textbf{理論經典值 ($k_{\text{exact}}$)}：經典薄板一階臨界屈曲載荷係數理論解析解為 \textbf{$4.0$}
+\end{itemize}
+
+\subsection{對照實驗設計}
+為了分別考察離散網格密度與幾何厚薄比對各近似演算法的支配影響，本研究設計了以下兩組獨立的對照實驗：
+
+\subsubsection{實驗 1：固定厚度之網格加密收斂性研究}
+\begin{itemize}
+    \item \textbf{控制變量}：固定板厚度 $h = 0.001 \text{ m}$（屬於薄板限制區間）。
+    \item \textbf{自變量}：網格平分數 $n_{\mathrm{div}}$ 自 15 逐步加密至 25（共用同一份結構化網格序列）。
+    \item \textbf{研究目的}：評估各流派數值解的漸進收斂速率與全域場量 $L_2$ 誤差下降斜率。
+\end{itemize}
+
+\subsubsection{實驗 2：固定網格之板厚度效應鎖死掃描}
+\begin{itemize}
+    \item \textbf{控制變量}：固定網格離散密度為 $17 \times 17$（$n_{\mathrm{div}} = 17$）。
+    \item \textbf{自變量}：板厚度 $h$ 採取對數梯度遞減，自 $0.1 \text{ m}$（厚板極限）一路下降至 $0.00001 \text{ m}$（極薄板極限）。
+    \item \textbf{研究目的}：檢驗各演算法在剪切應變能轉化為強約束時，是否會發生橫向剪切鎖死。
+\end{itemize}

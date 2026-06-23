@@ -1,0 +1,52 @@
+\documentclass[11pt, a4paper]{article}
+
+% 基礎數學與科學計算宏包
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{bm}
+\usepackage{booktabs} 
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{geometry}
+\usepackage{titlesec}
+\usepackage{microtype}
+\usepackage{subcaption} 
+
+% 頁面幾何邊距
+\geometry{top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm}
+
+% 繁體中文 XeLaTeX 編譯設定
+\usepackage{xeCJK}
+\setCJKmainfont{Noto Serif TC} % 可替換為系統內置的明體或宋體
+\setCJKsansfont{Noto Sans TC}
+
+% 超連結與交叉檢索
+\usepackage[colorlinks=true, linkcolor=blue, citecolor=green, urlcolor=magenta]{hyperref}
+
+\titleformat{\section}{\normalfont\Large\bfseries\sffamily}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries\sffamily}{\thesubsection}{1em}{}
+
+\title{\textbf{\sffamily Mindlin 中厚板特徵屈曲分析之數值效應評估報告}}
+\author{\textbf{計算固體力學研究小組}}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+本報告針對 Reissner-Mindlin 中厚板理論在特徵屈曲求解中的數值行為進行評估。報告分為三個章節：第一章說明模型基礎材料變量與兩組對照實驗設計；第二章分析固定厚度下網格加密（$n_{\mathrm{div}} = 15 \to 25$）的收斂行為與誤差階數；第三章分析固定網格下板厚度變薄（$h = 0.1 \to 10^{-5}$）的抗鎖死表現。報告對各演算法的數值結果進行了客觀的優缺點評判與缺陷診斷。
+\end{abstract}
+
+\hrule
+\vspace{1.5em}
+
+% ==============================================================================
+% 🚀 子控制管線：載入三個章節檔案
+% ==============================================================================
+\input{chap1_parameters.tex}
+\input{chap2_mesh_convergence.tex}
+\input{chap3_thickness_locking.tex}
+
+\end{document}
