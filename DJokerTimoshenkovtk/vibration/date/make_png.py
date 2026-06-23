@@ -1,116 +1,80 @@
 import os
-import pandas as pd
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 
-# ==============================================================================
-# 🌟 基本設定與路徑錨定
-# ==============================================================================
-# 自動獲取當前腳本所在的絕對路徑
-base_dir = os.path.dirname(os.path.abspath(__file__))
-
-# 設置學術期刊風格樣式 (Journal Style Base)
-plt.rcParams['font.family'] = 'serif'
-plt.rcParams['font.size'] = 11
-plt.rcParams['axes.titlesize'] = 12
-plt.rcParams['axes.labelsize'] = 11
-
-# 🎨 嚴格定義【全圖表一體化】固定配色與標記格式抽屜
-CLS = {
-    'mixtwo': {'color': '#00a669', 'fmt': '^-',  'lw': 1.5, 'label': 'Mixtwo (Multi-Mesh)'}, # 綠色三角形實線
-    'mix':    {'color': '#0c5bc6', 'fmt': 'o-',  'lw': 1.5, 'label': 'Mix (Single-Mesh)'},   # 藍色圓形實線
-    'fem':    {'color': '#d32f2f', 'fmt': 's--', 'lw': 1.5, 'label': 'FEM (Reduced Int.)'}   # 紅色正方形虛線
+# 1. 設定資料檔案路徑 (需與 Julia 匯出的總表名稱一致)
+data_dir = "../date"  
+methods_config = {
+    "Mixtwo (Multi-Mesh)": {"file": "vibration_mixtwo_master_all_mesh.csv", "color": "#00a669", "marker": "^", "ls": "-"},
+    "Mix (Single-Mesh)":   {"file": "vibration_mix_master_all_mesh.csv",     "color": "#0c5bc6", "marker": "o", "ls": "-"},
+    "FEM (Reduced Int.)":  {"file": "vibration_fem_master_all_mesh.csv",     "color": "#d32f2f", "marker": "s", "ls": "--"}
 }
 
-# 檔案路徑
-file_mixtwo = os.path.join(base_dir, 'vibration_h_mixtwo_line.csv')
-file_mix    = os.path.join(base_dir, 'vibration_h_mix_line.csv')
-file_fem    = os.path.join(base_dir, 'vibration_FEM_h_line.csv') # FEM 的檔案名稱
+print("🚀 開始讀取數據並分開繪製 1 到 6 階模態獨立收斂圖...")
 
-# 讀取數據 (若檔案存在)
-data = {}
-if os.path.exists(file_mixtwo): data['mixtwo'] = pd.read_csv(file_mixtwo).sort_values(by='h', ascending=False)
-if os.path.exists(file_mix):    data['mix']    = pd.read_csv(file_mix).sort_values(by='h', ascending=False)
-if os.path.exists(file_fem):    data['fem']    = pd.read_csv(file_fem).sort_values(by='h', ascending=False)
-
-if not data:
-    print(f"錯誤：在 {base_dir} 下找不到任何 _line.csv 檔案！請確認 Julia 是否已執行完畢。")
-    exit()
-
-# ==============================================================================
-# 📊 圖表 1：常規誤差收斂圖 (Standard Convergence Plot) 
-# ==============================================================================
-print("正在繪製 圖表 1: 常規誤差收斂圖 (Error vs. h)...")
-fig1, ax1 = plt.subplots(figsize=(7, 5.5), dpi=300)
-
-for method, df in data.items():
-    # 將 log10_Error 還原為真實誤差數值 (10^x)
-    actual_error = 10 ** df['log10_Error_L2_w'].values
-    h_values = df['h'].values
+# 2. 獨立循環處理 1 到 6 階模態，每階模態輸出一張獨立圖片
+for mode in range(1, 7):
     
-    ax1.plot(h_values, actual_error, CLS[method]['fmt'], color=CLS[method]['color'], 
-             linewidth=CLS[method]['lw'], markersize=7, label=CLS[method]['label'])
-
-# 將 Y 軸設為對數坐標，方便觀察指數級下降的誤差
-ax1.set_yscale('log')
-ax1.set_xlabel('Mesh Size ($h$)', fontweight='bold')
-ax1.set_ylabel('Deflection $L_2$ Error (Real Value)', fontweight='bold')
-ax1.set_title('Standard Convergence Plot: Deflection Error vs. Mesh Size', pad=15, fontweight='bold')
-# 為了符合物理直覺，X軸反轉 (右邊是粗網格 h大，左邊是細網格 h小)
-ax1.invert_xaxis()
-ax1.grid(True, which="both", linestyle=":", alpha=0.6)
-ax1.legend(loc='best', frameon=True, edgecolor='gray')
-
-fig1.tight_layout()
-fig1.savefig(os.path.join(base_dir, 'plot_standard_convergence_w.png'))
-plt.close(fig1)
-
-# ==============================================================================
-# 📊 圖表 2：對數-對數收斂圖 (Log-Log Convergence Plot) 並自動計算收斂階數 (Rate)
-# ==============================================================================
-print("正在繪製 圖表 2: 雙對數收斂圖 (Log10_Error vs. Log10_h)...")
-fig2, ax2 = plt.subplots(figsize=(7, 5.5), dpi=300)
-
-x_ref = None
-y_ref_anchor = None
-
-for method, df in data.items():
-    log10_h = df['log10_h'].values
-    log10_err = df['log10_Error_L2_w'].values
+    # 🌟 修正：為每個模態建立獨立的畫布與尺寸
+    plt.figure(figsize=(7, 6))
+    has_data = False
     
-    # 🌟 動態計算收斂斜率 (Rate)
-    # 使用 np.polyfit 進行一次線性迴歸 (y = m*x + c)，m 即為收斂階數
-    slope, _ = np.polyfit(log10_h, log10_err, 1)
+    for method_name, config in methods_config.items():
+        full_path = os.path.join(data_dir, config["file"])
+        
+        if not os.path.exists(full_path):
+            continue
+            
+        df = pd.read_csv(full_path)
+        
+        # 篩選特定模態
+        df_mode = df[df["mode_rank"] == mode].copy()
+        
+        if df_mode.empty:
+            continue
+            
+        has_data = True
+        
+        # 計算 X 軸：h = 1.0 / n_div -> log10(h)
+        df_mode["h"] = 1.0 / df_mode["n_div"]
+        df_mode["log10_h"] = np.log10(df_mode["h"])
+        
+        # 計算 Y 軸：log10 |(w_h_FEM / w_h_exact) - 1|
+        rel_err = np.abs((df_mode["w_h_FEM"] / df_mode["w_h_exact"]) - 1.0)
+        df_mode["log10_err"] = np.log10(np.clip(rel_err, 1e-15, None))
+        
+        # 依照網格尺寸由粗到細排序，確保連線順序
+        df_mode = df_mode.sort_values(by="log10_h", ascending=False)
+        
+        X = df_mode["log10_h"].values
+        Y = df_mode["log10_err"].values
+        
+        # 繪製折線圖
+        plt.plot(X, Y, label=method_name, 
+                 color=config["color"], marker=config["marker"], 
+                 linestyle=config["ls"], markersize=6, linewidth=1.5)
+        
+        # 🌟 修正 1：已徹底刪除原先用於計算與標註收斂斜率文字的程式碼
+
+    if not has_data:
+        plt.close()
+        continue
+
+    # 3. 獨立子圖之學術規範化調整
+    plt.title(r"$\omega_{" + str(mode) + r"}^b$ Convergence Plot", fontsize=12, loc="left", fontweight="bold")
+    plt.xlabel(r"$\log_{10} h$", fontsize=11)
+    plt.ylabel(r"$\log_{10} |\omega^h / \omega - 1|$", fontsize=11)
     
-    # 繪製折線，並將斜率 Rate 標示在圖例中
-    label_with_rate = f"{CLS[method]['label']} (Rate: {slope:.2f})"
-    ax2.plot(log10_h, log10_err, CLS[method]['fmt'], color=CLS[method]['color'], 
-             linewidth=CLS[method]['lw'], markersize=7, label=label_with_rate)
+    plt.grid(True, which="both", linestyle=":", linewidth=0.5, alpha=0.7)
     
-    # 抓取第一組數據作為畫理論參考線的錨點
-    if x_ref is None:
-        x_ref = log10_h
-        y_ref_anchor = log10_err[0]
-
-# 🌟 繪製黑色理論收斂參考線 (Theoretical Slope)
-if x_ref is not None:
-    theoretical_slope = 2.0  # 位移 L2 誤差的理論二階收斂極限
-    # 構造參考線：y - y0 = m * (x - x0)
-    # 稍微往下平移 -0.2，避免與數據線重疊
-    y_ref = theoretical_slope * (x_ref - x_ref[0]) + y_ref_anchor - 0.2
+    # 🌟 修正 2：每張獨立圖片皆配置專屬圖例
+    plt.legend(loc="lower right", fontsize=9, frameon=True)
     
-    ax2.plot(x_ref, y_ref, 'k:', linewidth=2, label=f'Theoretical Slope ($O(h^{{{theoretical_slope}}})$)')
+    # 🌟 修正 3：各自命名並單獨儲存為獨立檔案
+    output_fig_path = os.path.join(data_dir, f"mode_{mode}_convergence.png")
+    plt.savefig(output_fig_path, dpi=300, bbox_inches="tight")
+    plt.close()  # 即時釋放內存，避免畫布重疊
+    print(f"   -> 模態 {mode} 圖形已成功儲存至: {output_fig_path}")
 
-ax2.set_xlabel('$\log_{10}(h)$', fontweight='bold')
-ax2.set_ylabel('$\log_{10}(L_2 \ \mathrm{Error \ of \ } w)$', fontweight='bold')
-ax2.set_title('Log-Log Convergence Plot: Deflection ($w$)', pad=15, fontweight='bold')
-ax2.grid(True, which="both", linestyle=":", alpha=0.6)
-ax2.legend(loc='best', frameon=True, edgecolor='gray')
-
-fig2.tight_layout()
-fig2.savefig(os.path.join(base_dir, 'plot_loglog_convergence_w.png'))
-plt.close(fig2)
-
-print("\n[大獲全勝] 兩張高規格收斂專題圖檔已成功產出！")
-print("  👉 常規誤差收斂圖: plot_standard_convergence_w.png")
-print("  👉 雙對數收斂圖與階數: plot_loglog_convergence_w.png")
+print("🎉 任務完成！所有獨立模態圖形已分流匯出。")
