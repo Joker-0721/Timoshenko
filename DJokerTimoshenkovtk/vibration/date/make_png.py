@@ -9,6 +9,9 @@ file_paths = {
     "Mixtwo (Multi-Mesh)": os.path.join(data_dir, "vibration_mixtwo_master_all_mesh.csv"),
     "Mix (Single-Mesh)":   os.path.join(data_dir, "vibration_mix_master_all_mesh.csv"),
     "FEM (Reduced Int.)":  os.path.join(data_dir, "vibration_fem_master_all_mesh.csv")
+    # "Mixtwo (Multi-Mesh)": os.path.join(data_dir, "vibration_mixtwo_4c.csv"),
+    # "Mix (Single-Mesh)":   os.path.join(data_dir, "vibration_mix_4c.csv"),
+    # "FEM (Reduced Int.)":  os.path.join(data_dir, "vibration_fem_4c.csv")
 }
 
 # 2. 建立 3 行 2 列的畫布配置 (完美對齊目標圖形)
@@ -19,8 +22,7 @@ axes = axes.flatten()  # 轉為一維陣列以利迴圈操作
 styles = {
     "Mixtwo (Multi-Mesh)": {"color": "#00a669", "marker": "^", "linestyle": "-"},
     "Mix (Single-Mesh)":   {"color": "#0c5bc6", "marker": "o", "linestyle": "-"},
-    "FEM (Reduced Int.)":  os.path.join(data_dir, "vibration_fem_master_all_mesh.csv") 
-                           # 如果檔名不一致，請改為對應名稱
+    "FEM (Reduced Int.)":  {"color": "#d32f2f", "marker": "s", "linestyle": "--"}
 }
 # 重新整理樣式對應表
 methods_config = {
@@ -92,7 +94,7 @@ for mode in range(1, 7):
         ax.legend(loc="lower right", fontsize=9, frameon=True, shadow=False)
 
 # 6. 輸出並儲存高解析度圖片
-output_fig_path = os.path.join(data_dir, "mode_wise_convergence_6plots.png")
+output_fig_path = os.path.join(data_dir, "mode_6plots_4s.png")
 plt.savefig(output_fig_path, dpi=300, bbox_inches="tight")
 print(f"🎉 繪圖完成！高解析度對照圖已儲存至：\n📍 {output_fig_path}")
 plt.show()

@@ -11,7 +11,7 @@ using LinearAlgebra
 using TimerOutputs, WriteVTK, Printf
 import Gmsh: gmsh
 
-# ==================== 1. 全域物理參數與解析解設定 ====================
+# ==================== 1. 全域物理參數與基準解設定 ====================
 E = 1.0e6
 ν = 0.3
 a = 1.0
@@ -23,7 +23,7 @@ I_moment = h^3 / 12
 Dᵇ = E * h^3 / (12 * (1 - ν^2))
 Dˢ = 5 / 6 * E * h / (2 * (1 + ν))
 αʷ = 1.0e8 * Dᵇ
-αᵠ = 0.0
+αᵠ = 1.0e8 * Dᵇ          # 四邊固支 (CCCC)
 
 eigen_imag_tol = 1.0e-7
 omega_sq_tol = 1.0e-12
@@ -31,32 +31,21 @@ integrationOrder = 2
 sʷ = 1.5
 sᵠ = 1.5
 
-case_prefix = "vibration_mix"
+case_prefix = "vibration_mix_4c"
 data_dir = normpath(joinpath(@__DIR__, "..", "date"))
 if !ispath(data_dir)
     mkpath(data_dir)
 end
 
-# 解析解函數 (Mindlin板四邊簡支的理論頻率)
-function exact_omega_sq(m, n, a, b, Dᵇ, ρ, h)
-    ν_ex = 0.3
-    E_ex = Dᵇ * 12 * (1 - ν_ex^2) / h^3
-    Dˢ_ex = (5 / 6) * E_ex * h / (2 * (1 + ν_ex))
-
-    α_m = m * π / a
-    β_n = n * π / b
-    λ² = α_m^2 + β_n^2
-
-    I₂ = ρ * h^3 / 12
-    A_coef = ρ * h * I₂
-    B_coef = ρ * h * Dᵇ * λ² + Dˢ_ex * (ρ * h + I₂ * λ²)
-    C_coef = Dᵇ * Dˢ_ex * (λ²^2)
-
-    ω_1 = sqrt((B_coef - sqrt(B_coef^2 - 4 * A_coef * C_coef)) / (2 * A_coef))
-    w_h_exact = ω_1 * a^2 * sqrt(ρ * h / Dᵇ)
-
-    return w_h_exact, w_h_exact
-end
+# 🌟 四邊固支 (CCCC) 前六階無因次頻率參數 λ² = ω a² √(ρh/D)
+# 取自 Leissa (1969) 表 4.1 (Kirchhoff 板)，因 h/b=0.001 極薄，Mindlin 修正可忽略。
+# 視為 Ritz 法收斂基準解，用於誤差評估。
+const CCCC_ref_w = [35.992,   # Mode 1  (1,1)
+                    73.413,   # Mode 2  (2,1)
+                    73.413,   # Mode 3  (1,2)
+                    108.27,   # Mode 4  (2,2)
+                    131.64,   # Mode 5  (3,1)
+                    132.24]   # Mode 6  (1,3)
 
 # 主數據容器
 ndiv_series = 9:25
@@ -156,36 +145,26 @@ for n_div in ndiv_series
     # ==========================================================================
     # (D) 組裝剛度矩陣 (不含邊界懲罰項)
     # ==========================================================================
-    # Q–Q 耦合
     (∫QQdΩ => elements_q)(kˢˢ)
-
-    # Q–w 耦合 (體積 + 邊界)
     ([∫∇QwdΩ => (elements_q, elements_w),
       ∫QwdΓ  => (elements_q_Γ, elements_w_Γ)])(kˢʷ)
-
-    # Q–φ 耦合 (體積)
     (∫QφdΩ => (elements_q, elements_φ))(kˢᵠ)
 
-    # M 場相關 (需先計算自由度數)
     nₑ = length(elements_q)
     nᵖ = ApproxOperator.get𝑛𝑝(eval(type_M)(𝑿ᵢ[], 𝑿ₛ[]))
     nᵐ = nₑ * nᵖ
     kᵐᵐ = zeros(3 * nᵐ, 3 * nᵐ)
     kᵐᵠ = zeros(3 * nᵐ, 2 * nᵠ)
 
-    # M–M 耦合
     (∫MMdΩ => elements_m)(kᵐᵐ)
-
-    # M–φ 耦合 (體積 + 邊界)
     ([∫∇MφdΩ => (elements_m, elements_φ),
       ∫MφdΓ  => (elements_m_Γ, elements_φ_Γ)])(kᵐᵠ)
 
     # ==========================================================================
-    # (E) 邊界懲罰項 (強制固支)
+    # (E) 邊界懲罰項 (強制固支：w=0, ψ=0)
     # ==========================================================================
     boundary_names = ["Γ¹", "Γ²", "Γ³", "Γ⁴"]
 
-    # w 場邊界懲罰
     elements_w_b = [getElements(nodes_w, entities[name], eval(type_w),
                                 integrationOrder, sp_w, normal=true) for name in boundary_names]
     for el in elements_w_b
@@ -195,7 +174,6 @@ for n_div in ndiv_series
     dummy_fʷ = zeros(nʷ)
     (∫αwwdΓ => elements_w_b[1] ∪ elements_w_b[2] ∪ elements_w_b[3] ∪ elements_w_b[4])(kᵅʷʷ, dummy_fʷ)
 
-    # φ 場邊界懲罰
     elements_φ_b = [getElements(nodes_φ, entities[name], eval(type_φ),
                                 integrationOrder, sp_φ, normal=true) for name in boundary_names]
     for el in elements_φ_b
@@ -238,27 +216,19 @@ for n_div in ndiv_series
     n_modes_output = min(length(mode_ids), 20)
 
     # ==========================================================================
-    # (I) 頻率比對與數據記錄
+    # (I) 頻率比對與數據記錄（使用 Ritz 基準解）
     # ==========================================================================
-    for r in 1:n_modes_output
+    n_ref = length(CCCC_ref_w)
+    n_compare = min(n_modes_output, n_ref)
+    for r in 1:n_compare
         mode_id = mode_ids[r]
         ω_real_m = sqrt(real(ω²[mode_id]))
         w_h_FEM_m = ω_real_m * a^2 * sqrt(ρ * h / Dᵇ)
-
-        best_err = Inf
-        best_mn = (1, 1)
-        for m_harm in 1:15, n_harm in 1:15
-            _, w_h_ex = exact_omega_sq(m_harm, n_harm, a, b, Dᵇ, ρ, h)
-            if abs(w_h_FEM_m - w_h_ex) < best_err
-                best_err = abs(w_h_FEM_m - w_h_ex)
-                best_mn = (m_harm, n_harm)
-            end
-        end
-        m_match, n_match = best_mn
-        _, w_h_exact_m = exact_omega_sq(m_match, n_match, a, b, Dᵇ, ρ, h)
+        w_h_exact_m = CCCC_ref_w[r]          # 基準解
         log10_Error_w_h = log10(max(abs(w_h_FEM_m - w_h_exact_m) / w_h_exact_m, eps(Float64)))
 
-        push!(master_results, (n_div, r, m_match, n_match,
+        # 輸出時 matched_m 設為模態排序編號，matched_n 設為 0
+        push!(master_results, (n_div, r, r, 0,
                                w_h_FEM_m, w_h_exact_m, log10_Error_w_h))
     end
 
@@ -267,7 +237,7 @@ for n_div in ndiv_series
 end
 
 # ==================== 3. 匯出 CSV 總表 ====================
-csv_master_path = joinpath(data_dir, "$(case_prefix)_master_all_mesh.csv")
+csv_master_path = joinpath(data_dir, "$(case_prefix).csv")
 open(csv_master_path, "w") do io
     println(io, join(["n_div", "mode_rank", "matched_m", "matched_n",
                       "w_h_FEM", "w_h_exact", "log10_Error_w_h"], ","))
@@ -279,4 +249,4 @@ open(csv_master_path, "w") do io
                           @sprintf("%.6f", err_wh)], ","))
     end
 end
-println("📊 成功導出 Mix 總表至: $csv_master_path")
+println("📊 成功導出 Mix (CCCC) 總表至: $csv_master_path")

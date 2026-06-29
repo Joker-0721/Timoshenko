@@ -23,19 +23,28 @@ data_dir = normpath(joinpath(@__DIR__, "..", "date"))
 if !ispath(data_dir); mkpath(data_dir); end
 
 function exact_omega_sq(m, n, a, b, Dᵇ, ρ, h)
-    ν_ex = 0.3; E_ex = Dᵇ * 12 * (1 - ν_ex^2) / h^3
+    ν_ex = 0.3
+    E_ex = Dᵇ * 12 * (1 - ν_ex^2) / h^3
     Dˢ_ex = (5/6) * E_ex * h / (2 * (1 + ν_ex))
-    α_m = m * π / a; β_n = n * π / b; λ² = α_m^2 + β_n^2
-    K_ex = zeros(3,3)
-    K_ex[1,1] = Dˢ_ex * λ²; K_ex[1,2] = Dˢ_ex * α_m; K_ex[1,3] = Dˢ_ex * β_n
-    K_ex[2,1] = Dˢ_ex * α_m; K_ex[2,2] = Dᵇ * α_m^2 + Dᵇ * ((1-ν_ex)/2) * β_n^2 + Dˢ_ex; K_ex[2,3] = Dᵇ * ((1+ν_ex)/2) * α_m * β_n
-    K_ex[3,1] = Dˢ_ex * β_n; K_ex[3,2] = K_ex[2,3]; K_ex[3,3] = Dᵇ * β_n^2 + Dᵇ * ((1-ν_ex)/2) * α_m^2 + Dˢ_ex
-    M_ex = zeros(3,3)
-    M_ex[1,1] = ρ * h; M_ex[2,2] = ρ * h^3 / 12; M_ex[3,3] = ρ * h^3 / 12
-    vals = eigvals(K_ex, M_ex)
-    ω_exact = sqrt(minimum(real.(vals)))
-    w_h_exact = ω_exact * a^2 * sqrt(ρ * h / Dᵇ)
-    return w_h_exact
+    
+    α_m = m * π / a
+    β_n = n * π / b
+    λ² = α_m^2 + β_n^2
+    
+    # 1. 定義顯式代數係數
+    I₂ = ρ * h^3 / 12
+    A_coef = ρ * h * I₂
+    B_coef = ρ * h * Dᵇ * λ² + Dˢ_ex * (ρ * h + I₂ * λ²)
+    C_coef = Dᵇ * Dˢ_ex * (λ²^2)  # 即 λ⁴
+    
+    # 2. 直接帶入公式求出最低頻彎曲角頻率 ω_1
+    ω_1 = sqrt((B_coef - sqrt(B_coef^2 - 4 * A_coef * C_coef)) / (2 * A_coef))
+    
+    # 3. 轉換為無因次頻率
+    w_h_exact = ω_1 * a^2 * sqrt(ρ * h / Dᵇ)
+    
+    # 🌟 保持原本代碼的元組回傳格式，確保解包相容性
+    return w_h_exact, w_h_exact
 end
 
 function generate_mn_pairs(max_modes)
@@ -81,7 +90,7 @@ for n_div in ndiv_series
 
     for mode_idx in 1:n_vtu_output
         m_val, n_val = mn_pairs[mode_idx]
-        w_h_ex = exact_omega_sq(m_val, n_val, a, b, Dᵇ, ρ, h)
+        w_h_ex, _ = exact_omega_sq(m_val, n_val, a, b, Dᵇ, ρ, h)
         
         # 打包儲存
         push!(master_results, (n_div, mode_idx, m_val, n_val, w_h_ex))

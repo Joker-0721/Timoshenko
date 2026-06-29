@@ -5,13 +5,13 @@ end
 
 using ApproxOperator
 import ApproxOperator.GmshImport: getPhysicalGroups, get𝑿ᵢ, getElements
-import ApproxOperator.MindlinPlate: ∫κκdΩ, ∫wwdΩ, ∫φwdΩ, ∫φφdΩ, ∫αwwdΓ, ∫ρhwwdΩ, ∫ρIφφdΩ
+import ApproxOperator.MindlinPlate: ∫κκdΩ, ∫wwdΩ, ∫φwdΩ, ∫φφdΩ, ∫αwwdΓ, ∫αφφdΓ, ∫ρhwwdΩ, ∫ρIφφdΩ
 
 using LinearAlgebra
 using Printf
 import Gmsh: gmsh
 
-# ==================== 1. 全域物理參數與理論解設定 ====================
+# ==================== 1. 全域物理參數與基準解設定 ====================
 E = 1.0e6
 ν = 0.3
 a = 1.0
@@ -20,35 +20,29 @@ h_over_b = 0.001
 h = h_over_b * b
 ρ = 1.0
 Dᵇ = E * h^3 / 12 / (1 - ν^2)
-α = 1.0e8 * Dᵇ
+αʷ = 1.0e8 * Dᵇ          # w 邊界懲罰剛度
+αᵠ = 1.0e8 * Dᵇ          # φ 邊界懲罰剛度
 eigen_imag_tol = 1.0e-7
 omega_sq_tol = 1.0e-12
 
-case_prefix = "vibration_fem"
+case_prefix = "vibration_fem_4c"
 data_dir = normpath(joinpath(@__DIR__, "..", "date"))
 if !ispath(data_dir)
     mkpath(data_dir)
 end
 
-function exact_omega_sq(m, n, a, b, Dᵇ, ρ, h)
-    ν_ex = 0.3
-    E_ex = Dᵇ * 12 * (1 - ν_ex^2) / h^3
-    Dˢ_ex = (5 / 6) * E_ex * h / (2 * (1 + ν_ex))
+# 🌟 四邊固支 (CCCC) 前六階無因次頻率參數 λ² = ω a² √(ρh/D)
+# 數據取自 Leissa (1969) 表 4.1 (Kirchhoff 板)，因 h/b=0.001 極薄，Mindlin 修正可忽略。
+# 亦可視為 Ritz 法收斂數值，用於誤差評估。
+const CCCC_ref_w = [35.992,   # Mode 1  (1,1)
+                    73.413,   # Mode 2  (2,1)
+                    73.413,   # Mode 3  (1,2)
+                    108.27,   # Mode 4  (2,2)
+                    131.64,   # Mode 5  (3,1)
+                    132.24]   # Mode 6  (1,3)
 
-    α_m = m * π / a
-    β_n = n * π / b
-    λ² = α_m^2 + β_n^2
-
-    I₂ = ρ * h^3 / 12
-    A_coef = ρ * h * I₂
-    B_coef = ρ * h * Dᵇ * λ² + Dˢ_ex * (ρ * h + I₂ * λ²)
-    C_coef = Dᵇ * Dˢ_ex * (λ²^2)
-
-    ω_1 = sqrt((B_coef - sqrt(B_coef^2 - 4 * A_coef * C_coef)) / (2 * A_coef))
-    w_h_exact = ω_1 * a^2 * sqrt(ρ * h / Dᵇ)
-
-    return w_h_exact, w_h_exact
-end
+# 原簡支解析解函數保留但不再使用（若需要可移除）
+# function exact_omega_sq(...) ... end
 
 ndiv_series = 9:25
 master_results = []
@@ -85,28 +79,34 @@ for n_div in ndiv_series
     # ==========================================================================
     # (C) 定義元素、賦予物理常數、計算形函數
     # ==========================================================================
-    # ---- C1. 定義所有元素物件 ----
-    elements   = getElements(nodes, entities["Ω"], 2)      # 正常積分 (彎曲)
-    elements_s = getElements(nodes, entities["Ω"], 1)      # 縮減積分 (剪切)
+    elements     = getElements(nodes, entities["Ω"], 2)    # 彎曲 (完全積分)
+    elements_s   = getElements(nodes, entities["Ω"], 1)    # 剪切 (縮減積分)
 
     boundary_names = ["Γ¹", "Γ²", "Γ³", "Γ⁴"]
-    elements_b = [getElements(nodes, entities[name], 2) for name in boundary_names]
+    elements_w_b = [getElements(nodes, entities[name], 2) for name in boundary_names]
+    elements_φ_b = [getElements(nodes, entities[name], 2) for name in boundary_names]
 
-    # ---- C2. 統一賦予物理常數 ----
-    # 區域元素：同時給定材料參數與質量密度 (避免後續重複 prescribe!)
+    # 區域物理常數
     prescribe!(elements,   :E => E, :ν => ν, :h => h, :ρ => ρ)
     prescribe!(elements_s, :E => E, :ν => ν, :h => h)
 
-    # 邊界元素：設定懲罰剛度與目標位移
-    for el in elements_b
-        prescribe!(el, :α => α, :g => (x, y, z) -> 0.0)
+    # 邊界懲罰條件
+    for el in elements_w_b
+        prescribe!(el, :α => αʷ, :g => (x, y, z) -> 0.0)
+    end
+    for el in elements_φ_b
+        prescribe!(el, :α => αᵠ, :g₁ => (x, y, z) -> 0.0, :g₂ => (x, y, z) -> 0.0,
+                         :n₁₁ => 1.0, :n₁₂ => 0.0, :n₂₂ => 1.0)
     end
 
-    # ---- C3. 計算形函數 (梯度或值) ----
-    set∇𝝭!(elements)      # 彎曲與質量積分需要形函數梯度
-    set∇𝝭!(elements_s)    # 剪切積分需要形函數梯度
-    for el in elements_b
-        set𝝭!(el)         # 邊界懲罰僅需形函數值
+    # 形函數計算
+    set∇𝝭!(elements)
+    set∇𝝭!(elements_s)
+    for el in elements_w_b
+        set𝝭!(el)
+    end
+    for el in elements_φ_b
+        set𝝭!(el)
     end
 
     # ==========================================================================
@@ -123,10 +123,12 @@ for n_div in ndiv_series
     (∫ρIφφdΩ => elements)(mᵠᵠ)
 
     # ==========================================================================
-    # (F) 邊界懲罰項 (強制固支)
+    # (F) 邊界懲罰項 (四邊固支：w=0, ψ=0)
     # ==========================================================================
-    dummy_f = zeros(nʷ)
-    (∫αwwdΓ => elements_b[1] ∪ elements_b[2] ∪ elements_b[3] ∪ elements_b[4])(kʷʷ, dummy_f)
+    dummy_fʷ = zeros(nʷ)
+    dummy_fᵠ = zeros(2 * nᵠ)
+    (∫αwwdΓ => elements_w_b[1] ∪ elements_w_b[2] ∪ elements_w_b[3] ∪ elements_w_b[4])(kʷʷ, dummy_fʷ)
+    (∫αφφdΓ => elements_φ_b[1] ∪ elements_φ_b[2] ∪ elements_φ_b[3] ∪ elements_φ_b[4])(kᵠᵠ, dummy_fᵠ)
 
     # ==========================================================================
     # (G) 組裝全域矩陣並對稱化
@@ -148,27 +150,19 @@ for n_div in ndiv_series
     n_modes_output = min(length(mode_ids), 20)
 
     # ==========================================================================
-    # (I) 頻率比對與數據記錄
+    # (I) 頻率比對與數據記錄（使用 Ritz 基準解）
     # ==========================================================================
-    for r in 1:n_modes_output
+    n_ref = length(CCCC_ref_w)
+    n_compare = min(n_modes_output, n_ref)
+    for r in 1:n_compare
         mode_id = mode_ids[r]
         ω_real_m = sqrt(real(ω²[mode_id]))
         w_h_FEM_m = ω_real_m * a^2 * sqrt(ρ * h / Dᵇ)
-
-        best_err = Inf
-        best_mn = (1, 1)
-        for m_harm in 1:15, n_harm in 1:15
-            _, w_h_ex = exact_omega_sq(m_harm, n_harm, a, b, Dᵇ, ρ, h)
-            if abs(w_h_FEM_m - w_h_ex) < best_err
-                best_err = abs(w_h_FEM_m - w_h_ex)
-                best_mn = (m_harm, n_harm)
-            end
-        end
-        m_match, n_match = best_mn
-        _, w_h_exact_m = exact_omega_sq(m_match, n_match, a, b, Dᵇ, ρ, h)
+        w_h_exact_m = CCCC_ref_w[r]    # 取自 Ritz 法基準值
         log10_Error_w_h = log10(max(abs(w_h_FEM_m - w_h_exact_m) / w_h_exact_m, eps(Float64)))
 
-        push!(master_results, (n_div, r, m_match, n_match,
+        # 輸出時，matched_m 儲存模態排序編號，matched_n 設為 0（無波數含義）
+        push!(master_results, (n_div, r, r, 0,
                                w_h_FEM_m, w_h_exact_m, log10_Error_w_h))
     end
 
@@ -177,7 +171,7 @@ for n_div in ndiv_series
 end
 
 # ==================== 3. 匯出單一匯總 CSV ====================
-csv_master_path = joinpath(data_dir, "$(case_prefix)_master_all_mesh.csv")
+csv_master_path = joinpath(data_dir, "$(case_prefix)_FEM.csv")
 open(csv_master_path, "w") do io
     println(io, join(["n_div", "mode_rank", "matched_m", "matched_n",
                       "w_h_FEM", "w_h_exact", "log10_Error_w_h"], ","))

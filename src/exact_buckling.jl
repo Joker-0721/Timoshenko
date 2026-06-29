@@ -1,62 +1,44 @@
-# 引入寫入 VTK 檔案所需的套件
+# ==============================================================================
+#  高級計算固體力學研究平台：Mindlin 屈曲分析理論解析解對照組 (Exact)
+#  優化：1. 完全移除 L2 誤差計算
+#        2. 大循環 (15➔25) 數據實時追加至全局統一 CSV 大表 (method="Exact", 誤差恆為0)
+# ==============================================================================
+
+const LOCAL_APPROX_OPERATOR = normpath(joinpath(@__DIR__, "..", "..", "ApproxOperator.jl"))
+if isdir(LOCAL_APPROX_OPERATOR) && !(LOCAL_APPROX_OPERATOR in LOAD_PATH)
+    pushfirst!(LOAD_PATH, LOCAL_APPROX_OPERATOR)
+end
+
 using WriteVTK
+using Printf
 
-# 1. 定義幾何與網格參數
-a = 1.0  # 板長 (x 方向)
-b = 1.0  # 板寬 (y 方向)
-nx = 20  # x 方向的元素數量 (網格密度)
-ny = 20  # y 方向的元素數量
+# 全局數據庫路徑規範
+const DATA_DIR = "./data"
+const UNIFIED_CSV = joinpath(DATA_DIR, "buckling_exact.csv")
+mkpath(DATA_DIR)
 
-# 產生網格節點座標 (x, y)
-x_coords = range(0, a, length=nx+1)
-y_coords = range(0, b, length=ny+1)
+println("="^80)
+println(" 執行 Exact 模組：將理論基基準追加至全局大 CSV 表 (ndiv = 9 ➔ 25) ")
+println("="^80)
 
-# 2. 定義解析解的位移函數
-function analytical_mode_shape(x, y, a, b, m=1, n=1)
-    A = 1.0 
-    return A * sin(m * π * x / a) * sin(n * π * y / b)
-end
-
-# 3. 準備 VTK 網格資料結構
-n_points = (nx + 1) * (ny + 1)
-points = zeros(3, n_points)
-w_analytical = zeros(n_points)
-
-# 填寫節點座標，並同時計算該節點的解析解撓度 w
-for j in 1:(ny + 1)
-    for i in 1:(nx + 1)
-        # 【導師修正】：直接利用 i, j 索引計算 point_id，避開全域變數作用域的問題
-        point_id = (j - 1) * (nx + 1) + i
-        
-        x = x_coords[i]
-        y = y_coords[j]
-        
-        points[1, point_id] = x
-        points[2, point_id] = y
-        points[3, point_id] = 0.0
-        
-        # 計算解析解的撓度
-        w_analytical[point_id] = analytical_mode_shape(x, y, a, b, 1, 1)
+for n_div in 9:25
+    h_size = 1.0 / n_div
+    log10_h = log10(h_size)
+    
+    # 理論經典簡支薄板解析解常數
+    k_analytical = 4.0
+    rel_error = 0.0
+    dummy_lambda = 0.0  # 連續理論解無離散特徵值，記為 0.0
+    
+    # 🚀 數據流管線：追加寫入大 CSV 文件，確保 Exact 的基準也同步在內
+    file_exists = isfile(UNIFIED_CSV)
+    open(UNIFIED_CSV, "a") do io
+        if !file_exists
+            println(io, "method,ndiv,h,log10_h,lambda_cr,k_num,relative_error_k")
+            file_exists = true
+        end
+        @printf(io, "Exact,%d,%.6e,%.6f,%.6e,%.6f,%.6e\n", 
+                n_div, h_size, log10_h, dummy_lambda, k_analytical, rel_error)
     end
+    println("  [Exact] ndiv = $(n_div) 理論基準已追加寫入大表。")
 end
-
-# 定義網格元素 (Cells) 的連接關係
-cells = MeshCell[]
-for j in 1:ny
-    for i in 1:nx
-        n1 = (j - 1) * (nx + 1) + i
-        n2 = n1 + 1
-        n3 = n2 + (nx + 1)
-        n4 = n1 + (nx + 1)
-        
-        push!(cells, MeshCell(VTKCellTypes.VTK_QUAD, [n1, n2, n3, n4]))
-    end
-end
-
-# 4. 輸出成 VTK 檔案
-output_filename = "buckling_exact"
-vtk_grid(output_filename, points, cells) do vtk
-    vtk["w_exact", VTKPointData()] = w_analytical
-end
-
-println("解析解 VTU 檔案已成功生成: $(output_filename).vtu")
