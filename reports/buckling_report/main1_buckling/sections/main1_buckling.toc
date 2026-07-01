@@ -1,0 +1,18 @@
+\contentsline {chapter}{\numberline {1}四邊簡支板屈曲分析 (SSSS)}{2}{chapter.1}%
+\contentsline {section}{\numberline {1.1}理論推導}{2}{section.1.1}%
+\contentsline {subsection}{\numberline {1.1.1}位移場與應變}{2}{subsection.1.1.1}%
+\contentsline {subsection}{\numberline {1.1.2}內力與本構關係}{3}{subsection.1.1.2}%
+\contentsline {subsection}{\numberline {1.1.3}屈曲平衡方程}{3}{subsection.1.1.3}%
+\contentsline {subsection}{\numberline {1.1.4}四邊簡支邊界條件與解析解}{3}{subsection.1.1.4}%
+\contentsline {section}{\numberline {1.2}數值模型}{4}{section.1.2}%
+\contentsline {section}{\numberline {1.3}結果與討論}{4}{section.1.3}%
+\contentsline {subsection}{\numberline {1.3.1}屈曲模態圖}{4}{subsection.1.3.1}%
+\contentsline {subsection}{\numberline {1.3.2}收斂性與誤差分析}{4}{subsection.1.3.2}%
+\contentsline {chapter}{\numberline {2}四邊固支板屈曲分析 (CCCC)}{6}{chapter.2}%
+\contentsline {section}{\numberline {2.1}理論推導}{6}{section.2.1}%
+\contentsline {subsection}{\numberline {2.1.1}四邊固支邊界條件}{6}{subsection.2.1.1}%
+\contentsline {subsection}{\numberline {2.1.2}參考解與擬合公式}{6}{subsection.2.1.2}%
+\contentsline {section}{\numberline {2.2}數值模型}{6}{section.2.2}%
+\contentsline {section}{\numberline {2.3}結果與討論}{7}{section.2.3}%
+\contentsline {subsection}{\numberline {2.3.1}屈曲模態圖}{7}{subsection.2.3.1}%
+\contentsline {subsection}{\numberline {2.3.2}收斂性與誤差分析}{7}{subsection.2.3.2}%

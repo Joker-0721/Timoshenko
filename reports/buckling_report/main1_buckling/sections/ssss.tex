@@ -1,0 +1,136 @@
+\section{理論推導}
+
+本節嚴格遵循 Reddy \cite{reddy2004} 第 7.3 節的推導框架。
+
+\subsection{位移場與應變}
+一階剪切變形理論 (FSDT) 之位移場為：
+\begin{align}
+u(x,y,z) &= z\,\phi_x(x,y), \notag\\
+v(x,y,z) &= z\,\phi_y(x,y), \label{eq:disp}\\
+w(x,y,z) &= w_0(x,y). \notag
+\end{align}
+式中不考慮屈曲前的面內位移。
+
+線性應變：
+\begin{align}
+\varepsilon_{xx} &= \frac{\partial u}{\partial x} = \frac{\partial u_0}{\partial x} + z \frac{\partial \phi_x}{\partial x} \\
+\varepsilon_{yy} &= \frac{\partial v}{\partial y} = \frac{\partial v_0}{\partial y} + z \frac{\partial \phi_y}{\partial y} \\
+\gamma_{xy} &= \frac{\partial u}{\partial y} + \frac{\partial v}{\partial x} = \left( \frac{\partial u_0}{\partial y} + \frac{\partial v_0}{\partial x} \right) + z \left( \frac{\partial \phi_x}{\partial y} + \frac{\partial \phi_y}{\partial x} \right) \\
+\gamma_{xz} &= \frac{\partial u}{\partial z} + \frac{\partial w}{\partial x} = \phi_x + \frac{\partial w_0}{\partial x} \\
+\gamma_{yz} &= \frac{\partial v}{\partial z} + \frac{\partial w}{\partial y} = \phi_y + \frac{\partial w_0}{\partial y}
+\end{align}
+屈曲分析中考慮 von Kármán 非線性項，僅保留面內項：
+\[
+\varepsilon_{xx}^{\mathrm{NL}} = \frac{1}{2}\left(\pdv{w}{x}\right)^2,\quad
+\varepsilon_{yy}^{\mathrm{NL}} = \frac{1}{2}\left(\pdv{w}{y}\right)^2,\quad
+\gamma_{xy}^{\mathrm{NL}} = \pdv{w}{x}\pdv{w}{y}.
+\]
+
+\subsection{內力與本構關係}
+對於各向同性均質材料，平面應力狀態下本構為：
+\begin{align}
+\begin{pmatrix} \sigma_{xx} \\ \sigma_{yy} \\ \sigma_{xy} \end{pmatrix}
+&= \frac{E}{1-\nu^2}
+\begin{bmatrix} 1 & \nu & 0 \\ \nu & 1 & 0 \\ 0 & 0 & \frac{1-\nu}{2} \end{bmatrix}
+\begin{pmatrix} \varepsilon_{xx} \\ \varepsilon_{yy} \\ \gamma_{xy} \end{pmatrix},\\
+\begin{pmatrix} \sigma_{xz} \\ \sigma_{yz} \end{pmatrix}
+&= G \begin{pmatrix} \gamma_{xz} \\ \gamma_{yz} \end{pmatrix},\qquad G = \frac{E}{2(1+\nu)}.
+\end{align}
+沿厚度積分，定義彎矩與剪力：
+\begin{align}
+M_{xx} &= \D\left(\pdv{\phi_x}{x} + \nu\pdv{\phi_y}{y}\right), \notag\\
+M_{yy} &= \D\left(\pdv{\phi_y}{y} + \nu\pdv{\phi_x}{x}\right), \notag\\
+M_{xy} &= \frac{1-\nu}{2}\D\left(\pdv{\phi_x}{y}+\pdv{\phi_y}{x}\right),\\
+Q_x &= \Kshear G h \left(\phi_x + \pdv{w}{x}\right),\quad
+Q_y = \Kshear G h \left(\phi_y + \pdv{w}{y}\right),
+\end{align}
+其中 \(\D = \dfrac{E h^3}{12(1-\nu^2)}\)，\(\Kshear = 5/6\)。
+
+\subsection{屈曲平衡方程}
+忽略橫向荷載，線性化屈曲控制方程為：
+\begin{align}
+\pdv{M_{xx}}{x} + \pdv{M_{xy}}{y} - Q_x &= 0, \notag\\
+\pdv{M_{xy}}{x} + \pdv{M_{yy}}{y} - Q_y &= 0, \label{eq:eqm}\\
+\pdv{Q_x}{x} + \pdv{Q_y}{y} + N_{xx}^0 \pdv[2]{w}{x} + 2N_{xy}^0 \pdv{w}{x}{y} + N_{yy}^0 \pdv[2]{w}{y} &= 0. \notag
+\end{align}
+對於單軸均勻受壓 \(N_{xx}^0 = -N_0\)，其餘為零，將內力代入得：
+\begin{align}
+&\D\left(\pdv[2]{\phi_x}{x} + \frac{1-\nu}{2}\pdv[2]{\phi_x}{y} + \frac{1+\nu}{2}\pdv{\phi_y}{x}{y}\right) - \Kshear G h\left(\phi_x + \pdv{w}{x}\right) = 0, \notag\\
+&\D\left(\pdv[2]{\phi_y}{y} + \frac{1-\nu}{2}\pdv[2]{\phi_y}{x} + \frac{1+\nu}{2}\pdv{\phi_x}{x}{y}\right) - \Kshear G h\left(\phi_y + \pdv{w}{y}\right) = 0, \notag\\
+&\Kshear G h\left(\pdv{\phi_x}{x} + \pdv{\phi_y}{y} + \nabla^2 w\right) - N_0 \pdv[2]{w}{x} = 0. \label{eq:gov}
+\end{align}
+
+\subsection{四邊簡支邊界條件與解析解}
+簡支邊界條件為：
+\[
+w = 0,\quad M_{xx}=0,\quad \phi_y=0 \;\; (x=0,a); \qquad
+w = 0,\quad M_{yy}=0,\quad \phi_x=0 \;\; (y=0,b).
+\]
+採用 Navier 解：
+\[
+w = W_{mn}\sin(\alpha x)\sin(\beta y),\quad
+\phi_x = X_{mn}\cos(\alpha x)\sin(\beta y),\quad
+\phi_y = Y_{mn}\sin(\alpha x)\cos(\beta y),
+\]
+其中 \(\alpha=m\pi/a,\;\beta=n\pi/b\)。代入 \eqref{eq:gov} 得齊次代數方程組，令係數行列式為零，解得臨界壓力：
+\begin{equation}
+\boxed{N_0(m,n) = \frac{\D(\alpha^2+\beta^2)^2}
+{\alpha^2\left[1 + \dfrac{\D}{\Kshear G h}(\alpha^2+\beta^2)\right]}} \label{eq:Ncr_ssss}
+\end{equation}
+無量綱屈曲係數定義為 \(K = \dfrac{N_{cr} b^2}{\pi^2 \D}\)。對方形板 (\(a=b\))，取最低模態 \(n=1\) 及恰當的 \(m\)，當 \(h\to 0\) 時退化為經典解 \(K = \left(m + \frac{1}{m}\right)^2\)。實際計算中需搜尋使 \(N_0\) 最小的 \((m,n)\) 組合。
+
+\section{數值模型}
+採用混合有限元/無網格方法，離散細節見代碼。積分階次：彎曲項二階，剪切項一階（避免剪切鎖死）。邊界條件透過罰函數施加，懲罰係數 \(\alpha = 10^8 D\)。\textbf{網格劃分範圍為 \(n_{div} = 9\) 至 \(25\)，對應之網格尺寸由粗至細進行收斂性分析。}
+
+
+\section{結果與討論}
+\subsection{屈曲模態圖}
+以下為四邊簡支板在 \(h=0.01\) 時的前六階屈曲模態形狀，圖中座標軸 \(x, y\) 代表板面內的無量綱位置，顏色表示側向位移之相對大小。
+
+\begin{figure}[h!]
+\centering
+\begin{subfigure}{0.45\textwidth}
+\includegraphics[width=\textwidth]{../images/buckling_mode_1_4s.png}
+\caption{模態 1}
+\end{subfigure}
+\hfill
+\begin{subfigure}{0.45\textwidth}
+\includegraphics[width=\textwidth]{../images/buckling_mode_2_4s.png}
+\caption{模態 2}
+\end{subfigure}
+
+\vspace{0.5cm}
+
+\begin{subfigure}{0.45\textwidth}
+\includegraphics[width=\textwidth]{../images/buckling_mode_3_4s.png}
+\caption{模態 3}
+\end{subfigure}
+\hfill
+\begin{subfigure}{0.45\textwidth}
+\includegraphics[width=\textwidth]{../images/buckling_mode_4_4s.png}
+\caption{模態 4}
+\end{subfigure}
+
+\vspace{0.5cm}
+
+\begin{subfigure}{0.45\textwidth}
+\includegraphics[width=\textwidth]{../images/buckling_mode_5_4s.png}
+\caption{模態 5}
+\end{subfigure}
+\hfill
+\begin{subfigure}{0.45\textwidth}
+\includegraphics[width=\textwidth]{../images/buckling_mode_6_4s.png}
+\caption{模態 6}
+\end{subfigure}
+\caption{四邊簡支板之前六階屈曲模態 (\(h=0.01\))} \label{fig:ssss_modes}
+\end{figure}
+
+\subsection{收斂性與誤差分析}
+數值解與解析解之間的相對誤差定義為
+\begin{equation}
+\text{Error} = \frac{K_{\text{num}} - K_{\text{exact}}}{K_{\text{exact}}},
+\end{equation}
+其中 \(K_{\text{num}}\) 為有限元解所得之無量綱屈曲係數，\(K_{\text{exact}}\) 為式 \eqref{eq:Ncr_ssss} 對應的解析解。
+
+
+由圖 \ref{fig:ssss_modes} 

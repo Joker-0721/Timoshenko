@@ -1,0 +1,45 @@
+\documentclass[a4paper,12pt]{ctexart}
+
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{subcaption}
+\usepackage{booktabs}
+
+\title{
+    \textbf{Mindlin 板自由振動分析} \\
+    \large 以 Ritz 法與有限元素法實現
+}
+\author{你的名字}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+% 1. 理論推導
+\section{理論基礎：Mindlin 板能量泛函}
+\input{theory.tex}
+
+% 2. 四邊簡支 (SSSS)
+\section{四邊簡支 (SSSS) Mindlin 板分析}
+\input{ssss.tex}
+
+% 3. 四邊固支 (CCCC)
+\section{四邊固支 (CCCC) Mindlin 板分析}
+\input{cccc.tex}
+
+% 4. 結論
+\section{結論與比較}
+\input{conclusion.tex}
+
+% 參考文獻（若有）
+%\bibliographystyle{plain}
+%\bibliography{references}
+
+\end{document}
