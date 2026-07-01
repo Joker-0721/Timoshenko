@@ -23,7 +23,7 @@ I_moment = h^3 / 12
 Dᵇ = E * h^3 / (12 * (1 - ν^2))
 Dˢ = 5 / 6 * E * h / (2 * (1 + ν))
 αʷ = 1.0e8 * Dᵇ
-αᵠ = 0.0
+αᵠ = 1.0e8 * Dᵇ            # 🌟 改為非零以實現四邊固支 (CCCC)
 
 eigen_imag_tol = 1.0e-7
 omega_sq_tol = 1.0e-12
@@ -31,7 +31,7 @@ integrationOrder = 2
 sʷ = 1.5
 sᵠ = 1.5
 
-case_prefix = "vibration_mixtwo"
+case_prefix = "vibration_mixtwo_cccc"   # 🌟 更新前綴以區分邊界條件
 data_dir = normpath(joinpath(@__DIR__, "..", "date"))
 if !ispath(data_dir)
     mkpath(data_dir)
@@ -211,7 +211,7 @@ for n_div in ndiv_series
       ∫MφdΓ  => (elements_m_Γ, elements_φ_Γ)])(kᵐᵠ)
 
     # ==========================================================================
-    # (E) 邊界懲罰項 (強制固支)
+    # (E) 邊界懲罰項 (強制固支: w=0, ψ=0)
     # ==========================================================================
     dummy_fʷ = zeros(nʷ)
     dummy_fᵠ = zeros(2 * nᵠ)

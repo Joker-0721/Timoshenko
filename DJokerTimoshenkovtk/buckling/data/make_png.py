@@ -82,7 +82,7 @@ for rank in range(1, 7):
     plt.tight_layout()
     
     # 5. 輸出並單獨儲存該模態的全新對數圖檔
-    output_file = os.path.join(base_dir, f'buckling_mode_{rank}_true_log_plot.png')
+    output_file = os.path.join(base_dir, f'buckling_mode_{rank}_4s.png')
     fig.savefig(output_file, bbox_inches='tight')
     plt.close(fig)
     print(f"  [對數化成功] 模態 Mode {rank} 已生成真實對數圖：{output_file}")

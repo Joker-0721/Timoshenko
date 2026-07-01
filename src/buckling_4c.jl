@@ -15,7 +15,7 @@ import Gmsh: gmsh
 
 # 全局數據庫路徑規範
 const DATA_DIR = "./data"
-const UNIFIED_CSV = joinpath(DATA_DIR, "buckling_FEM.csv")
+const UNIFIED_CSV = joinpath(DATA_DIR, "buckling_FEM_cccc.csv")   # 輸出檔名可改為 CCCC
 mkpath(DATA_DIR)
 
 # 全局力學材料常數
@@ -31,22 +31,15 @@ const σ₁₁ = 1.0
 const σ₂₂ = 0.0
 const σ₁₂ = 0.0
 
-# 前 6 階屈曲係數（Navier 解）
-const k_exact_modes = [
-    (1 + 1^2/1)^2,  # Mode 1: (m=1, n=1) -> 4.0000
-    (2 + 1^2/2)^2,  # Mode 2: (m=2, n=1) -> 6.2500
-    (3 + 1^2/3)^2,  # Mode 3: (m=3, n=1) -> 11.1111
-    (2 + 2^2/2)^2,  # Mode 4: (m=2, n=2) -> 16.0000
-    (4 + 1^2/4)^2,  # Mode 5: (m=4, n=1) -> 18.0625
-    (3 + 2^2/3)^2   # Mode 6: (m=3, n=2) -> 18.7778
-]
+# 四邊固支（CCCC）第一模態擬合參考值 (Reddy, §7.5)
+const k_exact_modes = [10.31, 23.92, 23.92, 39.57, 50.80, 50.80]
 
 const integrationOrder = 2
 const integrationOrder_shear = 1
 const to = TimerOutput()
 
 println("="^80)
-println(" 執行 Pure FEM 模組：網格加密大循環 (ndiv = 9 ➔ 25) ")
+println(" 執行 Pure FEM 模組：四邊固支 (CCCC)，網格加密大循環 (ndiv = 9 ➔ 25) ")
 println("="^80)
 
 for n_div in 9:25
@@ -63,7 +56,7 @@ for n_div in 9:25
         gmsh.open(mesh_path)
         
         entities = getPhysicalGroups()
-        nodes = get𝑿ᵢ()                     # ⬅️ 確保這一行存在
+        nodes = get𝑿ᵢ()
         
         nʷ = length(nodes)
         nᵠ = length(nodes)
@@ -108,20 +101,22 @@ for n_div in 9:25
         (∫φwdΩ=>elements_s)(kᵠʷ)
         ([∫φφdΩ=>elements_s, ∫κκdΩ=>elements])(kᵠᵠ)
         
-        # ❻ 組裝幾何剛度（修正：kʷʷ → kᴳʷʷ）
+        # ❻ 組裝幾何剛度
         prescribe!(elements, :σ₁₁=>σ₁₁, :σ₂₂=>σ₂₂, :σ₁₂=>σ₁₂)
-        (∫∇wσ∇wdΩ=>elements)(kᴳʷʷ)          # ✅ 改為 kᴳʷʷ
+        (∫∇wσ∇wdΩ=>elements)(kᴳʷʷ)
         (∫∇φσ∇φdΩ=>elements)(kᴳᵠᵠ)
         
-        # ❼ 組裝邊界罰函數
-        for (el_b_w, el_b_phi) in zip(el_b_w_arrays, el_b_phi_arrays)
+        # ❼ 組裝邊界罰函數（固支：w=0 且 φx=0, φy=0）
+        for el_b_w in el_b_w_arrays
             (∫αwwdΓ=>el_b_w)(kʷʷ)
-            (∫αφφdΓ=>el_b_phi)(kᵠᵠ)
+        end
+        for el_b_phi in el_b_phi_arrays
+            (∫αφφdΓ=>el_b_phi)(kᵠᵠ)    # 強制 φx=0, φy=0
         end
         
-        # ❽ 組裝整體矩陣並求解（修正：Kᴳ 右下角用 kᴳʷʷ）
+        # ❽ 組裝整體矩陣並求解
         K = [kᵠᵠ kᵠʷ; kᵠʷ' kʷʷ]
-        Kᴳ = [kᴳᵠᵠ zeros(2*nᵠ, nʷ); zeros(nʷ, 2*nᵠ) kᴳʷʷ]   # ✅ 改為 kᴳʷʷ
+        Kᴳ = [kᴳᵠᵠ zeros(2*nᵠ, nʷ); zeros(nʷ, 2*nᵠ) kᴳʷʷ]
         
         F = eigen(K, Kᴳ)
         λ = F.values
@@ -147,12 +142,12 @@ for n_div in 9:25
                 k_num = (lam * h * σ₁₁) * b^2 / (π^2 * Dᵇ)
                 k_ex = k_exact_modes[rank]
                 error_y = (k_num / k_ex) - 1.0
-                @printf(io, "Pure_FEM,%d,%.6e,%.6f,%d,%.6e,%.6f,%.6f,%.6e\n", 
+                @printf(io, "Pure_FEM_CCCC,%d,%.6e,%.6f,%d,%.6e,%.6f,%.6f,%.6e\n", 
                         n_div, h_size, log10_h, rank, lam, k_num, k_ex, error_y)
             end
         end
         
         gmsh.finalize()
-        println("  [Pure_FEM] ndiv = $(n_div) 前 6 階數據導出成功。")
+        println("  [Pure_FEM_CCCC] ndiv = $(n_div) 前 6 階數據導出成功。")
     end
 end

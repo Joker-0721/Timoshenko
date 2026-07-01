@@ -13,7 +13,7 @@ import Gmsh: gmsh
 
 # 全局數據庫路徑規範
 const DATA_DIR = "./data"
-const UNIFIED_CSV = joinpath(DATA_DIR, "buckling_mixtwo.csv")
+const UNIFIED_CSV = joinpath(DATA_DIR, "buckling_mixtwo_cccc.csv")   # 改為 CCCC 輸出
 mkpath(DATA_DIR)
 
 # 全局幾何與材料物理常數
@@ -31,15 +31,8 @@ const σ₁₁ = 1.0
 const σ₂₂ = 0.0
 const σ₁₂ = 0.0
 
-# 前 6 階屈曲係數（Navier 解）
-const k_exact_modes = [
-    (1 + 1^2/1)^2,  # Mode 1: (m=1, n=1)
-    (2 + 1^2/2)^2,  # Mode 2: (m=2, n=1)
-    (3 + 1^2/3)^2,  # Mode 3: (m=3, n=1)
-    (2 + 2^2/2)^2,  # Mode 4: (m=2, n=2)
-    (4 + 1^2/4)^2,  # Mode 5: (m=4, n=1)
-    (3 + 2^2/3)^2   # Mode 6: (m=3, n=2)
-]
+# 四邊固支（CCCC）第一模態擬合參考值 (Reddy, §7.5)
+const k_exact_modes = [10.31, 23.92, 23.92, 39.57, 50.80, 50.80]
 
 const integrationOrder = 2
 const sʷ = 1.5
@@ -47,7 +40,7 @@ const sᵠ = 1.5
 const to = TimerOutput()
 
 println("="^80)
-println(" 執行 Mixtwo 模組：網格加密大循環 (ndiv = 9 ➔ 25) ")
+println(" 執行 Mixtwo 模組：四邊固支 (CCCC)，網格加密大循環 (ndiv = 9 ➔ 25) ")
 println("="^80)
 
 for n_div in 9:25
@@ -127,6 +120,7 @@ for n_div in 9:25
         prescribe!(elements_m, :E => E, :ν => ν, :h => h)
         prescribe!(elements_φ, :E => E, :ν => ν, :h => h)
 
+        # 邊界條件：四邊固支 (w=0, φx=0, φy=0)
         for el in elements_w_b
             prescribe!(el, :α => αʷ, :g => (x,y,z) -> 0.0)
         end
@@ -134,7 +128,7 @@ for n_div in 9:25
             prescribe!(el, :α => αᵠ,
                            :g₁ => (x,y,z) -> 0.0,
                            :g₂ => (x,y,z) -> 0.0,
-                           :n₁₁ => 1.0, :n₁₂ => 0.0, :n₂₂ => 1.0)
+                           :n₁₁ => 1.0, :n₁₂ => 0.0, :n₂₂ => 1.0)   # 同時固定兩個轉角
         end
 
         # ── ❹ 設定形函數導數 ──
@@ -178,7 +172,7 @@ for n_div in 9:25
         ([∫∇MφdΩ => (elements_m, elements_φ), ∫MφdΓ => (elements_m_Γ, elements_φ_Γ)])(kᵐᵠ)
         (∫QφdΩ => (elements_q, elements_φ))(kˢᵠ)
 
-        # ── ❼ 組裝邊界罰函數 ──
+        # ── ❼ 組裝邊界罰函數（強制固支） ──
         dummy_fʷ = zeros(nʷ)
         dummy_fᵠ = zeros(2 * nᵠ)
         all_w_b = elements_w_b[1] ∪ elements_w_b[2] ∪ elements_w_b[3] ∪ elements_w_b[4]
@@ -223,12 +217,12 @@ for n_div in 9:25
                 k_num = (lam * h * σ₁₁) * b^2 / (π^2 * Dᵇ)
                 k_ex  = k_exact_modes[rank]
                 error_y = (k_num / k_ex) - 1.0
-                @printf(io, "Mixtwo,%d,%.6e,%.6f,%d,%.6e,%.6f,%.6f,%.6e\n",
+                @printf(io, "Mixtwo_CCCC,%d,%.6e,%.6f,%d,%.6e,%.6f,%.6f,%.6e\n",
                         n_div, h_size, log10_h, rank, lam, k_num, k_ex, error_y)
             end
         end
 
         gmsh.finalize()
-        println("  [Mixtwo] ndiv = $(n_div) 前 6 階數據導出成功。")
+        println("  [Mixtwo_CCCC] ndiv = $(n_div) 前 6 階數據導出成功。")
     end
 end
