@@ -45,18 +45,11 @@ const sʷ = 1.5
 const sᵠ = 1.5
 const to = TimerOutput()
 
-println("="^80)
-println(" 執行 Mix 模組：網格加密大循環 (ndiv = 9 ➔ 25) ")
-println("="^80)
 
 for n_div in 9:25
     @timeit to "Mix Loop (ndiv=$n_div)" begin
 
-        mesh_file = "/home/a/Joker/msh/st_q_$(n_div).msh"
-        if !isfile(mesh_file)
-            println("  [WARN] 找不到指定的網格檔案，跳過此輪: ", mesh_file)
-            continue
-        end
+        mesh_file = "../msh/st_q_$(n_div).msh"
 
         type_w = :(ReproducingKernel{:Linear2D,:□,:CubicSpline})
         type_φ = :(ReproducingKernel{:Linear2D,:□,:CubicSpline})
@@ -95,12 +88,27 @@ for n_div in 9:25
         # ======================================================================
         # (B) 矩陣初始化
         # ======================================================================
-        kˢˢ   = zeros(2 * nˢ, 2 * nˢ)
-        kˢʷ   = zeros(2 * nˢ, nʷ)
-        kˢᵠ   = zeros(2 * nˢ, 2 * nᵠ)
-        kᵅᵠᵠ = zeros(2 * nᵠ, 2 * nᵠ)
+        nˢ = length(nodes)
+        nₑ = length(elements_q)
+        nᵖ = ApproxOperator.get𝑛𝑝(eval(type_M)(𝑿ᵢ[], 𝑿ₛ[]))
+        nᵐ = nₑ * nᵖ
+
+        # 位移子塊
+        kʷʷ = zeros(nʷ, nʷ)
+        kᵠᵠ = zeros(2nᵠ, 2nᵠ)
+        kᵠʷ = zeros(2nᵠ, nʷ)   # 注意：混合形式中此項可能為零，取決於推導
+        # 剪應力子塊
+        kˢˢ = zeros(2nˢ, 2nˢ)
+        kˢᵠ = zeros(2nˢ, 2nᵠ)
+        kˢʷ = zeros(2nˢ, nʷ)
+        # 彎矩子塊
+        kᵐᵐ = zeros(3nᵐ, 3nᵐ)
+        kᵐᵠ = zeros(3nᵐ, 2nᵠ)
+        kᵐʷ = zeros(3nᵐ, nʷ)   # 可能為零
+        kˢᵐ = zeros(2nˢ, 3nᵐ)  # 可能為零
+        # 懲罰子塊（用於強制邊界條件）
         kᵅʷʷ = zeros(nʷ, nʷ)
-        kʷʷ   = zeros(nʷ, nʷ)      # 幾何剛度矩陣
+        kᵅᵠᵠ = zeros(2nᵠ, 2nᵠ)
 
         # ======================================================================
         # (C) 定義元素、賦予物理常數、計算形函數
@@ -124,16 +132,13 @@ for n_div in 9:25
 
         # 邊界懲罰用元素 (w 與 φ 各自四個邊界)
         boundary_names = ["Γ¹", "Γ²", "Γ³", "Γ⁴"]
-        elements_w_b = [getElements(nodes_w, entities[name], eval(type_w),
-                                    integrationOrder, sp_w, normal=true) for name in boundary_names]
-        elements_φ_b = [getElements(nodes_φ, entities[name], eval(type_φ),
-                                    integrationOrder, sp_φ, normal=true) for name in boundary_names]
+        elements_w_b = [getElements(nodes_w, entities[name], eval(type_w),integrationOrder, sp_w, normal=true) for name in boundary_names]
+        elements_φ_b = [getElements(nodes_φ, entities[name], eval(type_φ),integrationOrder, sp_φ, normal=true) for name in boundary_names]
 
         # ---- C2. 統一賦予物理常數 ----
         # 區域元素：材料參數與應力 (w 場需要幾何剛度應力，提前給定)
         prescribe!(elements_q, :E => E, :ν => ν, :h => h)
-        prescribe!(elements_w, :E => E, :ν => ν, :h => h,
-                              :σ₁₁ => σ₁₁, :σ₂₂ => σ₂₂, :σ₁₂ => σ₁₂)
+        prescribe!(elements_w, :E => E, :ν => ν, :h => h, :σ₁₁ => σ₁₁, :σ₂₂ => σ₂₂, :σ₁₂ => σ₁₂)
         prescribe!(elements_m, :E => E, :ν => ν, :h => h)
         prescribe!(elements_φ, :E => E, :ν => ν, :h => h)
 
@@ -142,103 +147,53 @@ for n_div in 9:25
             prescribe!(el, :α => αʷ, :g => (x, y, z) -> 0.0)
         end
         for el in elements_φ_b
-            prescribe!(el, :α => αᵠ, :g₁ => (x, y, z) -> 0.0, :g₂ => (x, y, z) -> 0.0,
-                             :n₁₁ => 1.0, :n₁₂ => 0.0, :n₂₂ => 1.0)
+            prescribe!(el, :α => αᵠ, :g₁ => (x, y, z) -> 0.0, :g₂ => (x, y, z) -> 0.0, :n₁₁ => 1.0, :n₁₂ => 0.0, :n₂₂ => 1.0)
         end
 
         # ---- C3. 計算形函數 (值或梯度) ----
-        set∇𝝭!(elements_q)     # Q 區域需梯度
-        set𝝭!(elements_q_Γ)    # Q 邊界只需值
+        set∇𝝭!(elements_q)  
+        set𝝭!(elements_q_Γ)  
+        set∇𝝭!(elements_w)  
+        set𝝭!(elements_w_Γ) 
+        set∇𝝭!(elements_m) 
+        set𝝭!(elements_m_Γ) 
+        set∇𝝭!(elements_φ)  
+        set𝝭!(elements_φ_Γ) 
 
-        set∇𝝭!(elements_w)     # w 區域需梯度 (用於剪切與幾何剛度)
-        set𝝭!(elements_w_Γ)    # w 邊界只需值
-
-        set∇𝝭!(elements_m)     # M 區域需梯度
-        set𝝭!(elements_m_Γ)    # M 邊界只需值
-
-        set∇𝝭!(elements_φ)     # φ 區域需梯度
-        set𝝭!(elements_φ_Γ)    # φ 邊界只需值
-
-        for el in elements_w_b
-            set𝝭!(el)          # 邊界懲罰僅需值
-        end
-        for el in elements_φ_b
-            set𝝭!(el)          # 邊界懲罰僅需值
-        end
 
         # ======================================================================
         # (D) 組裝剛度矩陣 (不含邊界懲罰與幾何剛度)
         # ======================================================================
-        (∫QQdΩ => elements_q)(kˢˢ)
-        ([∫∇QwdΩ => (elements_q, elements_w),
-          ∫QwdΓ  => (elements_q_Γ, elements_w_Γ)])(kˢʷ)
-        (∫QφdΩ => (elements_q, elements_φ))(kˢᵠ)
+        # 材料剛度子塊（混合形式）
+        kˢˢ = ∫QQdΩ => elements_q
+        kˢʷ = -∫∇QwdΩ => (elements_q, elements_w)   # 域內部分
+        kˢᵠ = ∫QφdΩ => (elements_q, elements_φ)
+        kᵠᵠ = ∫κκdΩ => elements_φ                 # 彎曲貢獻
+# 如果需要將剪切對 φ 的貢獻也放入 kᵠᵠ，可加上 ∫φφdΩ => elements_φ
+# 但混合形式中，剪切貢獻已通過 Q 場的耦合體現，視推導而定
 
-        nₑ = length(elements_q)
-        nᵖ = ApproxOperator.get𝑛𝑝(eval(type_M)(𝑿ᵢ[], 𝑿ₛ[]))
-        nᵐ = nₑ * nᵖ
-        kᵐᵐ = zeros(3 * nᵐ, 3 * nᵐ)
-        kᵐᵠ = zeros(3 * nᵐ, 2 * nᵠ)
-
-        (∫MMdΩ => elements_m)(kᵐᵐ)
-        ([∫∇MφdΩ => (elements_m, elements_φ),
-          ∫MφdΓ  => (elements_m_Γ, elements_φ_Γ)])(kᵐᵠ)
+        # 邊界貢獻（自然條件）
+        kˢʷ = [∫∇QwdΩ => (elements_q, elements_w),
+                ∫QwdΓ  => (elements_q_Γ, elements_w_Γ)]  # 合併域內+邊界
+        kᵐᵠ = [∫∇MφdΩ => (elements_m, elements_φ),
+                ∫MφdΓ  => (elements_m_Γ, elements_φ_Γ)]
 
         # ======================================================================
         # (E) 幾何剛度矩陣 (初始應力效應)
         # ======================================================================
-        (∫∇wσ∇wdΩ => elements_w)(kʷʷ)
-
-        # ======================================================================
-        # (F) 邊界懲罰項 (強制固支)
-        # ======================================================================
-        dummy_fʷ = zeros(nʷ)
-        dummy_fᵠ = zeros(2 * nᵠ)
-        (∫αwwdΓ => elements_w_b[1] ∪ elements_w_b[2] ∪ elements_w_b[3] ∪ elements_w_b[4])(kᵅʷʷ, dummy_fʷ)
-        (∫αφφdΓ => elements_φ_b[1] ∪ elements_φ_b[2] ∪ elements_φ_b[3] ∪ elements_φ_b[4])(kᵅᵠᵠ, dummy_fᵠ)
+        kᵍʷ = ∫∇wσ∇wdΩ => elements_w
+        kᵍᵠ = ∫∇φσ∇φdΩ => elements_φ
 
         # ======================================================================
         # (G) 靜態凝聚形成最終屈曲特徵值問題
         # ======================================================================
-        k_cond = -[kˢᵠ'*(kˢˢ\kˢᵠ)+kᵐᵠ'*(kᵐᵐ\kᵐᵠ)-kᵅᵠᵠ   kˢᵠ'*(kˢˢ\kˢʷ)
-                   kˢʷ'*(kˢˢ\kˢᵠ)                            kˢʷ'*(kˢˢ\kˢʷ)-kᵅʷʷ]
-        ks = Symmetric(0.5 * (k_cond + k_cond'))
-        Kᴳ_cond = [zeros(2*nᵠ, 2*nᵠ)  zeros(2*nᵠ, nʷ)
-                   zeros(nʷ, 2*nᵠ)    kʷʷ]
+        k = -[kʷʷ kᵠʷ'; kᵠʷ kᵠᵠ]
+        Kᴳ = [kᵍʷ kᵍʷᵠ ; kᵍʷᵠ' kᵍᵠ]
 
-        F = eigen(ks, Kᴳ_cond)
+        F = eigen(k, Kᴳ)
         λ = F.values
 
-        # ======================================================================
-        # (H) 屈曲模態篩選與數據記錄
-        # ======================================================================
-        mode_ids = sort!([i for i in eachindex(λ)
-                          if isfinite(real(λ[i])) && abs(imag(λ[i])) < 1.0e-7 && real(λ[i]) > 0.0],
-                         by = i -> real(λ[i]))
-
-        h_size = 1.0 / n_div
-        log10_h = log10(h_size)
-
-        file_exists = isfile(UNIFIED_CSV)
-        open(UNIFIED_CSV, "a") do io
-            if !file_exists
-                println(io, "method,ndiv,h,log10_h,mode_rank,lambda_cr,k_num,k_exact,error_y")
-                file_exists = true
-            end
-
-            for rank in 1:min(6, length(mode_ids))
-                m_id = mode_ids[rank]
-                lam = real(λ[m_id])
-                k_num = (lam * h * σ₁₁) * b^2 / (π^2 * Dᵇ)
-                k_ex = k_exact_modes[rank]
-                error_y = (k_num / k_ex) - 1.0
-
-                @printf(io, "Mix,%d,%.6e,%.6f,%d,%.6e,%.6f,%.6f,%.6e\n",
-                        n_div, h_size, log10_h, rank, lam, k_num, k_ex, error_y)
-            end
-        end
-
         gmsh.finalize()
-        println("  [Mix] ndiv = $(n_div) 前 6 階數據導出成功。")
+
     end
 end
