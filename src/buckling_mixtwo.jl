@@ -50,13 +50,13 @@ println("="^80)
 println(" 執行 Mixtwo 模組：網格加密大循環 (ndiv = 9 ➔ 25) ")
 println("="^80)
 
-for n_div in 9:25
+for n_div in 9:10
     @timeit to "Mixtwo Loop (ndiv=$n_div)" begin
 
         ndiv_w = n_div - 2
-        mesh_file_w = "/home/a/Joker/msh/st_q_$(ndiv_w).msh"
-        mesh_file_φ = "/home/a/Joker/msh/st_q_$(n_div).msh"
-        mesh_file_s = "/home/a/Joker/msh/st_q_$(n_div).msh"
+        mesh_file_w = "msh/st_q_$(ndiv_w).msh"
+        mesh_file_φ = "msh/st_q_$(n_div).msh"
+        mesh_file_s = "msh/st_q_$(n_div).msh"
 
         if !isfile(mesh_file_w) || !isfile(mesh_file_φ) || !isfile(mesh_file_s)
             println("  [WARN] 缺少網格拓撲檔案，跳過 ndiv=$n_div")
@@ -66,7 +66,7 @@ for n_div in 9:25
         # 無網格參數
         type_w = :(ReproducingKernel{:Linear2D,:□,:CubicSpline})
         type_φ = :(ReproducingKernel{:Linear2D,:□,:CubicSpline})
-        type_M = :(PiecewisePolynomial{:Linear2D})
+        type_M = :quad4
 
         s_w = 1.0 / (ndiv_w - 1)
         s_𝜙 = 1.0 / (n_div - 1)

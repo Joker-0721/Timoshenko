@@ -5,154 +5,179 @@ end
 
 using ApproxOperator
 import ApproxOperator.GmshImport: getPhysicalGroups, get𝑿ᵢ, getElements
-import ApproxOperator.MindlinPlate: ∫κκdΩ, ∫wwdΩ, ∫φwdΩ, ∫φφdΩ, ∫∇wσ∇wdΩ, ∫∇φσ∇φdΩ, ∫αwwdΓ, ∫αφφdΓ
+import ApproxOperator.MindlinPlate: ∫wwdΩ, ∫φwdΩ, ∫φφdΩ, ∫κκdΩ, ∫∇φσ∇φdΩ, ∫∇wσ∇wdΩ, ∫αwwdΓ, ∫αφφdΓ
 
 using LinearAlgebra
-using TimerOutputs
-using WriteVTK
-using Printf
+using TimerOutputs, Printf
 import Gmsh: gmsh
 
 # 全局數據庫路徑規範
 const DATA_DIR = "./data"
-const UNIFIED_CSV = joinpath(DATA_DIR, "buckling_FEM.csv")
+const UNIFIED_CSV = joinpath(DATA_DIR, "buckling.csv")
 mkpath(DATA_DIR)
 
-# 全局力學材料常數
+# 全局幾何與材料物理常數
 const E = 200e9
 const ν = 0.3
-const h = 1e-2  
-const a = 1.0   
-const b = 1.0   
+const a = 1.0
+const b = 1.0
+const h = 1e-2
 const Dᵇ = E * h^3 / (12 * (1 - ν^2))
 
-const α_base = 1.0e8 * Dᵇ 
+const αʷ = 0.0
+const αᵠ = 0.0
 const σ₁₁ = 1.0
 const σ₂₂ = 0.0
 const σ₁₂ = 0.0
 
-# 前 6 階屈曲係數（Navier 解）
-const k_exact_modes = [
-    (1 + 1^2/1)^2,  # Mode 1: (m=1, n=1) -> 4.0000
-    (2 + 1^2/2)^2,  # Mode 2: (m=2, n=1) -> 6.2500
-    (3 + 1^2/3)^2,  # Mode 3: (m=3, n=1) -> 11.1111
-    (2 + 2^2/2)^2,  # Mode 4: (m=2, n=2) -> 16.0000
-    (4 + 1^2/4)^2,  # Mode 5: (m=4, n=1) -> 18.0625
-    (3 + 2^2/3)^2   # Mode 6: (m=3, n=2) -> 18.7778
-]
+# 用公式計算解析解（不限制階數）
+function compute_exact_modes(n_modes::Int)
+    modes = Float64[]
+    for m in 1:50
+        for n in 1:50
+            k = (m + n^2/m)^2
+            push!(modes, k)
+        end
+    end
+    sort!(modes)
+    return modes[1:n_modes]
+end
 
 const integrationOrder = 2
-const integrationOrder_shear = 1
+const sʷ = 1.5
+const sᵠ = 1.5
 const to = TimerOutput()
 
-println("="^80)
-println(" 執行 Pure FEM 模組：網格加密大循環 (ndiv = 9 ➔ 25) ")
-println("="^80)
+for n_div in 9:10
+    @timeit to "RKPM Loop (ndiv=$n_div)" begin
 
-for n_div in 9:25
-    @timeit to "Pure_FEM Loop (ndiv=$n_div)" begin
-        
-        mesh_path = "/home/a/Joker/msh/st_q_$(n_div).msh"
-        if !isfile(mesh_path)
-            println("  [WARN] 找不到指定的網格檔案，跳過此輪: ", mesh_path)
-            continue
-        end
-        
+        mesh_file = "msh/st_q_$(n_div).msh"
+
+        type_w = :quad4
+        type_φ = :quad4
+        s_size = 1.0 / (n_div - 1)
+
         gmsh.initialize()
         gmsh.option.setNumber("General.Terminal", 0)
-        gmsh.open(mesh_path)
-        
+        gmsh.open(mesh_file)
+
+        # ======================================================================
+        # (A) 載入網格並建立各場節點
+        # ======================================================================
+        # w 場節點
+        # nodes_w = get𝑿ᵢ()
+        # nʷ = length(nodes_w)
+        # push!(nodes_w, :s₁ => sʷ * s_size * ones(nʷ),
+        #                :s₂ => sʷ * s_size * ones(nʷ),
+        #                :s₃ => sʷ * s_size * ones(nʷ))
+        # sp_w = RegularGrid(nodes_w.x, nodes_w.y, nodes_w.z, n=3, γ=5)
+
+        # # φ 場節點
+        # gmsh.clear()
+        # gmsh.open(mesh_file)
+        # nodes_φ = get𝑿ᵢ()
+        # nᵠ = length(nodes_φ)
+        # push!(nodes_φ, :s₁ => sᵠ * s_size * ones(nᵠ),
+        #                :s₂ => sᵠ * s_size * ones(nᵠ),
+        #                :s₃ => sᵠ * s_size * ones(nᵠ))
+        # sp_φ = RegularGrid(nodes_φ.x, nodes_φ.y, nodes_φ.z, n=3, γ=5)
+
+        gmsh.clear()
+        gmsh.open(mesh_file)
+        @timeit to "get nodes" nodes = get𝑿ᵢ()
+        n = length(nodes)
+        @timeit to "get entities" entities = getPhysicalGroups()
+        elements_support = getElements(nodes, entities["Ω"], 1)
+        # s_q, var_A = cal_area_support(elements_support)
+
+        # 物理群組（只需載入一次）
+        gmsh.clear()
+        gmsh.open(mesh_file)
         entities = getPhysicalGroups()
-        nodes = get𝑿ᵢ()                     # ⬅️ 確保這一行存在
-        
-        nʷ = length(nodes)
-        nᵠ = length(nodes)
-        
-        # ❶ 建立所有元素
-        elements   = getElements(nodes, entities["Ω"], integrationOrder)
-        elements_s = getElements(nodes, entities["Ω"], integrationOrder_shear)
-        
+
+        # ======================================================================
+        # (B) 矩陣初始化
+        # ======================================================================
+        kʷʷ = zeros(n, n)
+        kᵠᵠ = zeros(2n, 2n)
+        kᵠʷ = zeros(2n, n)
+        kᵍʷ = zeros(n, n)
+        kᵍᵠ = zeros(2n, 2n)
+
+        # ======================================================================
+        # (C) 定義元素、賦予物理常數、計算形函數
+        # ======================================================================
+        # 域內元素（使用 RKPM 節點）
+        elements_w = getElements(nodes, entities["Ω"], integrationOrder)
+        elements_φ = getElements(nodes, entities["Ω"], integrationOrder)
+        prescribe!(elements_w, :E=>E, :ν=>ν, :h=>h, :σ₁₁=>σ₁₁, :σ₂₂=>σ₂₂, :σ₁₂=>σ₁₂)
+        prescribe!(elements_φ, :E=>E, :ν=>ν, :h=>h, :σ₁₁=>σ₁₁, :σ₂₂=>σ₂₂, :σ₁₂=>σ₁₂)
+        set∇𝝭!(elements_w)
+        set∇𝝭!(elements_φ)
+
+        # 邊界懲罰用元素（使用 RKPM 節點）
         boundary_names = ["Γ¹", "Γ²", "Γ³", "Γ⁴"]
-        el_b_w_arrays   = [getElements(nodes, entities[nm], integrationOrder) for nm in boundary_names]
-        el_b_phi_arrays = [getElements(nodes, entities[nm], integrationOrder) for nm in boundary_names]
-        
-        # ❷ 賦予物理常數
-        prescribe!(elements,   :E=>E, :ν=>ν, :h=>h)
-        prescribe!(elements_s, :E=>E, :ν=>ν, :h=>h)
-        for el_b_w in el_b_w_arrays
-            prescribe!(el_b_w, :α=>α_base, :g=>0.0)
+        elements_w_b = [getElements(nodes, entities[name], integrationOrder, normal=true) 
+                        for name in boundary_names]
+        elements_φ_b = [getElements(nodes, entities[name], integrationOrder, normal=true) 
+                        for name in boundary_names]
+        for el in elements_w_b
+            prescribe!(el, :α => αʷ, :g => (x, y, z) -> 0.0)
+            set𝝭!(el)
         end
-        for el_b_phi in el_b_phi_arrays
-            prescribe!(el_b_phi, :α=>α_base, :g₁=>0.0, :g₂=>0.0, :n₁₁=>1.0, :n₁₂=>0.0, :n₂₂=>1.0)
+        for el in elements_φ_b
+            prescribe!(el, :α => αᵠ, :g₁ => (x, y, z) -> 0.0, :g₂ => (x, y, z) -> 0.0,
+                           :n₁₁ => 1.0, :n₁₂ => 0.0, :n₂₂ => 1.0)
+            set𝝭!(el)
         end
-        
-        # ❸ 設定形函數導數
-        set∇𝝭!(elements)
-        set∇𝝭!(elements_s)
-        for el_b_w in el_b_w_arrays
-            set𝝭!(el_b_w)
-        end
-        for el_b_phi in el_b_phi_arrays
-            set𝝭!(el_b_phi)
-        end
-        
-        # ❹ 初始化剛度矩陣
-        kʷʷ = zeros(nʷ, nʷ)
-        kᵠᵠ = zeros(2*nᵠ, 2*nᵠ)
-        kᵠʷ = zeros(2*nᵠ, nʷ)
-        kᴳʷʷ = zeros(nʷ, nʷ)
-        kᴳᵠᵠ = zeros(2*nᵠ, 2*nᵠ)
-        
-        # ❺ 組裝彈性剛度（區域積分）
-        (∫wwdΩ=>elements_s)(kʷʷ)
-        (∫φwdΩ=>elements_s)(kᵠʷ)
-        ([∫φφdΩ=>elements_s, ∫κκdΩ=>elements])(kᵠᵠ)
-        
-        # ❻ 組裝幾何剛度（修正：kʷʷ → kᴳʷʷ）
-        prescribe!(elements, :σ₁₁=>σ₁₁, :σ₂₂=>σ₂₂, :σ₁₂=>σ₁₂)
-        (∫∇wσ∇wdΩ=>elements)(kᴳʷʷ)          # ✅ 改為 kᴳʷʷ
-        (∫∇φσ∇φdΩ=>elements)(kᴳᵠᵠ)
-        
-        # ❼ 組裝邊界罰函數
-        for (el_b_w, el_b_phi) in zip(el_b_w_arrays, el_b_phi_arrays)
-            (∫αwwdΓ=>el_b_w)(kʷʷ)
-            (∫αφφdΓ=>el_b_phi)(kᵠᵠ)
-        end
-        
-        # ❽ 組裝整體矩陣並求解（修正：Kᴳ 右下角用 kᴳʷʷ）
-        K = [kᵠᵠ kᵠʷ; kᵠʷ' kʷʷ]
-        Kᴳ = [kᴳᵠᵠ zeros(2*nᵠ, nʷ); zeros(nʷ, 2*nᵠ) kᴳʷʷ]   # ✅ 改為 kᴳʷʷ
-        
+
+        # ======================================================================
+        # (D) 組裝材料剛度
+        # ======================================================================
+        𝑎ʷʷ = ∫wwdΩ => elements_w
+        𝑎ᵠʷ = [∫φwdΩ => (elements_φ, elements_w)] # 注意：雙元素版本！
+        𝑎ᵠᵠ = [∫φφdΩ => elements_φ, ∫κκdΩ => elements_φ]
+
+        𝑎ʷʷ(kʷʷ)
+        𝑎ᵠʷ(kᵠʷ)
+        𝑎ᵠᵠ(kᵠᵠ)
+
+        # ======================================================================
+        # (E) 組裝幾何剛度
+        # ======================================================================
+        𝑎ᵍʷ = ∫∇wσ∇wdΩ => elements_w
+        𝑎ᵍᵠ = ∫∇φσ∇φdΩ => elements_φ
+
+        𝑎ᵍʷ(kᵍʷ)
+        𝑎ᵍᵠ(kᵍᵠ)
+
+        # ======================================================================
+        # (G) 求解特徵值問題
+        # ======================================================================
+        K = [kʷʷ kᵠʷ'; kᵠʷ kᵠᵠ]
+        Kᴳ = [kᵍʷ zeros(n, 2n); zeros(2n, n) kᵍᵠ]
+
         F = eigen(K, Kᴳ)
         λ = F.values
-        
-        mode_ids = sort!(
-            collect(i for i in eachindex(λ) 
-                if isfinite(real(λ[i])) && abs(imag(λ[i])) < 1.0e-7 && real(λ[i]) > 0.0),
-            by = i -> real(λ[i])
-        )
-        
-        h_size = 1.0 / n_div
-        log10_h = log10(h_size)
-        
-        # ❾ 輸出結果至 CSV
+
+        # ======================================================================
+        # (H) 輸出到 CSV
+        # ======================================================================
+        λ_sorted = sort(λ, by=real)
+        exact_modes = compute_exact_modes(length(λ_sorted))
+
         file_exists = isfile(UNIFIED_CSV)
         open(UNIFIED_CSV, "a") do io
             if !file_exists
-                println(io, "method,ndiv,h,log10_h,mode_rank,lambda_cr,k_num,k_exact,error_y")
+                println(io, "ndiv,lambda_numeric,lambda_exact")
             end
-            for rank in 1:min(6, length(mode_ids))
-                m_id = mode_ids[rank]
-                lam = real(λ[m_id])
-                k_num = (lam * h * σ₁₁) * b^2 / (π^2 * Dᵇ)
-                k_ex = k_exact_modes[rank]
-                error_y = (k_num / k_ex) - 1.0
-                @printf(io, "Pure_FEM,%d,%.6e,%.6f,%d,%.6e,%.6f,%.6f,%.6e\n", 
-                        n_div, h_size, log10_h, rank, lam, k_num, k_ex, error_y)
+            for i in 1:length(λ_sorted)
+                @printf(io, "%d,%.16e,%.6f\n", n_div, real(λ_sorted[i]), exact_modes[i])
             end
         end
-        
+
+        println("ndiv = $n_div, 共輸出 $(length(λ)) 個特徵值")
+
         gmsh.finalize()
-        println("  [Pure_FEM] ndiv = $(n_div) 前 6 階數據導出成功。")
     end
 end
