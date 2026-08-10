@@ -17,14 +17,14 @@ const UNIFIED_CSV = joinpath(DATA_DIR, "buckling.csv")
 mkpath(DATA_DIR)
 
 # 全局幾何與材料物理常數
-const E = 200e9
+const E = 210e6
 const ν = 0.3
 const a = 1.0
 const b = 1.0
 const h = 1e-2
 const Dᵇ = E * h^3 / (12 * (1 - ν^2))
 
-const αʷ = 0.0
+const αʷ = 1e8
 const αᵠ = 0.0
 const σ₁₁ = 1.0
 const σ₂₂ = 0.0
