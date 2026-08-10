@@ -48,14 +48,15 @@ const sʷ = 1.5
 const sᵠ = 1.5
 const to = TimerOutput()
 
-for n_div in 9:10
+const type_w = Element{:Quad}
+const type_φ = Element{:Quad}
+const n_div = 9
+const s_size = 1.0 / (n_div - 1)
+
     @timeit to "RKPM Loop (ndiv=$n_div)" begin
 
         mesh_file = "msh/st_q_$(n_div).msh"
 
-        type_w = :quad4
-        type_φ = :quad4
-        s_size = 1.0 / (n_div - 1)
 
         gmsh.initialize()
         gmsh.option.setNumber("General.Terminal", 0)
@@ -115,22 +116,6 @@ for n_div in 9:10
         set∇𝝭!(elements_w)
         set∇𝝭!(elements_φ)
 
-        # 邊界懲罰用元素（使用 RKPM 節點）
-        boundary_names = ["Γ¹", "Γ²", "Γ³", "Γ⁴"]
-        elements_w_b = [getElements(nodes, entities[name], integrationOrder, normal=true) 
-                        for name in boundary_names]
-        elements_φ_b = [getElements(nodes, entities[name], integrationOrder, normal=true) 
-                        for name in boundary_names]
-        for el in elements_w_b
-            prescribe!(el, :α => αʷ, :g => (x, y, z) -> 0.0)
-            set𝝭!(el)
-        end
-        for el in elements_φ_b
-            prescribe!(el, :α => αᵠ, :g₁ => (x, y, z) -> 0.0, :g₂ => (x, y, z) -> 0.0,
-                           :n₁₁ => 1.0, :n₁₂ => 0.0, :n₂₂ => 1.0)
-            set𝝭!(el)
-        end
-
         # ======================================================================
         # (D) 組裝材料剛度
         # ======================================================================
@@ -150,6 +135,40 @@ for n_div in 9:10
 
         𝑎ᵍʷ(kᵍʷ)
         𝑎ᵍᵠ(kᵍᵠ)
+
+        # 邊界懲罰用元素（使用 RKPM 節點）
+        @timeit to "get elements" elements_w_1 = getElements( entities["Γ¹"], type_w, integrationOrder, normal=true)
+        @timeit to "get elements" elements_w_2 = getElements( entities["Γ²"], type_w, integrationOrder, normal=true)
+        @timeit to "get elements" elements_w_3 = getElements( entities["Γ³"], type_w, integrationOrder, normal=true)
+        @timeit to "get elements" elements_w_4 = getElements( entities["Γ⁴"], type_w, integrationOrder, normal=true)
+        @timeit to "get elements" elements_φ_1 = getElements( entities["Γ¹"], type_φ, integrationOrder, normal=true)
+        @timeit to "get elements" elements_φ_2 = getElements( entities["Γ²"], type_φ, integrationOrder, normal=true)
+        @timeit to "get elements" elements_φ_3 = getElements( entities["Γ³"], type_φ, integrationOrder, normal=true)
+        @timeit to "get elements" elements_φ_4 = getElements( entities["Γ⁴"], type_φ, integrationOrder, normal=true)
+        prescribe!(elements_w_1, :α=>αʷ, :g=>(x, y, z) -> 0.0)
+        prescribe!(elements_w_2, :α=>αʷ, :g=>(x, y, z) -> 0.0)
+        prescribe!(elements_w_3, :α=>αʷ, :g=>(x, y, z) -> 0.0)
+        prescribe!(elements_w_4, :α=>αʷ, :g=>(x, y, z) -> 0.0)
+        prescribe!(elements_φ_1, :α=>αᵠ, :g₁=>(x, y, z) -> 0.0, :g₂=>(x, y, z) -> 0.0, :n₁₁=>1.0, :n₁₂=>0.0, :n₂₂=>1.0)
+        prescribe!(elements_φ_2, :α=>αᵠ, :g₁=>(x, y, z) -> 0.0, :g₂=>(x, y, z) -> 0.0, :n₁₁=>1.0, :n₁₂=>0.0, :n₂₂=>1.0)
+        prescribe!(elements_φ_3, :α=>αᵠ, :g₁=>(x, y, z) -> 0.0, :g₂=>(x, y, z) -> 0.0, :n₁₁=>1.0, :n₁₂=>0.0, :n₂₂=>1.0)
+        prescribe!(elements_φ_4, :α=>αᵠ, :g₁=>(x, y, z) -> 0.0, :g₂=>(x, y, z) -> 0.0, :n₁₁=>1.0, :n₁₂=>0.0, :n₂₂=>1.0)
+        @timeit to "calculate shape functions" set𝝭!(elements_w_1)
+        @timeit to "calculate shape functions" set𝝭!(elements_w_2)
+        @timeit to "calculate shape functions" set𝝭!(elements_w_3)
+        @timeit to "calculate shape functions" set𝝭!(elements_w_4)
+        @timeit to "calculate shape functions" set𝝭!(elements_φ_1)
+        @timeit to "calculate shape functions" set𝝭!(elements_φ_2)
+        @timeit to "calculate shape functions" set𝝭!(elements_φ_3)
+        @timeit to "calculate shape functions" set𝝭!(elements_φ_4)
+
+        # ======================================================================
+        # (F) 組裝邊界懲罰
+        # ======================================================================
+        𝑎ʷ = ∫αwwdΓ => elements_w_1 ∪ elements_w_2 ∪ elements_w_3 ∪ elements_w_4
+        𝑎ᵠ = ∫αφφdΓ => elements_φ_1 ∪ elements_φ_2 ∪ elements_φ_3 ∪ elements_φ_4
+        𝑎ʷ(kʷʷ)
+        𝑎ᵠ(kᵠᵠ)
 
         # ======================================================================
         # (G) 求解特徵值問題
@@ -180,4 +199,3 @@ for n_div in 9:10
 
         gmsh.finalize()
     end
-end
