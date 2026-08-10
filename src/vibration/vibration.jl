@@ -141,6 +141,7 @@ open(csv_master_path, "w") do io
     for data in master_results
         n_div, rank, m, n, w_FEM, w_exact, err_wh = data
         println(io, join([n_div, rank, m, n, @sprintf("%.4f", w_FEM), @sprintf("%.4f", w_exact), @sprintf("%.6f", err_wh)], ","))
+        # println("$w_FEM, $w_exact")
     end
 end
 println("📊 成功導出 FEM 總表至: $csv_master_path")

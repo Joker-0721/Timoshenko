@@ -24,7 +24,7 @@ const b = 1.0
 const h = 1e-2
 const Dᵇ = E * h^3 / (12 * (1 - ν^2))
 
-const αʷ = 0.0
+const αʷ = 1e8*E
 const αᵠ = 0.0
 const σ₁₁ = 1.0
 const σ₂₂ = 0.0
@@ -48,8 +48,9 @@ const sʷ = 1.5
 const sᵠ = 1.5
 const to = TimerOutput()
 
-for n_div in 9:10
-    @timeit to "RKPM Loop (ndiv=$n_div)" begin
+n_div = 10
+# for n_div in 9:10
+    # @timeit to "RKPM Loop (ndiv=$n_div)" begin
 
         mesh_file = "msh/st_q_$(n_div).msh"
 
@@ -103,6 +104,9 @@ for n_div in 9:10
         kᵠʷ = zeros(2n, n)
         kᵍʷ = zeros(n, n)
         kᵍᵠ = zeros(2n, 2n)
+        kᵅʷʷ = zeros(n, n)
+        kᵅᵠᵠ = zeros(n, n)
+        
 
         # ======================================================================
         # (C) 定義元素、賦予物理常數、計算形函數
@@ -135,12 +139,14 @@ for n_div in 9:10
         # (D) 組裝材料剛度
         # ======================================================================
         𝑎ʷʷ = ∫wwdΩ => elements_w
-        𝑎ᵠʷ = [∫φwdΩ => (elements_φ, elements_w)] # 注意：雙元素版本！
+        𝑎ᵠʷ = ∫φwdΩ => (elements_φ, elements_w) # 注意：雙元素版本！
         𝑎ᵠᵠ = [∫φφdΩ => elements_φ, ∫κκdΩ => elements_φ]
+        𝑎ᵅʷʷ = ∫αwwdΓ => vcat(elements_w_b...)
 
         𝑎ʷʷ(kʷʷ)
         𝑎ᵠʷ(kᵠʷ)
         𝑎ᵠᵠ(kᵠᵠ)
+        𝑎ᵅʷʷ(kᵅʷʷ)
 
         # ======================================================================
         # (E) 組裝幾何剛度
@@ -154,11 +160,12 @@ for n_div in 9:10
         # ======================================================================
         # (G) 求解特徵值問題
         # ======================================================================
-        K = [kʷʷ kᵠʷ'; kᵠʷ kᵠᵠ]
-        Kᴳ = [kᵍʷ zeros(n, 2n); zeros(2n, n) kᵍᵠ]
+        K = [kʷʷ+kᵅʷʷ kᵠʷ'; kᵠʷ kᵠᵠ]
+        Kᴳ = [kᵍʷ+kᵅʷʷ zeros(n, 2n); zeros(2n, n) kᵍᵠ]
 
-        F = eigen(K, Kᴳ)
+        F = eigen(Kᴳ, K)
         λ = F.values
+        println(λ)
 
         # ======================================================================
         # (H) 輸出到 CSV
@@ -179,5 +186,5 @@ for n_div in 9:10
         println("ndiv = $n_div, 共輸出 $(length(λ)) 個特徵值")
 
         gmsh.finalize()
-    end
-end
+    # end
+# end
