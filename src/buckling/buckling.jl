@@ -137,14 +137,14 @@ const s_size = 1.0 / (n_div - 1)
         𝑎ᵍᵠ(kᵍᵠ)
 
         # 邊界懲罰用元素（使用 RKPM 節點）
-        @timeit to "get elements" elements_w_1 = getElements( entities["Γ¹"], type_w, integrationOrder, normal=true)
-        @timeit to "get elements" elements_w_2 = getElements( entities["Γ²"], type_w, integrationOrder, normal=true)
-        @timeit to "get elements" elements_w_3 = getElements( entities["Γ³"], type_w, integrationOrder, normal=true)
-        @timeit to "get elements" elements_w_4 = getElements( entities["Γ⁴"], type_w, integrationOrder, normal=true)
-        @timeit to "get elements" elements_φ_1 = getElements( entities["Γ¹"], type_φ, integrationOrder, normal=true)
-        @timeit to "get elements" elements_φ_2 = getElements( entities["Γ²"], type_φ, integrationOrder, normal=true)
-        @timeit to "get elements" elements_φ_3 = getElements( entities["Γ³"], type_φ, integrationOrder, normal=true)
-        @timeit to "get elements" elements_φ_4 = getElements( entities["Γ⁴"], type_φ, integrationOrder, normal=true)
+        @timeit to "get elements" elements_w_1 = getElements(nodes, entities["Γ¹"], type_w, integrationOrder, normal=true)
+        @timeit to "get elements" elements_w_2 = getElements(nodes, entities["Γ²"], type_w, integrationOrder, normal=true)
+        @timeit to "get elements" elements_w_3 = getElements(nodes, entities["Γ³"], type_w, integrationOrder, normal=true)
+        @timeit to "get elements" elements_w_4 = getElements(nodes, entities["Γ⁴"], type_w, integrationOrder, normal=true)
+        @timeit to "get elements" elements_φ_1 = getElements(nodes, entities["Γ¹"], type_φ, integrationOrder, normal=true)
+        @timeit to "get elements" elements_φ_2 = getElements(nodes, entities["Γ²"], type_φ, integrationOrder, normal=true)
+        @timeit to "get elements" elements_φ_3 = getElements(nodes, entities["Γ³"], type_φ, integrationOrder, normal=true)
+        @timeit to "get elements" elements_φ_4 = getElements(nodes, entities["Γ⁴"], type_φ, integrationOrder, normal=true)
         prescribe!(elements_w_1, :α=>αʷ, :g=>(x, y, z) -> 0.0)
         prescribe!(elements_w_2, :α=>αʷ, :g=>(x, y, z) -> 0.0)
         prescribe!(elements_w_3, :α=>αʷ, :g=>(x, y, z) -> 0.0)
@@ -165,8 +165,8 @@ const s_size = 1.0 / (n_div - 1)
         # ======================================================================
         # (F) 組裝邊界懲罰
         # ======================================================================
-        𝑎ʷ = ∫αwwdΓ => elements_w_1 ∪ elements_w_2 ∪ elements_w_3 ∪ elements_w_4
-        𝑎ᵠ = ∫αφφdΓ => elements_φ_1 ∪ elements_φ_2 ∪ elements_φ_3 ∪ elements_φ_4
+        𝑎ʷ = ∫αwwdΓ => (elements_w_1 ∪ elements_w_2 ∪ elements_w_3 ∪ elements_w_4)
+        𝑎ᵠ = ∫αφφdΓ => (elements_φ_1 ∪ elements_φ_2 ∪ elements_φ_3 ∪ elements_φ_4)
         𝑎ʷ(kʷʷ)
         𝑎ᵠ(kᵠᵠ)
 
