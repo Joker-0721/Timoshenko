@@ -73,7 +73,7 @@ end
     𝑎ʷ = ∫αwwdΓ=>elements_1∪elements_2∪elements_3∪elements_4
     𝑎ᵠ = ∫αφφdΓ=>elements_1∪elements_2∪elements_3∪elements_4
     @timeit to "assemble" 𝑎ʷ(kʷʷ)
-    @timeit to "assemble" 𝑎ᵠ(kᵠᵠ)
+    # @timeit to "assemble" 𝑎ᵠ(kᵠᵠ)
     # @timeit to "assemble" 𝑎ʷ(mʷʷ)
     # @timeit to "assemble" 𝑎ᵠ(mᵠᵠ)
     # @timeit to "assemble" 𝑎ʷ(kᴳʷʷ)
