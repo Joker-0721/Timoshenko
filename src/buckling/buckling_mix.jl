@@ -25,7 +25,7 @@ const h = 1e-2
 const Dᵇ = E * h^3 / (12 * (1 - ν^2))
 
 const αʷ = 1.0e8 * Dᵇ
-const αᵠ = 1.0e8 * Dᵇ
+const αᵠ = 0.0
 const σ₁₁ = 1.0
 const σ₂₂ = 0.0
 const σ₁₂ = 0.0
@@ -48,15 +48,12 @@ const sʷ = 1.5
 const sᵠ = 1.5
 const to = TimerOutput()
 
-for n_div in 9:10
-    @timeit to "RKPM Loop (ndiv=$n_div)" begin
+const type_w = Element{:Quad}
+const type_φ = Element{:Quad}
+const n_div = 9
+const s_size = 1.0 / (n_div - 1)
 
         mesh_file = "msh/st_q_$(n_div).msh"
-
-        type_w = :quad4
-        type_φ = :quad4
-        s_size = 1.0 / (n_div - 1)
-
         gmsh.initialize()
         gmsh.option.setNumber("General.Terminal", 0)
         gmsh.open(mesh_file)
@@ -73,8 +70,6 @@ for n_div in 9:10
         sp_w = RegularGrid(nodes_w.x, nodes_w.y, nodes_w.z, n=3, γ=5)
 
         # φ 場節點
-        gmsh.clear()
-        gmsh.open(mesh_file)
         nodes_φ = get𝑿ᵢ()
         nᵠ = length(nodes_φ)
         push!(nodes_φ, :s₁ => sᵠ * s_size * ones(nᵠ),
@@ -83,8 +78,6 @@ for n_div in 9:10
         sp_φ = RegularGrid(nodes_φ.x, nodes_φ.y, nodes_φ.z, n=3, γ=5)
 
         # 物理群組（只需載入一次）
-        gmsh.clear()
-        gmsh.open(mesh_file)
         entities = getPhysicalGroups()
 
         # ======================================================================
@@ -100,8 +93,8 @@ for n_div in 9:10
         # (C) 定義元素、賦予物理常數、計算形函數
         # ======================================================================
         # 域內元素（使用 RKPM 節點）
-        elements_w = getElements(nodes_w, entities["Ω"], eval(type_w), integrationOrder, sp_w)
-        elements_φ = getElements(nodes_φ, entities["Ω"], eval(type_φ), integrationOrder, sp_φ)
+        elements_w = getElements(nodes_w, entities["Ω"], type_w, integrationOrder, sp_w)
+        elements_φ = getElements(nodes_φ, entities["Ω"], type_φ, integrationOrder, sp_φ)
         prescribe!(elements_w, :E=>E, :ν=>ν, :h=>h, :σ₁₁=>σ₁₁, :σ₂₂=>σ₂₂, :σ₁₂=>σ₁₂)
         prescribe!(elements_φ, :E=>E, :ν=>ν, :h=>h, :σ₁₁=>σ₁₁, :σ₂₂=>σ₂₂, :σ₁₂=>σ₁₂)
         set∇𝝭!(elements_w)
@@ -109,9 +102,9 @@ for n_div in 9:10
 
         # 邊界懲罰用元素（使用 RKPM 節點）
         boundary_names = ["Γ¹", "Γ²", "Γ³", "Γ⁴"]
-        elements_w_b = [getElements(nodes_w, entities[name], eval(type_w), integrationOrder, sp_w, normal=true) 
+        elements_w_b = [getElements(nodes_w, entities[name], type_w, integrationOrder, sp_w, normal=true) 
                         for name in boundary_names]
-        elements_φ_b = [getElements(nodes_φ, entities[name], eval(type_φ), integrationOrder, sp_φ, normal=true) 
+        elements_φ_b = [getElements(nodes_φ, entities[name], type_φ, integrationOrder, sp_φ, normal=true) 
                         for name in boundary_names]
         for el in elements_w_b
             prescribe!(el, :α => αʷ, :g => (x, y, z) -> 0.0)
@@ -122,6 +115,27 @@ for n_div in 9:10
                            :n₁₁ => 1.0, :n₁₂ => 0.0, :n₂₂ => 1.0)
             set𝝭!(el)
         end
+        
+        @timeit to "get elements" elements_q_1 = getElements(nodes, entities["Γ¹"], integrationOrder, normal=true)
+        @timeit to "get elements" elements_q_2 = getElements(nodes, entities["Γ²"], integrationOrder, normal=true)
+        @timeit to "get elements" elements_q_3 = getElements(nodes, entities["Γ³"], integrationOrder, normal=true)
+        @timeit to "get elements" elements_q_4 = getElements(nodes, entities["Γ⁴"], integrationOrder, normal=true)
+        @timeit to "get elements" elements_w_1 = getElements(nodes_w, entities["Γ¹"], eval(type_w), integrationOrder, sp_w, normal=true)
+        @timeit to "get elements" elements_w_2 = getElements(nodes_w, entities["Γ²"], eval(type_w), integrationOrder, sp_w, normal=true)
+        @timeit to "get elements" elements_w_3 = getElements(nodes_w, entities["Γ³"], eval(type_w), integrationOrder, sp_w, normal=true)
+        @timeit to "get elements" elements_w_4 = getElements(nodes_w, entities["Γ⁴"], eval(type_w), integrationOrder, sp_w, normal=true)
+        prescribe!(elements_w_1, :α=>αʷ, :g=>w)
+        prescribe!(elements_w_2, :α=>αʷ, :g=>w)
+        prescribe!(elements_w_3, :α=>αʷ, :g=>w)
+        prescribe!(elements_w_4, :α=>αʷ, :g=>w)
+        @timeit to "calculate shape functions" set𝝭!(elements_q_1)
+        @timeit to "calculate shape functions" set𝝭!(elements_q_2)
+        @timeit to "calculate shape functions" set𝝭!(elements_q_3)
+        @timeit to "calculate shape functions" set𝝭!(elements_q_4)
+        @timeit to "calculate shape functions" set𝝭!(elements_w_1)
+        @timeit to "calculate shape functions" set𝝭!(elements_w_2)
+        @timeit to "calculate shape functions" set𝝭!(elements_w_3)
+        @timeit to "calculate shape functions" set𝝭!(elements_w_4)
 
         # ======================================================================
         # (D) 組裝材料剛度
@@ -174,5 +188,75 @@ for n_div in 9:10
         println("ndiv = $n_div, 共輸出 $(length(λ)) 個特徵值")
 
         gmsh.finalize()
-    end
+
+
+
+# 图--------------------------------------------------------------------------------
+
+# 坐标------------------------------------------------------------------------------
+# nₚ = length(nodes)
+# points = zeros(3,nₚ)
+# for (i,node) in enumerate(nodes)
+#     points[1,i] = node.x
+#     points[2,i] = node.y
+#     points[3,i] = node.d*4
+#     # points[3,i] = us[i]*4
+# end
+
+nₚ = length(nodes)
+points = zeros(3,nₚ)
+for (i,node) in enumerate(nodes)
+    points[1,i] = node.x
+    points[2,i] = node.y
+    points[3,i] = node.d/15
+    # points[3,i] = us[i]*4
 end
+
+# 二维------------------------------------------------------------------------------
+# xs = [node.x for node in nodes]'
+# ys = [node.y for node in nodes]'
+# zs = [node.z for node in nodes]'
+# points = [xs; ys; zs]
+# cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE_STRIP,[x.𝐼 for x in elm.𝓒]) for elm in elements["Ω"]]
+# # vtk_grid("./vtk/hmd_2d/error/non_uniform_Tri3_"*string(ndiv)*".vtu",points,cells) do vtk
+# vtk_grid("./vtk/hmd_2d/Tri3_d_"*string(ndiv)*".vtu",points,cells) do vtk
+#     vtk["d"] = [node.d for node in nodes]
+#     # vtk["精确解"] = us
+# end
+
+# fₓ,fₜ,fₓₓ,fₜₜ = truncation_error(elements["Ω"],nₚ)
+# println(fₓ)
+# println(fₜ)
+# println(fₛ)
+
+# 三维------------------------------------------------------------------------------
+
+# # cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE_STRIP, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements["Ω"]]
+# # vtk_grid("./vtk/circular_tri3_"*string(ndiv), points, cells) do vtk
+cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_domain]
+
+
+# 三维误差-------------------------------------------------------------------------------------------------
+# vtk_grid("./vtk/circular_tri3_" * string(ndiv) * ".vtu", points, cells;
+#          ascii=true, append=false, compress=false) do vtk
+
+
+#     vtk["L2_w", WriteVTK.VTKFieldData()] = [L₂_w]
+#     vtk["L2_phi", WriteVTK.VTKFieldData()] = [L₂_φ]
+# end
+# -------------------------------------------------------------------------------------------------
+
+# 三维变形------------------------------------------------------------------------------
+# vtk_grid("./vtk/circular_Clamped_tri3_" * string(ndiv) * ".vtu", points, cells;
+#          ascii=true, append=false, compress=false) do vtk
+vtk_grid("./vtk/circular_Clamped_tri3_$n.vtu", points, cells;
+         ascii=true, append=false, compress=false) do vtk
+
+    # 挠度 w
+    vtk["w"] = [node.d for node in nodes]
+    # 转角 φ₁
+    vtk["phi_1"] = [node.d₁ for node in nodes]
+    # 转角 φ₂  
+    vtk["phi_2"] = [node.d₂ for node in nodes]
+end
+# -------------------------------------------------------------------------------------------------
