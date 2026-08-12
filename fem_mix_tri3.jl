@@ -1,6 +1,6 @@
 using ApproxOperator
 import ApproxOperator.GmshImport: getPhysicalGroups, get𝑿ᵢ, getElements
-import ApproxOperator.MindlinPlate: ∫κκdΩ, ∫∇w∇wdΩ, ∫φφdΩ, ∫φwdΩ, ∫wqdΩ, ∫φmdΩ, ∫wVdΓ, ∫φMdΓ, ∫αwwdΓ, ∫αφφdΓ, ∫∇wσ∇wdΩ, ∫∇φσ∇φdΩ, ∫ρwwdΩ, ∫ρφφdΩ
+import ApproxOperator.MindlinPlate: ∫κκdΩ, ∫∇w∇wdΩ, ∫φφdΩ, ∫φwdΩ, ∫wqdΩ, ∫φmdΩ, ∫QQdΩ, ∫∇QwdΩ, ∫QwdΓ, ∫QφdΩ, ∫wVdΓ, ∫φMdΓ, ∫αwwdΓ, ∫αφφdΓ, ∫∇wσ∇wdΩ, ∫∇φσ∇φdΩ, ∫ρwwdΩ, ∫ρφφdΩ
 
 using TimerOutputs, LinearAlgebra, WriteVTK
 import Gmsh: gmsh
@@ -26,31 +26,39 @@ gmsh.initialize()
 
 nʷ = length(nodes)
 nᵠ = length(nodes)
+nˢ = length(nodes)
 kʷʷ = zeros(nʷ,nʷ)
 kᵠᵠ = zeros(2*nᵠ,2*nᵠ)
+kˢˢ = zeros(2*nˢ,2*nˢ)
 kᴳʷʷ = zeros(nʷ,nʷ)
 kᴳᵠᵠ = zeros(2*nᵠ,2*nᵠ)
 mʷʷ = zeros(nʷ,nʷ)
 mᵠᵠ = zeros(2*nᵠ,2*nᵠ)
 kᵠʷ = zeros(2*nᵠ,nʷ)
+kˢʷ = zeros(2*nˢ,nʷ)
+kˢᵠ = zeros(2*nˢ,2*nᵠ)
 
 @timeit to "calculate ∫κκdΩ, ∫wwdΩ, ∫φφdΩ, ∫wφdΩ" begin
     @timeit to "get elements" elements = getElements(nodes, entities["Ω"],integrationOrder)
+    @timeit to "get elements" elements_Γ = getElements(nodes, entities["Γ"], integrationOrder, normal=true)
     prescribe!(elements, :E=>E, :ν=>ν, :h=>h, :ρ=>ρ, :σ₁₁=>σ₁₁,:σ₂₂=>σ₂₂,:σ₁₂=>σ₁₂)
     @timeit to "calculate shape functions" set∇𝝭!(elements)
-    𝑎ʷʷ = ∫∇w∇wdΩ=>elements
-    𝑎ᵠʷ = ∫φwdΩ=>elements
-    𝑎ᵠᵠ = [
-        ∫φφdΩ=>elements,
-        ∫κκdΩ=>elements,
+    @timeit to "calculate shape functions" set𝝭!(elements_Γ)
+    𝑎ᵠᵠ = ∫κκdΩ=>elements
+    𝑎ˢᵠ = ∫QφdΩ=>elements
+    𝑎ˢˢ = ∫QQdΩ=>elements
+    𝑎ˢʷ = [
+        ∫∇QwdΩ=>elements,
+        ∫QwdΓ=>elements_Γ,
     ]
     𝑎ᴳʷʷ = ∫∇wσ∇wdΩ=>elements
     𝑎ᴳᵠᵠ = ∫∇φσ∇φdΩ=>elements
     𝑎ᵐʷʷ = ∫ρwwdΩ=>elements
     𝑎ᵐᵠᵠ = ∫ρφφdΩ=>elements
-    @timeit to "assemble" 𝑎ʷʷ(kʷʷ)
-    @timeit to "assemble" 𝑎ᵠʷ(kᵠʷ)
     @timeit to "assemble" 𝑎ᵠᵠ(kᵠᵠ)
+    @timeit to "assemble" 𝑎ˢˢ(kˢˢ)
+    @timeit to "assemble" 𝑎ˢᵠ(kˢᵠ)
+    @timeit to "assemble" 𝑎ˢʷ(kˢʷ)
     @timeit to "assemble" 𝑎ᴳʷʷ(kᴳʷʷ)
     @timeit to "assemble" 𝑎ᴳᵠᵠ(kᴳᵠᵠ)
     @timeit to "assemble" 𝑎ᵐʷʷ(mʷʷ)
@@ -73,13 +81,17 @@ end
     𝑎ʷ = ∫αwwdΓ=>elements_1∪elements_2∪elements_3∪elements_4
     𝑎ᵠ = ∫αφφdΓ=>elements_1∪elements_2∪elements_3∪elements_4
     @timeit to "assemble" 𝑎ʷ(kʷʷ)
-    # @timeit to "assemble" 𝑎ᵠ(kᵠᵠ)
+    @timeit to "assemble" 𝑎ᵠ(kᵠᵠ)
     # @timeit to "assemble" 𝑎ʷ(mʷʷ)
     # @timeit to "assemble" 𝑎ᵠ(mᵠᵠ)
     # @timeit to "assemble" 𝑎ʷ(kᴳʷʷ)
 end
 
 gmsh.finalize()
+
+kᵠᵠ .+= - kˢᵠ'*(kˢˢ\kˢᵠ)
+kᵠʷ .+= - kˢᵠ'*(kˢˢ\kˢʷ)
+kʷʷ .+= - kˢʷ'*(kˢˢ\kˢʷ)
 
 k = [kᵠᵠ kᵠʷ;kᵠʷ' kʷʷ]
 kᴳ = [kᴳᵠᵠ zeros(2nᵠ,nʷ);zeros(nʷ,2nᵠ) kᴳʷʷ]
