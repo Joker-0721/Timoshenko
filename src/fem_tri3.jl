@@ -124,7 +124,7 @@ zs = [node.z for node in nodes]'
 points = [xs; ys; zs]
 cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE_STRIP, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements]
 
-vtk_grid("./vtk/fem.vtu", points, cells;
+vtk_grid("./vtk/fem2.vtu", points, cells;
          ascii=true, append=false, compress=false) do vtk
 
     vtk["v₁"] = [node.d₁ for node in nodes]
