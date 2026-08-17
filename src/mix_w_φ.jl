@@ -16,22 +16,25 @@ Dˢ = 5/6*E*h/(2*(1+ν))
 σ₂₂ = 0.0
 σ₁₂ = 0.0
 a = 1.0
-ns = [7,9,11,13,15,17]
+ns = 7:17
 integrationOrder = 2
 
 const to = TimerOutput()
 
-open("mix_w_φ_CCCC_roit.csv", "w") do io
-    write(io, "node_density,lambda_scaled\n")
+open("mix_w_φ_SSSS_roit1.csv", "w") do io
+    write(io, "nʷ,nᵠ,nˢ,k\n")
     for i in ns
         gmsh.initialize()
         type_q = :(ReproducingKernel{:Linear2D,:□,:CubicSpline})
         type_φ = :(ReproducingKernel{:Linear2D,:□,:CubicSpline})
         type_w = :tri3
         
-        ndiv_φ = i-1
-        ndiv_w = i
-        ndiv_q = i-1
+        ndiv_φ = 13
+        ndiv_w = ndiv_φ - 1
+        ndiv_q = i
+
+        # XLSX.openxlsx("xls/mix_roit_$(ndiv_φ)_tri3_$(ndiv_w).xlsx", mode="w") do xf
+        # row = ndiv_q
         
         @timeit to "open msh file" gmsh.open("msh/patchtest_tri3_$ndiv_q.msh")
         @timeit to "get nodes" nodes = get𝑿ᵢ()
@@ -96,7 +99,7 @@ open("mix_w_φ_CCCC_roit.csv", "w") do io
             @timeit to "calculate shape functions" set∇𝝭!(elements_φ_Γ)
 
             𝑎ᵠᵠ = ∫κκdΩ=>elements_φ
-            𝑎ˢᵠ = ∫QφdΩ=>(elements_φ,elements_q)
+            𝑎ˢᵠ = ∫QφdΩ=>(elements_q,elements_φ)
             𝑎ᴳᵠᵠ = ∫∇φσ∇φdΩ=>elements_φ
             𝑎ᵐᵠᵠ = ∫ρφφdΩ=>elements_φ
 
@@ -151,7 +154,7 @@ open("mix_w_φ_CCCC_roit.csv", "w") do io
             𝑎ʷ = ∫αwwdΓ=>elements_1∪elements_2∪elements_3∪elements_4
             𝑎ᵠ = ∫αφφdΓ=>elements_1∪elements_2∪elements_3∪elements_4
             @timeit to "assemble" 𝑎ʷ(kʷʷ)
-            @timeit to "assemble" 𝑎ᵠ(kᵠᵠ)
+            # @timeit to "assemble" 𝑎ᵠ(kᵠᵠ)
             # @timeit to "assemble" 𝑎ʷ(mʷʷ)
             # @timeit to "assemble" 𝑎ᵠ(mᵠᵠ)
             # @timeit to "assemble" 𝑎ʷ(kᴳʷʷ)
@@ -206,7 +209,7 @@ open("mix_w_φ_CCCC_roit.csv", "w") do io
         # points = [xs; ys; zs]
         # cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE_STRIP, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_w]
 
-        # vtk_grid("./vtk/fem/CCCC/fem_CCCC_$n.vtu", points, cells;
+        # vtk_grid("./vtk/fem/SSSS/fem_SSSS_$n.vtu", points, cells;
         #         ascii=true, append=false, compress=false) do vtk
 
         #     vtk["v₁"] = [node.d₁ for node in nodes]
@@ -240,7 +243,7 @@ open("mix_w_φ_CCCC_roit.csv", "w") do io
                 points[3,i] = getproperty(node, s) * scale
             end
 
-            vtk_grid("./vtk/mix/CCCC/mix_$(i)_CCCC_roit_mode_$m.vtu", points, cells;
+            vtk_grid("./vtk/mix/SSSS/mix_$(i)_SSSS_roit1_mode_$m.vtu", points, cells;
                     ascii=false, append=false, compress=false) do vtk
                 vtk[names[m]] = vals
             end
@@ -250,7 +253,40 @@ open("mix_w_φ_CCCC_roit.csv", "w") do io
         println(λ[index]*a^2/(π^2*Dᵇ)*h)
         k = (λ[index]*a^2/(π^2*Dᵇ)*h)
 
-        write(io, "$i,$k\n")
+        write(io, "$ndiv_φ,$ndiv_w,$ndiv_q,$k\n")
 
-    end
+    # XLSX──────────────────────────────────────────────────────────
+
+    #  sheet = xf[1]
+    #  XLSX.rename!(sheet, "new_sheet")
+    #  sheet["A1"] = "type w"
+    #  sheet["B1"] = "nʷ"
+    #  sheet["C1"] = "type φ"
+    #  sheet["D1"] = "nᵠ"
+    #  sheet["E1"] = "type Q"
+    #  sheet["F1"] = "nˢ"
+    # #  sheet["G1"] = "type M"
+    # #  sheet["G1"] = "nᵐ"
+    # #  sheet["I1"] = "βʷ⁺"
+    # #  sheet["J1"] = "βᵞ⁺"
+    # #  sheet["K1"] = "L₂βʷ⁺"
+    # #  sheet["L1"] = "L₂βᵞ⁺"
+    #  sheet["G$row"] = "k"
+
+    #  sheet["A$row"] = "$type_w"
+    #  sheet["B$row"] = nʷ
+    #  sheet["C$row"] = "$type_φ"
+    #  sheet["D$row"] = nᵠ
+    #  sheet["E$row"] = "$type_q"
+    #  sheet["F$row"] = nˢ
+    # #  sheet["G$row"] = "$type_M"
+    # #  sheet["H$row"] = nᵐ
+    # #  sheet["I$row"] = "$βʷ⁺"
+    # #  sheet["J$row"] = "$βᵞ⁺"
+    # #  sheet["K$row"] = log10(βʷ⁺)
+    # #  sheet["L$row"] = log10(βᵞ⁺)
+    #  sheet["G$row"] = k
+
+    # end
+end
 end

@@ -66,10 +66,10 @@ end
 
 if DO_MIX
     BCs  = ["CCCC","CSCS","FSCS","FSSS","SCSC","SSSS"]
-    nses = [7,9,11,13,15,17]
+    nses = 7:17
     for bc in BCs, n in nses, m in 1:6
         # filename = "./vtk/mix/$(bc)/mix_$(n) _$(bc)_mode_$(m).vtu"   # 注意 n 後有空格
-        filename = "./vtk/mix/$(bc)/mix_$(n)_$(bc)_roit_mode_$(m).vtu" 
+        filename = "./vtk/mix/$(bc)/mix_$(n)_$(bc)_roit1_mode_$(m).vtu" 
         if !isfile(filename)
             println("skip: ", filename)
             continue
@@ -83,6 +83,6 @@ if DO_MIX
         Colorbar(fig[1,2], plt, label=names12[m])
         mkpath("Fig/mix/$(bc)")
         # save("Fig/mix/$(bc)/fig_mix_$(bc)_$(n)_mode_$(m).png", fig)
-        save("Fig/mix/$(bc)/fig_mix_$(bc)_roit_$(n)_mode_$(m).png", fig)
+        save("Fig/mix1/$(bc)/fig_mix_$(bc)_roit1_$(n)_mode_$(m).png", fig)
     end
 end
