@@ -16,19 +16,20 @@ Dˢ = 5/6*E*h/(2*(1+ν))
 σ₂₂ = 0.0
 σ₁₂ = 0.0
 a = 1.0
+ns = [7,9,11,13,15,17]
 integrationOrder = 2
 
 const to = TimerOutput()
 
 open("mix_w_φ_SSSS_roit1.csv", "w") do io
     write(io, "nʷ,nᵠ,nˢ,k\n")
-    for i in 7:17
+    for i in ns
         gmsh.initialize()
         type_q = :(ReproducingKernel{:Linear2D,:□,:CubicSpline})
         type_φ = :(ReproducingKernel{:Linear2D,:□,:CubicSpline})
         type_w = :tri3
         
-        ndiv_φ = 13
+        ndiv_φ = i
         ndiv_w = ndiv_φ - 1
         ndiv_q = i
 
