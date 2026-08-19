@@ -8,7 +8,7 @@ import Gmsh: gmsh
 E = 1.0
 ν = 0.3
 ρ = 1.0
-h = 1e-2
+h = 1e-3
 Dᵇ = E*h^3/12/(1-ν^2)
 Dˢ = 5/6*E*h/(2*(1+ν))
 σ₁₁ = 1e0
@@ -20,7 +20,7 @@ const to = TimerOutput()
 
 integrationOrder = 2
 gmsh.initialize()
-@timeit to "open msh file" gmsh.open("./msh/patchtest_tri3_10.msh")
+@timeit to "open msh file" gmsh.open("./msh/patchtest_tri3_16.msh")
 @timeit to "get entities" entities = getPhysicalGroups()
 @timeit to "get nodes" nodes = get𝑿ᵢ()
 
@@ -78,7 +78,7 @@ end
     @timeit to "calculate shape functions" set𝝭!(elements_2)
     @timeit to "calculate shape functions" set𝝭!(elements_3)
     @timeit to "calculate shape functions" set𝝭!(elements_4)
-    𝑎ʷ = ∫αwwdΓ=>elements_2∪elements_3∪elements_4
+    𝑎ʷ = ∫αwwdΓ=>elements_1∪elements_2∪elements_3∪elements_4
     # 𝑎ᵠ = ∫αφφdΓ=>elements_3
     @timeit to "assemble" 𝑎ʷ(kʷʷ)
     # @timeit to "assemble" 𝑎ᵠ(kᵠᵠ)
