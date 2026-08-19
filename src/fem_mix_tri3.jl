@@ -8,7 +8,11 @@ import Gmsh: gmsh
 E = 1.0
 ν = 0.3
 ρ = 1.0
+<<<<<<< HEAD
 h = 1e-1
+=======
+h = 1e-3
+>>>>>>> bab38a2 (temp)
 Dᵇ = E*h^3/12/(1-ν^2)
 Dˢ = 5/6*E*h/(2*(1+ν))
 σ₁₁ = 1e0
@@ -19,9 +23,17 @@ n = 20:25
 
 const to = TimerOutput()
 
+<<<<<<< HEAD
 open("fem_CCCC.csv", "w") do io
     write(io, "node_density,lambda_scaled\n")
     for i in n
+=======
+integrationOrder = 2
+gmsh.initialize()
+@timeit to "open msh file" gmsh.open("./msh/patchtest_tri3_16.msh")
+@timeit to "get entities" entities = getPhysicalGroups()
+@timeit to "get nodes" nodes = get𝑿ᵢ()
+>>>>>>> bab38a2 (temp)
 
         integrationOrder = 2
         gmsh.initialize()
@@ -43,6 +55,7 @@ open("fem_CCCC.csv", "w") do io
         kˢʷ = zeros(2*nˢ,nʷ)
         kˢᵠ = zeros(2*nˢ,2*nᵠ)
 
+<<<<<<< HEAD
         @timeit to "calculate ∫κκdΩ, ∫wwdΩ, ∫φφdΩ, ∫wφdΩ" begin
             @timeit to "get elements" elements = getElements(nodes, entities["Ω"],integrationOrder)
             @timeit to "get elements" elements_Γ = getElements(nodes, entities["Γ"], integrationOrder, normal=true)
@@ -69,6 +82,29 @@ open("fem_CCCC.csv", "w") do io
             @timeit to "assemble" 𝑎ᵐʷʷ(mʷʷ)
             @timeit to "assemble" 𝑎ᵐᵠᵠ(mᵠᵠ)
         end
+=======
+@timeit to "calculate ∫αwwdΓ ∫αφφdΓ" begin
+    @timeit to "get elements" elements_1 = getElements(nodes, entities["Γ¹"],integrationOrder)
+    @timeit to "get elements" elements_2 = getElements(nodes, entities["Γ²"],integrationOrder)
+    @timeit to "get elements" elements_3 = getElements(nodes, entities["Γ³"],integrationOrder)
+    @timeit to "get elements" elements_4 = getElements(nodes, entities["Γ⁴"],integrationOrder)
+    prescribe!(elements_1, :α=>1e8*E, :g=>0.0, :g₁=>0.0, :g₂=>0.0, :n₁₁=>1.0, :n₁₂=>0.0, :n₂₂=>1.0)
+    prescribe!(elements_2, :α=>1e8*E, :g=>0.0, :g₁=>0.0, :g₂=>0.0, :n₁₁=>1.0, :n₁₂=>0.0, :n₂₂=>1.0)
+    prescribe!(elements_3, :α=>1e8*E, :g=>0.0, :g₁=>0.0, :g₂=>0.0, :n₁₁=>1.0, :n₁₂=>0.0, :n₂₂=>1.0)
+    prescribe!(elements_4, :α=>1e8*E, :g=>0.0, :g₁=>0.0, :g₂=>0.0, :n₁₁=>1.0, :n₁₂=>0.0, :n₂₂=>1.0)
+    @timeit to "calculate shape functions" set𝝭!(elements_1)
+    @timeit to "calculate shape functions" set𝝭!(elements_2)
+    @timeit to "calculate shape functions" set𝝭!(elements_3)
+    @timeit to "calculate shape functions" set𝝭!(elements_4)
+    𝑎ʷ = ∫αwwdΓ=>elements_1∪elements_2∪elements_3∪elements_4
+    # 𝑎ᵠ = ∫αφφdΓ=>elements_3
+    @timeit to "assemble" 𝑎ʷ(kʷʷ)
+    # @timeit to "assemble" 𝑎ᵠ(kᵠᵠ)
+    # @timeit to "assemble" 𝑎ʷ(mʷʷ)
+    # @timeit to "assemble" 𝑎ᵠ(mᵠᵠ)
+    # @timeit to "assemble" 𝑎ʷ(kᴳʷʷ)
+end
+>>>>>>> bab38a2 (temp)
 
         @timeit to "calculate ∫αwwdΓ ∫αφφdΓ" begin
             @timeit to "get elements" elements_1 = getElements(nodes, entities["Γ¹"],integrationOrder)
