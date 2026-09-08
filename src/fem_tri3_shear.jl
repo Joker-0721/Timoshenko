@@ -23,6 +23,7 @@ open("mix_w_φ_CCCC_roit2.csv", "w") do io
     write(io, "nʷ,nᵠ,nˢ,k\n")
     for i in ns
         integrationOrder = 2
+        integrationOrder_shear = 1
         gmsh.initialize()
         @timeit to "open msh file" gmsh.open("./msh/patchtest_tri3_$i.msh")
         @timeit to "get entities" entities = getPhysicalGroups()
@@ -42,15 +43,15 @@ open("mix_w_φ_CCCC_roit2.csv", "w") do io
             @timeit to "get elements" elements = getElements(nodes, entities["Ω"],integrationOrder)
             prescribe!(elements, :E=>E, :ν=>ν, :h=>h, :ρ=>ρ, :σ₁₁=>σ₁₁,:σ₂₂=>σ₂₂,:σ₁₂=>σ₁₂)
             @timeit to "calculate shape functions" set∇𝝭!(elements)
-            𝑎ʷʷ = ∫∇w∇wdΩ=>elements
-            𝑎ᵠʷ = ∫φwdΩ=>elements
+            𝑎ʷʷ = ∫∇w∇wdΩ=>elements_s
+            𝑎ᵠʷ = ∫φwdΩ=>elements_s
             𝑎ᵠᵠ = [
-                ∫φφdΩ=>elements,
+                ∫φφdΩ=>elements_s,
                 ∫κκdΩ=>elements,
             ]
-            𝑎ᴳʷʷ = ∫∇wσ∇wdΩ=>elements
+            𝑎ᴳʷʷ = ∫∇wσ∇wdΩ=>elements_s
             𝑎ᴳᵠᵠ = ∫∇φσ∇φdΩ=>elements
-            𝑎ᵐʷʷ = ∫ρwwdΩ=>elements
+            𝑎ᵐʷʷ = ∫ρwwdΩ=>elements_s
             𝑎ᵐᵠᵠ = ∫ρφφdΩ=>elements
             @timeit to "assemble" 𝑎ʷʷ(kʷʷ)
             @timeit to "assemble" 𝑎ᵠʷ(kᵠʷ)

@@ -20,7 +20,7 @@ a = 1.0
 αᵠ = 0e3
 
 const to = TimerOutput()
-open("./date/mf/mf_w_φ_CCCC.csv", "w") do io
+open("./date/mf/mf_w_φ_CCCC_un.csv", "w") do io
 write(io, "nʷ,nᵠ,nˢ,k\n")
     integrationOrder = 2
 
@@ -29,14 +29,14 @@ write(io, "nʷ,nᵠ,nˢ,k\n")
     type_Q = :tri3
     type_M = :(PiecewisePolynomial{:Linear2D})
 
-    ndivs = 30:40
+    ndivs = 20:25
     for ndiv in ndivs
     ndiv_φ = ndiv
     ndiv_w = ndiv-1
     ndiv_q = ndiv
 
     gmsh.initialize()
-    @timeit to "open msh file" gmsh.open("./msh/patchtest_tri3_$ndiv_w.msh")
+    @timeit to "open msh file" gmsh.open("./msh/patchtest_high_un_tri3_$(ndiv_w).msh")
     @timeit to "get entities" entities = getPhysicalGroups()
     @timeit to "get nodes" nodes_w = get𝑿ᵢ()
     xʷ = nodes_w.x
@@ -51,7 +51,7 @@ write(io, "nʷ,nᵠ,nˢ,k\n")
     s₃ = 1.5*s_w*ones(nʷ)
     push!(nodes_w,:s₁=>s₁,:s₂=>s₂,:s₃=>s₃)
 
-    @timeit to "open msh file" gmsh.open("msh/patchtest_tri3_$ndiv_φ.msh")
+    @timeit to "open msh file" gmsh.open("msh/patchtest_tri3_$(ndiv_φ).msh")
     @timeit to "get nodes" nodes_φ = get𝑿ᵢ()
     @timeit to "get entities" entities = getPhysicalGroups()
     xᵠ = nodes_φ.x
@@ -66,12 +66,12 @@ write(io, "nʷ,nᵠ,nˢ,k\n")
     s₃ = 1.5*s_φ*ones(nᵠ)
     push!(nodes_φ,:s₁=>s₁,:s₂=>s₂,:s₃=>s₃)
 
-    @timeit to "open msh file" gmsh.open("msh/patchtest_tri3_$ndiv_q.msh")
+    @timeit to "open msh file" gmsh.open("msh/patchtest_tri3_$(ndiv_q).msh")
     @timeit to "get nodes" nodes = get𝑿ᵢ()
     @timeit to "get entities" entities = getPhysicalGroups()
     nˢ = length(nodes)
 
-    nₑ = length(elements_support)
+    nₑ = length(elements_q_count)
     nᵐ = nₑ*ApproxOperator.get𝑛𝑝(eval(type_M)(𝑿ᵢ[],𝑿ₛ[]))
 
     kʷʷ = zeros(nʷ,nʷ)
@@ -271,7 +271,7 @@ write(io, "nʷ,nᵠ,nˢ,k\n")
     points = [xs; ys; zs]
     cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE_STRIP, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_q]
 
-    vtk_grid("./vtk/mf/mf_w_φ_CCCC.vtu", points, cells;
+    vtk_grid("./vtk/mf/mf_w_φ_CCCC_un.vtu", points, cells;
             ascii=false, append=false, compress=false) do vtk
 
         vtk["v₁"] = [node.d₁ for node in nodes]
@@ -290,9 +290,7 @@ write(io, "nʷ,nᵠ,nˢ,k\n")
 
     # (λ.*ρ/Dˢ).^0.5
     println(λ[index]*a^2/(π^2*Dᵇ)*h)
-    # k = (λ[index]*a^2/(π^2*Dᵇ)*h)
-    ω = sqrt(real(λ[index]))
-    k = ω * a ^ 2 * sqrt(ρ * h / Dᵇ)
+    k = (λ[index]*a^2/(π^2*Dᵇ)*h)
 
 write(io, "$ndiv_w,$ndiv_φ,$ndiv_q,$k\n")
 end

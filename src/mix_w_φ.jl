@@ -16,12 +16,12 @@ Dˢ = 5/6*E*h/(2*(1+ν))
 σ₂₂ = 0.0
 σ₁₂ = 0.0
 a = 1.0
-ns = [7,9,11,13,15,17]
+ns = 20:25
 integrationOrder = 2
 
 const to = TimerOutput()
 
-open("mix_w_φ_SSSS_roit1.csv", "w") do io
+open("mix_w_φ_CCCC_roit2.csv", "w") do io
     write(io, "nʷ,nᵠ,nˢ,k\n")
     for i in ns
         gmsh.initialize()
@@ -30,7 +30,7 @@ open("mix_w_φ_SSSS_roit1.csv", "w") do io
         type_w = :tri3
         
         ndiv_φ = i
-        ndiv_w = ndiv_φ - 1
+        ndiv_w = ndiv_φ - 2
         ndiv_q = i
 
         # XLSX.openxlsx("xls/mix_roit_$(ndiv_φ)_tri3_$(ndiv_w).xlsx", mode="w") do xf
@@ -154,7 +154,7 @@ open("mix_w_φ_SSSS_roit1.csv", "w") do io
             𝑎ʷ = ∫αwwdΓ=>elements_1∪elements_2∪elements_3∪elements_4
             𝑎ᵠ = ∫αφφdΓ=>elements_1∪elements_2∪elements_3∪elements_4
             @timeit to "assemble" 𝑎ʷ(kʷʷ)
-            # @timeit to "assemble" 𝑎ᵠ(kᵠᵠ)
+            @timeit to "assemble" 𝑎ᵠ(kᵠᵠ)
             # @timeit to "assemble" 𝑎ʷ(mʷʷ)
             # @timeit to "assemble" 𝑎ᵠ(mᵠᵠ)
             # @timeit to "assemble" 𝑎ʷ(kᴳʷʷ)
@@ -209,7 +209,7 @@ open("mix_w_φ_SSSS_roit1.csv", "w") do io
         # points = [xs; ys; zs]
         # cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE_STRIP, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_w]
 
-        # vtk_grid("./vtk/fem/SSSS/fem_SSSS_$n.vtu", points, cells;
+        # vtk_grid("./vtk/fem/CCCC/fem_CCCC_$n.vtu", points, cells;
         #         ascii=true, append=false, compress=false) do vtk
 
         #     vtk["v₁"] = [node.d₁ for node in nodes]
@@ -243,7 +243,7 @@ open("mix_w_φ_SSSS_roit1.csv", "w") do io
                 points[3,i] = getproperty(node, s) * scale
             end
 
-            vtk_grid("./vtk/mix/SSSS/mix_$(i)_SSSS_roit1_mode_$m.vtu", points, cells;
+            vtk_grid("./vtk/mix/CCCC/mix_$(i)_CCCC_roit2_mode_$m.vtu", points, cells;
                     ascii=false, append=false, compress=false) do vtk
                 vtk[names[m]] = vals
             end
@@ -251,7 +251,9 @@ open("mix_w_φ_SSSS_roit1.csv", "w") do io
 
         # (λ.*ρ/Dˢ).^0.5
         println(λ[index]*a^2/(π^2*Dᵇ)*h)
-        k = (λ[index]*a^2/(π^2*Dᵇ)*h)
+        # k = (λ[index]*a^2/(π^2*Dᵇ)*h)
+        ω = sqrt(real(λ[index]))
+        k = ω * a ^ 2 * sqrt(ρ * h / Dᵇ)
 
         write(io, "$ndiv_φ,$ndiv_w,$ndiv_q,$k\n")
 
