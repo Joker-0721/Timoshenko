@@ -170,16 +170,21 @@ if DO_FEM
     println("DO_FEM：純有限元")
     println("="^50)
     for bc in BCs
-        process_vtk("../vtk/fem/vibration/$bc/vib_fem_$(bc)_0.001.vtu",
-                    "fem", bc, "../Fig/fem/vibration/fem_vibration_0.001")
-        process_vtk("../vtk/fem/vibration/$bc/vib_fem_$(bc)_shear.vtu",
-                    "fem_shear", bc, "../Fig/fem/vibration/fem_shear")
-        process_vtk("../vtk/fem/vibration/$bc/vib_fem_$(bc)_shear_km_0.001.vtu",
-                    "fem_shear_km", bc, "../Fig/fem/vibration/fem_shear_km")    
-        process_vtk("../vtk/fem/buckling/$bc/fem_$bc.vtu",
-                    "fem", bc, "../Fig/fem/buckling/fem_buckling")
-        process_vtk("../vtk/fem/buckling/$bc/fem2_$(bc)_shear.vtu",
-                    "fem_shear", bc, "../Fig/fem/buckling/fem_shear")
+        process_vtk("../vtk/fem/vibration/skew/$bc/vib_fem_$(bc)_skew.vtu",
+                    "fem", bc, "../Fig/fem/vibration/skew/fem_vibration_skew")
+
+        # process_vtk("../vtk/fem/vibration/skew/$bc/vib_fem_$(bc)_shear_skew.vtu",
+        #             "fem_shear", bc, "../Fig/fem/vibration/skew/fem_shear_skew")
+
+        process_vtk("../vtk/fem/vibration/skew/$bc/vib_fem_$(bc)_shear_km_skew.vtu",
+                    "fem_shear_km", bc, "../Fig/fem/vibration/skew/fem_shear_km")  
+
+        # process_vtk("../vtk/fem/buckling/$bc/fem_$bc.vtu",
+        #             "fem", bc, "../Fig/fem/buckling/fem_buckling")
+
+        # process_vtk("../vtk/fem/buckling/$bc/fem2_$(bc)_shear.vtu",
+        #             "fem_shear", bc, "../Fig/fem/buckling/fem_shear")
+
     end
 end
 
@@ -191,10 +196,11 @@ if DO_MIX
     println("DO_MIX：混合有限元")
     println("="^50)
     for bc in BCs
-        process_vtk("../vtk/fem/vibration/$bc/vib_fem_mix_$(bc)_0.001.vtu",
-                    "fem_mix", bc, "../Fig/fem/vibration/fem_mix_0.001")
-        process_vtk("../vtk/fem/buckling/$bc/fem_mix_$bc.vtu",
-                    "fem_mix", bc, "../Fig/fem/buckling/fem_mix")
+        process_vtk("../vtk/fem/vibration/skew/$bc/vib_fem_mix_$(bc)_skew.vtu",
+                    "fem_mix", bc, "../Fig/fem/vibration/fem_mix_skew")
+
+        # process_vtk("../vtk/fem/buckling/$bc/fem_mix_$bc.vtu",
+        #             "fem_mix", bc, "../Fig/fem/buckling/fem_mix")
     end
 end
 
@@ -206,14 +212,18 @@ if DO_MF
     println("DO_MF：無網格法")
     println("="^50)
     for bc in BCs
-        process_vtk("../vtk/mf/vibration/$bc/vib_mf_w_φ_$(bc)_0.001.vtu",
-                    "mf", bc, "../Fig/mf/vibration/mf_vibration_0.001")
-        process_vtk("../vtk/mf/vibration/$bc/vib_mf_w_φ_$(bc)2_0.001.vtu",
-                    "mf2", bc, "../Fig/mf/vibration/mf_vibration2_0.001")
-        process_vtk("../vtk/mf/buckling/$bc/mf_w_φ_$bc.vtu",
-                    "mf", bc, "../Fig/mf/buckling/mf_buckling")
-        process_vtk("../vtk/mf/buckling/$bc/mf1_w_φ_$(bc).vtu",
-                    "mf2", bc, "../Fig/mf/buckling/mf_buckling2")
+        process_vtk("../vtk/mf/vibration/skew/$bc/vib_mf_w_φ_$(bc)_0.001.vtu",
+                    "mf", bc, "../Fig/mf/vibration/skew/mf_vibration_skew")
+
+        process_vtk("../vtk/mf/vibration/skew/$bc/vib_mf_w_φ_$(bc)2_skew.vtu",
+                    "mf2", bc, "../Fig/mf/vibration/skew/mf_vibration2_skew")
+
+        # process_vtk("../vtk/mf/buckling/$bc/mf_w_φ_$bc.vtu",
+        #             "mf", bc, "../Fig/mf/buckling/mf_buckling")
+
+        # process_vtk("../vtk/mf/buckling/$bc/mf1_w_φ_$(bc).vtu",
+        #             "mf2", bc, "../Fig/mf/buckling/mf_buckling2")
+
     end
 end
 
