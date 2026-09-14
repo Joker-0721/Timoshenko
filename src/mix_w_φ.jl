@@ -16,7 +16,7 @@ Dˢ = 5/6*E*h/(2*(1+ν))
 σ₂₂ = 0.0
 σ₁₂ = 0.0
 a = 1.0
-ns = 20:25
+ns = [7,9,11,13,15,17]
 integrationOrder = 2
 
 const to = TimerOutput()
@@ -251,9 +251,7 @@ open("mix_w_φ_CCCC_roit2.csv", "w") do io
 
         # (λ.*ρ/Dˢ).^0.5
         println(λ[index]*a^2/(π^2*Dᵇ)*h)
-        # k = (λ[index]*a^2/(π^2*Dᵇ)*h)
-        ω = sqrt(real(λ[index]))
-        k = ω * a ^ 2 * sqrt(ρ * h / Dᵇ)
+        k = (λ[index]*a^2/(π^2*Dᵇ)*h)
 
         write(io, "$ndiv_φ,$ndiv_w,$ndiv_q,$k\n")
 

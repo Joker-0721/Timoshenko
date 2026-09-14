@@ -8,14 +8,14 @@ import Gmsh: gmsh
 E = 1.0
 ν = 0.3
 ρ = 1.0
-h = 1e-1
+h = 1e-2
 Dᵇ = E*h^3/12/(1-ν^2)
 Dˢ = 5/6*E*h/(2*(1+ν))
 σ₁₁ = 1e0
 σ₂₂ = 0.0
 σ₁₂ = 0.0
 a = 1.0
-n = 20:25
+n = [7,9,11,13,15,17]
 
 const to = TimerOutput()
 
@@ -184,9 +184,7 @@ open("fem_CCCC.csv", "w") do io
 
         # (λ.*ρ/Dˢ).^0.5
         println(λ[index]*a^2/(π^2*Dᵇ)*h)
-        # k = (λ[index]*a^2/(π^2*Dᵇ)*h)
-        ω = sqrt(real(λ[index]))
-        k = ω * a ^ 2 * sqrt(ρ * h / Dᵇ)
+        k = (λ[index]*a^2/(π^2*Dᵇ)*h)
 
         write(io, "$i,$k\n")
 

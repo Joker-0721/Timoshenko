@@ -29,8 +29,8 @@ write(io, "nʷ,nᵠ,nˢ,k\n")
     type_Q = :tri3
     type_M = :(PiecewisePolynomial{:Linear2D})
 
-    ndivs = 20:25
-    for ndiv in ndivs
+ndivs = 25:35
+for ndiv in ndivs
     ndiv_φ = ndiv
     ndiv_w = ndiv-1
     ndiv_q = ndiv
@@ -71,6 +71,10 @@ write(io, "nʷ,nᵠ,nˢ,k\n")
     @timeit to "get entities" entities = getPhysicalGroups()
     nˢ = length(nodes)
 
+    # nₑ = length(elements_support)
+    # nᵐ = nₑ*ApproxOperator.get𝑛𝑝(eval(type_M)(𝑿ᵢ[],𝑿ₛ[]))
+
+    elements_q_count = getElements(nodes, entities["Ω"], 1)
     nₑ = length(elements_q_count)
     nᵐ = nₑ*ApproxOperator.get𝑛𝑝(eval(type_M)(𝑿ᵢ[],𝑿ₛ[]))
 

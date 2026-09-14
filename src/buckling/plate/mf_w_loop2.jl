@@ -2,9 +2,11 @@ using ApproxOperator
 import ApproxOperator.GmshImport: getPhysicalGroups, get𝑿ᵢ, getElements, getPiecewiseElements, getPiecewiseBoundaryElements
 import ApproxOperator.MindlinPlate: ∫κκdΩ, ∫∇w∇wdΩ, ∫φφdΩ, ∫φwdΩ, ∫wqdΩ, ∫φmdΩ, ∫QQdΩ, ∫∇QwdΩ, ∫QwdΓ, ∫QφdΩ, ∫MMdΩ, ∫∇MφdΩ, ∫MφdΓ, ∫wVdΓ, ∫φMdΓ, ∫αwwdΓ, ∫αφφdΓ, ∫∇wσ∇wdΩ, ∫∇φσ∇φdΩ, ∫ρwwdΩ, ∫ρφφdΩ
 
+
 using TimerOutputs, LinearAlgebra, WriteVTK, DelimitedFiles
 import Gmsh: gmsh
 include("cal_area_support.jl")
+
 
 E = 1.0
 ν = 0.3
@@ -19,24 +21,47 @@ a = 1.0
 αʷ = 0e6
 αᵠ = 0e3
 
-const to = TimerOutput()
-open("./date/mf/mf_w_φ_CCCC.csv", "w") do io
-write(io, "nʷ,nᵠ,nˢ,k\n")
-    integrationOrder = 2
+# ============================================================
+#  邊界條件設定
+#  w_edges     : 參與 w 邊界積分（∫QwdΓ, ∫αwwdΓ）的邊號
+#  assemble_w  : 是否執行 w 邊界組裝（SSSS 為 false）
+#  φ_edges     : 參與 φ 邊界積分（∫MφdΓ, ∫αφφdΓ）的邊號
+#  assemble_φ  : 是否執行 φ 邊界組裝（SSSS、FSSS 為 false）
+# ============================================================
+bcs = [
+    (name="CCCC", w_edges=[1,2,3,4], assemble_w=true,  φ_edges=[1,2,3,4], assemble_φ=true),
+    (name="SSSS", w_edges=[1,2,3,4], assemble_w=true, φ_edges=[1,2,3,4], assemble_φ=false),
+    (name="CSCS", w_edges=[1,2,3,4], assemble_w=true,  φ_edges=[1,3],     assemble_φ=true),
+    (name="SCSC", w_edges=[1,2,3,4], assemble_w=true,  φ_edges=[2,4],     assemble_φ=true),
+    (name="FSCS", w_edges=[2,3,4],   assemble_w=true,  φ_edges=[3],       assemble_φ=true),
+    (name="FSSS", w_edges=[2,3,4],   assemble_w=true,  φ_edges=[3],       assemble_φ=false),
+]
 
-    type_w = :(ReproducingKernel{:Linear2D,:□,:CubicSpline})
-    type_φ = :(ReproducingKernel{:Linear2D,:□,:CubicSpline})
-    type_Q = :tri3
-    type_M = :(PiecewisePolynomial{:Linear2D})
+to = TimerOutput()
 
-    ndivs = 30:40
-    for ndiv in ndivs
+# 為每個邊界條件開啟獨立 CSV 檔
+ios = Dict{String,IOStream}()
+for bc in bcs
+    mkpath("../date/mf/vibration/plate")
+    ios[bc.name] = open("../date/mf/vibration/plate/vib_mf_w_φ_$(bc.name)2_0.001.csv", "w")
+    write(ios[bc.name], "nʷ,nᵠ,nˢ,k₁,k₂,k₃,k₄,k₅,k₆,k₇,k₈,k₉,k₁₀\n")
+end
+
+integrationOrder = 2
+
+type_w = :(ReproducingKernel{:Linear2D,:□,:CubicSpline})
+type_φ = :(ReproducingKernel{:Linear2D,:□,:CubicSpline})
+type_Q = :tri3
+type_M = :(PiecewisePolynomial{:Linear2D})
+
+ndivs = 20:30
+for ndiv in ndivs
     ndiv_φ = ndiv
-    ndiv_w = ndiv-1
+    ndiv_w = ndiv-2
     ndiv_q = ndiv
 
     gmsh.initialize()
-    @timeit to "open msh file" gmsh.open("./msh/patchtest_tri3_$ndiv_w.msh")
+    @timeit to "open msh file" gmsh.open("../msh/patchtest_tri3_$ndiv_w.msh")
     @timeit to "get entities" entities = getPhysicalGroups()
     @timeit to "get nodes" nodes_w = get𝑿ᵢ()
     xʷ = nodes_w.x
@@ -51,7 +76,7 @@ write(io, "nʷ,nᵠ,nˢ,k\n")
     s₃ = 1.5*s_w*ones(nʷ)
     push!(nodes_w,:s₁=>s₁,:s₂=>s₂,:s₃=>s₃)
 
-    @timeit to "open msh file" gmsh.open("msh/patchtest_tri3_$ndiv_φ.msh")
+    @timeit to "open msh file" gmsh.open("../msh/patchtest_tri3_$ndiv_φ.msh")
     @timeit to "get nodes" nodes_φ = get𝑿ᵢ()
     @timeit to "get entities" entities = getPhysicalGroups()
     xᵠ = nodes_φ.x
@@ -66,7 +91,7 @@ write(io, "nʷ,nᵠ,nˢ,k\n")
     s₃ = 1.5*s_φ*ones(nᵠ)
     push!(nodes_φ,:s₁=>s₁,:s₂=>s₂,:s₃=>s₃)
 
-    @timeit to "open msh file" gmsh.open("msh/patchtest_tri3_$ndiv_q.msh")
+    @timeit to "open msh file" gmsh.open("../msh/patchtest_tri3_$ndiv_q.msh")
     @timeit to "get nodes" nodes = get𝑿ᵢ()
     @timeit to "get entities" entities = getPhysicalGroups()
     nˢ = length(nodes)
@@ -167,16 +192,7 @@ write(io, "nʷ,nᵠ,nˢ,k\n")
         @timeit to "calculate shape functions" set𝝭!(elements_w_2)
         @timeit to "calculate shape functions" set𝝭!(elements_w_3)
         @timeit to "calculate shape functions" set𝝭!(elements_w_4)
-        𝑎 = ∫QwdΓ => (elements_q_1 ∪ elements_q_2 ∪ elements_q_3 ∪ elements_q_4, elements_w_1 ∪ elements_w_2 ∪ elements_w_3 ∪ elements_w_4)
-        #----fs------------------------------------------------------------------
-        # 𝑎 = ∫QwdΓ => (elements_q_2 ∪ elements_q_3 ∪ elements_q_4, elements_w_2 ∪ elements_w_3 ∪ elements_w_4)
-        # ------------------------------------------------------------------------
-        𝑎ʷ = ∫αwwdΓ => elements_w_1 ∪ elements_w_2 ∪ elements_w_3 ∪ elements_w_4
-        # ---fs-----------------------------------------------------------------
-        # 𝑎ʷ = ∫αwwdΓ =>  elements_w_2 ∪ elements_w_3 ∪ elements_w_4
-        # -------------------------------------------------------------------------
-        @timeit to "assemble" 𝑎(kˢʷ,fˢ)
-        @timeit to "assemble" 𝑎ʷ(kʷʷ)
+        # w 邊界組裝移至下方 BC 迴圈中執行
     end
 
     @timeit to "calculate ∫MφdΓ" begin
@@ -196,102 +212,151 @@ write(io, "nʷ,nᵠ,nˢ,k\n")
         @timeit to "calculate shape functions" set𝝭!(elements_φ_2)
         @timeit to "calculate shape functions" set𝝭!(elements_φ_3)
         @timeit to "calculate shape functions" set𝝭!(elements_φ_4)
-        #-SS----CC------------------------------------------------------------
-        𝑎 = ∫MφdΓ => (elements_m_1 ∪ elements_m_2 ∪ elements_m_3 ∪ elements_m_4, elements_φ_1 ∪ elements_φ_2 ∪ elements_φ_3 ∪ elements_φ_4)
-        #-SC---CS-------------------------------------------------------------
-        # 𝑎 = ∫MφdΓ => (elements_m_1 ∪ elements_m_3, elements_φ_1 ∪ elements_φ_3)
-        #-FS--------------------------------------------------------------------
-        # 𝑎 = ∫MφdΓ => (elements_m_3, elements_φ_3)
-        #-------------------------------------------------------------------------
-        𝑎ᵅ = ∫αφφdΓ => elements_φ_1 ∪ elements_φ_2 ∪ elements_φ_3 ∪ elements_φ_4
-        @timeit to "assemble" 𝑎(kᵐᵠ,fᵐ)
-        # @timeit to "assemble" 𝑎ᵅ(kᵠᵠ)
+        # φ 邊界組裝移至下方 BC 迴圈中執行
     end
 
     gmsh.finalize()
 
-    kᵠᵠ .+= - kˢᵠ'*(kˢˢ\kˢᵠ) - kᵐᵠ'*(kᵐᵐ\kᵐᵠ)
-    kᵠʷ .+= - kˢᵠ'*(kˢˢ\kˢʷ)
-    kʷʷ .+= - kˢʷ'*(kˢˢ\kˢʷ)
+    # ----------------------------------------------------------
+    #  儲存域積分（含全邊界通用項）後的矩陣快照
+    #  每個 BC 開始前從此狀態還原，避免互相污染
+    # ----------------------------------------------------------
+    kˢʷ₀ = copy(kˢʷ)
+    kᵐᵠ₀ = copy(kᵐᵠ)
 
-    k = [kᵠᵠ kᵠʷ;kᵠʷ' kʷʷ]
-    kᴳ = [kᴳᵠᵠ zeros(2nᵠ,nʷ);zeros(nʷ,2nᵠ) kᴳʷʷ]
-    m = [mᵠᵠ zeros(2nᵠ,nʷ);zeros(nʷ,2nᵠ) mʷʷ]
+    # 各邊元素陣列，便於依 BC 動態組合
+    elements_q_edges = [elements_q_1, elements_q_2, elements_q_3, elements_q_4]
+    elements_w_edges = [elements_w_1, elements_w_2, elements_w_3, elements_w_4]
+    elements_m_edges = [elements_m_1, elements_m_2, elements_m_3, elements_m_4]
+    elements_φ_edges = [elements_φ_1, elements_φ_2, elements_φ_3, elements_φ_4]
 
-    λ,v = eigen(k,kᴳ)
-    # # λ,v = eigen(k,m)
-
-    index = findfirst(real.(λ).>1e-8)
-
-    n_index = 12
-    d = zeros(nˢ,n_index)
-    𝗠 = zeros(21)
-    for (i,xᵢ) in enumerate(nodes)
-        x = xᵢ.x
-        y = xᵢ.y
-        indices = sp_w(x,y,0.0)
-        ni = length(indices)
-        𝓒 = [nodes_w[i] for i in indices]
-        data = Dict([:x=>(2,[x]),:y=>(2,[y]),:z=>(2,[0.0]),:𝝭=>(4,zeros(ni)),:𝗠=>(0,𝗠)])
-        ξ = 𝑿ₛ((𝑔=1,𝐺=1,𝐶=1,𝑠=0), data)
-        𝓖 = [ξ]
-        a = eval(type_w)(𝓒,𝓖)
-        set𝝭!(a)
-        for j in 1:n_index
-            u = 0.0
-            N = ξ[:𝝭]
-            for (k,xₖ) in enumerate(𝓒)
-                I = xₖ.𝐼
-                u += N[k]*v[2nᵠ+I,index+j-1]
-            end
-            d[i,j] = u
-        end
-    end
-
-    push!(nodes,
-        :d₁=>d[:,1],
-        :d₂=>d[:,2],
-        :d₃=>d[:,3],
-        :d₄=>d[:,4],
-        :d₅=>d[:,5],
-        :d₆=>d[:,6],
-        :d₇=>d[:,7],
-        :d₈=>d[:,8],
-        :d₉=>d[:,9],
-        :d₁₀=>d[:,10],
-        :d₁₁=>d[:,11],
-        :d₁₂=>d[:,12],
-    )
-
-
-
+    # VTK 格點與 cells（與 BC 無關，只算一次）
     xs = [node.x for node in nodes]'
     ys = [node.y for node in nodes]'
     zs = [node.z for node in nodes]'
     points = [xs; ys; zs]
     cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE_STRIP, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_q]
 
-    vtk_grid("./vtk/mf/mf_w_φ_CCCC.vtu", points, cells;
-            ascii=false, append=false, compress=false) do vtk
+    # ==============================================================
+    #  邊界條件迴圈
+    # ==============================================================
+    for bc in bcs
+        @timeit to "BC $(bc.name)" begin
 
-        vtk["v₁"] = [node.d₁ for node in nodes]
-        vtk["v₂"] = [node.d₂ for node in nodes]
-        vtk["v₃"] = [node.d₃ for node in nodes]
-        vtk["v₄"] = [node.d₄ for node in nodes]
-        vtk["v₅"] = [node.d₅ for node in nodes]
-        vtk["v₆"] = [node.d₆ for node in nodes]
-        vtk["v₇"] = [node.d₇ for node in nodes]
-        vtk["v₈"] = [node.d₈ for node in nodes]
-        vtk["v₉"] = [node.d₉ for node in nodes]
-        vtk["v₁₀"] = [node.d₁₀ for node in nodes]
-        vtk["v₁₁"] = [node.d₁₁ for node in nodes]
-        vtk["v₁₂"] = [node.d₁₂ for node in nodes]
+            # 還原 BC 相關矩陣至域積分後狀態
+            kˢʷ_bc = copy(kˢʷ₀)
+            kᵐᵠ_bc = copy(kᵐᵠ₀)
+            kʷʷ_bc = zeros(nʷ, nʷ)
+            kᵠᵠ_bc = zeros(2*nᵠ, 2*nᵠ)
+            kᵠʷ_bc = zeros(2*nᵠ, nʷ)
+            fˢ_bc = zeros(2*nˢ)
+            fᵐ_bc = zeros(3*nᵐ)
+
+            # ---------- w 邊界條件 ----------
+            q_w = reduce(∪, [elements_q_edges[i] for i in bc.w_edges])
+            w_w = reduce(∪, [elements_w_edges[i] for i in bc.w_edges])
+            𝑎_w  = ∫QwdΓ   => (q_w, w_w)
+            𝑎ʷ_w = ∫αwwdΓ => w_w
+            if bc.assemble_w
+                @timeit to "assemble" 𝑎_w(kˢʷ_bc, fˢ_bc)
+                @timeit to "assemble" 𝑎ʷ_w(kʷʷ_bc)
+            end
+
+            # ---------- φ 邊界條件 ----------
+            m_φ = reduce(∪, [elements_m_edges[i] for i in bc.φ_edges])
+            φ_φ = reduce(∪, [elements_φ_edges[i] for i in bc.φ_edges])
+            𝑎_φ   = ∫MφdΓ   => (m_φ, φ_φ)
+            𝑎ᵅ_φ  = ∫αφφdΓ => φ_φ
+            if bc.assemble_φ
+                @timeit to "assemble" 𝑎_φ(kᵐᵠ_bc, fᵐ_bc)
+                @timeit to "assemble" 𝑎ᵅ_φ(kᵠᵠ_bc)
+            end
+
+            # ---------- Schur 補餘 ----------
+            kᵠᵠ_bc .+= - kˢᵠ'*(kˢˢ\kˢᵠ) - kᵐᵠ_bc'*(kᵐᵐ\kᵐᵠ_bc)
+            kᵠʷ_bc .+= - kˢᵠ'*(kˢˢ\kˢʷ_bc)
+            kʷʷ_bc .+= - kˢʷ_bc'*(kˢˢ\kˢʷ_bc)
+
+            # ---------- 組裝整體矩陣 ----------
+            k_mat  = [kᵠᵠ_bc kᵠʷ_bc; kᵠʷ_bc' kʷʷ_bc]
+            kᴳ_mat = [kᴳᵠᵠ zeros(2*nᵠ,nʷ); zeros(nʷ,2*nᵠ) kᴳʷʷ]
+            m_mat  = [mᵠᵠ  zeros(2*nᵠ,nʷ); zeros(nʷ,2*nᵠ) mʷʷ]
+
+            # ---------- 特徵值求解 ----------
+            # λ, v = eigen(k_mat, kᴳ_mat)
+            λ, v = eigen(k_mat, m_mat)
+            index = findfirst(real.(λ).>1e-8)
+
+            # ---------- 計算位移場 d（用於 VTK 輸出） ----------
+            n_index = 12
+            d = zeros(nˢ, n_index)
+            𝗠 = zeros(21)
+            for (i, xᵢ) in enumerate(nodes)
+                x = xᵢ.x
+                y = xᵢ.y
+                indices = sp_w(x, y, 0.0)
+                ni = length(indices)
+                𝓒 = [nodes_w[i] for i in indices]
+                data = Dict([:x=>(2,[x]),:y=>(2,[y]),:z=>(2,[0.0]),:𝝭=>(4,zeros(ni)),:𝗠=>(0,𝗠)])
+                ξ = 𝑿ₛ((𝑔=1,𝐺=1,𝐶=1,𝑠=0), data)
+                𝓖 = [ξ]
+                a_elm = eval(type_w)(𝓒, 𝓖)
+                set𝝭!(a_elm)
+                for j in 1:n_index
+                    u = 0.0
+                    N = ξ[:𝝭]
+                    for (k_idx, xₖ) in enumerate(𝓒)
+                        I = xₖ.𝐼
+                        u += N[k_idx]*v[2*nᵠ+I, index+j-1]
+                    end
+                    d[i,j] = u
+                end
+            end
+
+            push!(nodes,
+                :d₁=>d[:,1],  :d₂=>d[:,2],  :d₃=>d[:,3],  :d₄=>d[:,4],
+                :d₅=>d[:,5],  :d₆=>d[:,6],  :d₇=>d[:,7],  :d₈=>d[:,8],
+                :d₉=>d[:,9],  :d₁₀=>d[:,10],:d₁₁=>d[:,11],:d₁₂=>d[:,12],
+            )
+
+            # ---------- VTK 輸出 ----------
+            mkpath("./vtk/mf/vibration/$(bc.name)")
+            vtk_grid("./vtk/mf/vibration/$(bc.name)/vib_mf_w_φ_$(bc.name)2_0.001.vtu", points, cells;
+                     ascii=false, append=false, compress=false) do vtk
+                vtk["v₁"]  = [node.d₁  for node in nodes]
+                vtk["v₂"]  = [node.d₂  for node in nodes]
+                vtk["v₃"]  = [node.d₃  for node in nodes]
+                vtk["v₄"]  = [node.d₄  for node in nodes]
+                vtk["v₅"]  = [node.d₅  for node in nodes]
+                vtk["v₆"]  = [node.d₆  for node in nodes]
+                vtk["v₇"]  = [node.d₇  for node in nodes]
+                vtk["v₈"]  = [node.d₈  for node in nodes]
+                vtk["v₉"]  = [node.d₉  for node in nodes]
+                vtk["v₁₀"] = [node.d₁₀ for node in nodes]
+                vtk["v₁₁"] = [node.d₁₁ for node in nodes]
+                vtk["v₁₂"] = [node.d₁₂ for node in nodes]
+            end
+
+            # ---------- 特徵值結果輸出 ----------
+            # k = (λ[index]*a^2/(π^2*Dᵇ)*h)
+            # println("$(bc.name): ", k)
+            # write(ios[bc.name], "$ndiv_w,$ndiv_φ,$ndiv_q,$k\n")
+            # flush(ios[bc.name])
+
+            n_modes = 10
+            # 由 index 開始取前 10 個非零特徵值，轉成無量綱頻率參數 k
+            k_vals = [sqrt(real(λ[index+j-1])) * a^2 * sqrt(ρ*h/Dᵇ) for j in 1:n_modes]
+            println("$(bc.name): ", k_vals)
+            write(ios[bc.name], "$ndiv_w,$ndiv_φ,$ndiv_q,$(join(k_vals, ","))\n")
+            flush(ios[bc.name])
+
+
+            
+        end
     end
-
-    # (λ.*ρ/Dˢ).^0.5
-    println(λ[index]*a^2/(π^2*Dᵇ)*h)
-    k = (λ[index]*a^2/(π^2*Dᵇ)*h)
-
-write(io, "$ndiv_w,$ndiv_φ,$ndiv_q,$k\n")
 end
+
+# 關閉所有 CSV 檔
+for bc in bcs
+    close(ios[bc.name])
 end
