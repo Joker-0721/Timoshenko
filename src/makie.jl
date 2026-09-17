@@ -129,169 +129,169 @@ end
 #  第一段：方板振動 - FEM
 #  VTK 路徑: vtk/fem/vibration/plate/$bc/vib_fem_$bc.vtu
 # ================================================================
-# println("="^50)
-# println("第一段：方板振動 - FEM")
-# println("="^50)
-# for bc in BCs
-#     process_vtk("../vtk/fem/vibration/plate/$bc/vib_fem_$bc.vtu",
-#                 "fem", bc, "../Fig/fem/vibration/plate/fem_vibration")
-# end
+println("="^50)
+println("第一段：方板振動 - FEM")
+println("="^50)
+for bc in BCs
+    process_vtk("../vtk/fem/vibration/plate/$bc/vib_fem_$bc.vtu",
+                "fem", bc, "../Fig/fem/vibration/plate/fem_vibration")
+end
 
 # ================================================================
 #  第二段：方板振動 - FEM shear
 #  VTK 路徑: vtk/fem/vibration/plate/$bc/vib_fem_$bc_shear.vtu
 # ================================================================
-# println("="^50)
-# println("第二段：方板振動 - FEM shear")
-# println("="^50)
-# for bc in BCs
-#     process_vtk("../vtk/fem/vibration/plate/$bc/vib_fem_$(bc)_shear.vtu",
-#                 "fem_shear", bc, "../Fig/fem/vibration/plate/fem_shear")
-# end
+println("="^50)
+println("第二段：方板振動 - FEM shear")
+println("="^50)
+for bc in BCs
+    process_vtk("../vtk/fem/vibration/plate/$bc/vib_fem_$(bc)_shear.vtu",
+                "fem_shear", bc, "../Fig/fem/vibration/plate/fem_shear")
+end
 
 # ================================================================
 #  第三段：方板振動 - FEM mix
 #  VTK 路徑: vtk/fem/vibration/plate/$bc/vib_fem_mix_$bc.vtu
 # ================================================================
-# println("="^50)
-# println("第三段：方板振動 - FEM mix")
-# println("="^50)
-# for bc in BCs
-#     process_vtk("../vtk/fem/vibration/plate/$bc/vib_fem_mix_$bc.vtu",
-#                 "fem_mix", bc, "../Fig/fem/vibration/plate/fem_mix")
-# end
+println("="^50)
+println("第三段：方板振動 - FEM mix")
+println("="^50)
+for bc in BCs
+    process_vtk("../vtk/fem/vibration/plate/$bc/vib_fem_mix_$bc.vtu",
+                "fem_mix", bc, "../Fig/fem/vibration/plate/fem_mix")
+end
 
 # ================================================================
 #  第四段：方板振動 - MF
 #  VTK 路徑: vtk/mf/vibration/plate/$bc/vib_mf_w_φ_$bc.vtu
 # ================================================================
-# println("="^50)
-# println("第四段：方板振動 - MF")
-# println("="^50)
-# for bc in BCs
-#     process_vtk("../vtk/mf/vibration/plate/$bc/vib_mf_w_φ_$bc.vtu",
-#                 "mf", bc, "../Fig/mf/vibration/plate/mf_vibration")
-# end
+println("="^50)
+println("第四段：方板振動 - MF")
+println("="^50)
+for bc in BCs
+    process_vtk("../vtk/mf/vibration/plate/$bc/vib_mf_w_φ_$bc.vtu",
+                "mf", bc, "../Fig/mf/vibration/plate/mf_vibration")
+end
 
 # ================================================================
 #  第五段：方板振動 - MF2
 #  VTK 路徑: vtk/mf/vibration/plate/$bc/vib_mf_w_φ_${bc}2.vtu
 # ================================================================
-# println("="^50)
-# println("第五段：方板振動 - MF2")
-# println("="^50)
-# for bc in BCs
-#     process_vtk("../vtk/mf/vibration/plate/$bc/vib_mf_w_φ_$(bc)2.vtu",
-#                 "mf2", bc, "../Fig/mf/vibration/plate/mf_vibration2")
-# end
+println("="^50)
+println("第五段：方板振動 - MF2")
+println("="^50)
+for bc in BCs
+    process_vtk("../vtk/mf/vibration/plate/$bc/vib_mf_w_φ_$(bc)2.vtu",
+                "mf2", bc, "../Fig/mf/vibration/plate/mf_vibration2")
+end
 
 # ================================================================
 #  第六段：方板屈曲 - FEM
 #  VTK 路徑: vtk/fem/buckling/$bc/fem_$bc.vtu
 # ================================================================
-# println("="^50)
-# println("第六段：方板屈曲 - FEM")
-# println("="^50)
-# for bc in BCs
-#     process_vtk("../vtk/fem/buckling/$bc/fem_$bc.vtu",
-#                 "fem_buckling", bc, "../Fig/fem/buckling/plate/fem_buckling")
-# end
+println("="^50)
+println("第六段：方板屈曲 - FEM")
+println("="^50)
+for bc in BCs
+    process_vtk("../vtk/fem/buckling/$bc/fem_$bc.vtu",
+                "fem_buckling", bc, "../Fig/fem/buckling/plate/fem_buckling")
+end
 
 # ================================================================
 #  第七段：方板屈曲 - FEM mix
 #  VTK 路徑: vtk/fem/buckling/$bc/fem_mix_$bc.vtu
 # ================================================================
-# println("="^50)
-# println("第七段：方板屈曲 - FEM mix")
-# println("="^50)
-# for bc in BCs
-#     process_vtk("../vtk/fem/buckling/$bc/fem_mix_$bc.vtu",
-#                 "fem_mix_buckling", bc, "../Fig/fem/buckling/plate/fem_mix_buckling")
-# end
+println("="^50)
+println("第七段：方板屈曲 - FEM mix")
+println("="^50)
+for bc in BCs
+    process_vtk("../vtk/fem/buckling/$bc/fem_mix_$bc.vtu",
+                "fem_mix_buckling", bc, "../Fig/fem/buckling/plate/fem_mix_buckling")
+end
 
 # ================================================================
 #  第八段：方板屈曲 - MF
 #  VTK 路徑: vtk/mf/buckling/$bc/mf_w_φ_$bc.vtu
 # ================================================================
-# println("="^50)
-# println("第八段：方板屈曲 - MF")
-# println("="^50)
-# for bc in BCs
-#     process_vtk("../vtk/mf/buckling/$bc/mf_w_φ_$bc.vtu",
-#                 "mf_buckling", bc, "../Fig/mf/buckling/plate/mf_buckling")
-# end
+println("="^50)
+println("第八段：方板屈曲 - MF")
+println("="^50)
+for bc in BCs
+    process_vtk("../vtk/mf/buckling/$bc/mf_w_φ_$bc.vtu",
+                "mf_buckling", bc, "../Fig/mf/buckling/plate/mf_buckling")
+end
 
 # ================================================================
 #  第九段：方板屈曲 - MF2
 #  VTK 路徑: vtk/mf/buckling/$bc/mf_w_φ_${bc}2.vtu
 # ================================================================
-# println("="^50)
-# println("第九段：方板屈曲 - MF2")
-# println("="^50)
-# for bc in BCs
-#     process_vtk("../vtk/mf/buckling/$bc/mf_w_φ_$(bc)2.vtu",
-#                 "mf2_buckling", bc, "../Fig/mf/buckling/plate/mf_buckling2")
-# end
+println("="^50)
+println("第九段：方板屈曲 - MF2")
+println("="^50)
+for bc in BCs
+    process_vtk("../vtk/mf/buckling/$bc/mf_w_φ_$(bc)2.vtu",
+                "mf2_buckling", bc, "../Fig/mf/buckling/plate/mf_buckling2")
+end
 
 # ================================================================
 #  第十段：斜板振動 - FEM（β=30/45/60）
 #  VTK 路徑: vtk/fem/vibration/skew/$bc/vib_fem_β${β}_${bc}_skew.vtu
 # ================================================================
-# println("="^50)
-# println("第十段：斜板振動 - FEM")
-# println("="^50)
-# for β in [30, 45, 60]
-#     println("--- 斜角 β = $(β)° ---")
-#     for bc in BCs
-#         process_vtk("../vtk/fem/vibration/skew/$bc/vib_fem_β$(β)_$(bc)_skew.vtu",
-#                     "fem", bc, "../Fig/fem/vibration/skew/fem_vibration_β$(β)")
-#     end
-# end
+println("="^50)
+println("第十段：斜板振動 - FEM")
+println("="^50)
+for β in [30, 45, 60]
+    println("--- 斜角 β = $(β)° ---")
+    for bc in BCs
+        process_vtk("../vtk/fem/vibration/skew/$bc/vib_fem_β$(β)_$(bc)_skew.vtu",
+                    "fem", bc, "../Fig/fem/vibration/skew/fem_vibration_β$(β)")
+    end
+end
 
 # ================================================================
 #  第十一段：斜板振動 - MF（β=30/45/60）
 #  VTK 路徑: vtk/mf/vibration/skew/$bc/vib_mf_w_φ_β${β}_${bc}_0.001.vtu
 # ================================================================
-# println("="^50)
-# println("第十一段：斜板振動 - MF")
-# println("="^50)
-# for β in [30, 45, 60]
-#     println("--- 斜角 β = $(β)° ---")
-#     for bc in BCs
-#         process_vtk("../vtk/mf/vibration/skew/$bc/vib_mf_w_φ_β$(β)_$(bc)_0.001.vtu",
-#                     "mf", bc, "../Fig/mf/vibration/skew/mf_vibration_β$(β)")
-#     end
-# end
+println("="^50)
+println("第十一段：斜板振動 - MF")
+println("="^50)
+for β in [30, 45, 60]
+    println("--- 斜角 β = $(β)° ---")
+    for bc in BCs
+        process_vtk("../vtk/mf/vibration/skew/$bc/vib_mf_w_φ_β$(β)_$(bc)_0.001.vtu",
+                    "mf", bc, "../Fig/mf/vibration/skew/mf_vibration_β$(β)")
+    end
+end
 
 # ================================================================
 #  第十二段：斜板屈曲 - FEM（β=30/45/60）
 #  VTK 路徑: vtk/fem/buckling/skew/$bc/fem_β${β}_${bc}_skew.vtu
 # ================================================================
-# println("="^50)
-# println("第十二段：斜板屈曲 - FEM")
-# println("="^50)
-# for β in [30, 45, 60]
-#     println("--- 斜角 β = $(β)° ---")
-#     for bc in BCs
-#         process_vtk("../vtk/fem/buckling/skew/$bc/fem_β$(β)_$(bc)_skew.vtu",
-#                     "fem_buckling", bc, "../Fig/fem/buckling/skew/fem_buckling_β$(β)")
-#     end
-# end
+println("="^50)
+println("第十二段：斜板屈曲 - FEM")
+println("="^50)
+for β in [30, 45, 60]
+    println("--- 斜角 β = $(β)° ---")
+    for bc in BCs
+        process_vtk("../vtk/fem/buckling/skew/$bc/fem_β$(β)_$(bc)_skew.vtu",
+                    "fem_buckling", bc, "../Fig/fem/buckling/skew/fem_buckling_β$(β)")
+    end
+end
 
 # ================================================================
 #  第十三段：斜板屈曲 - MF（β=30/45/60）
 #  VTK 路徑: vtk/mf/buckling/skew/$bc/mf_w_φ_β${β}_${bc}.vtu
 # ================================================================
-# println("="^50)
-# println("第十三段：斜板屈曲 - MF")
-# println("="^50)
-# for β in [30, 45, 60]
-#     println("--- 斜角 β = $(β)° ---")
-#     for bc in BCs
-#         process_vtk("../vtk/mf/buckling/skew/$bc/mf_w_φ_β$(β)_$(bc).vtu",
-#                     "mf_buckling", bc, "../Fig/mf/buckling/skew/mf_buckling_β$(β)")
-#     end
-# end
+println("="^50)
+println("第十三段：斜板屈曲 - MF")
+println("="^50)
+for β in [30, 45, 60]
+    println("--- 斜角 β = $(β)° ---")
+    for bc in BCs
+        process_vtk("../vtk/mf/buckling/skew/$bc/mf_w_φ_β$(β)_$(bc).vtu",
+                    "mf_buckling", bc, "../Fig/mf/buckling/skew/mf_buckling_β$(β)")
+    end
+end
 
 # ================================================================
 #  第十四段：new_vib（u₁..u₉ + v₁..v₁₂，新格式）
