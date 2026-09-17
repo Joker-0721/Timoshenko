@@ -11,17 +11,37 @@ using Dates
 # ---- 按顺序运行的档案列表 ----
 const FILES = [
     # "fem_tri3_loop.jl",
-    "fem_tri3_loop_shear.jl",
+    # "fem_tri3_loop_shear.jl",
     # "fem_mix_tri3_loop.jl",
     # "mf_w_loop.jl",
     # "mf_w_loop2.jl",
 #     "mf_w_loop_un.jl",
 #     "mf_w_loop_un_2.jl",
+
+    # "./vibration/plate/fem_tri3_loop.jl",
+    # "./vibration/plate/fem_tri3_loop_shear.jl",
+    # "./vibration/plate/fem_mix_tri3_loop.jl",
+    # "./vibration/plate/mf_w_loop.jl",
+    # "./vibration/plate/mf_w_loop2.jl",
+
     # "./vibration/skew/fem_tri3_loop_skew.jl",
     # "./vibration/skew/fem_tri3_loop_shear_skew.jl",
     # "./vibration/skew/fem_mix_tri3_loop_skew.jl",
     # "./vibration/skew/mf_w_loop_skew.jl",
     # "./vibration/skew/mf_w_loop2_skew.jl",
+
+    # "./buckling/plate/fem_tri3_loop.jl",
+    "./buckling/plate/fem_tri3_loop_shear.jl",
+    "./buckling/plate/fem_mix_tri3_loop.jl",
+    "./buckling/plate/mf_w_loop.jl",
+    "./buckling/plate/mf_w_loop2.jl",
+
+
+    # "./buckling/skew/fem_tri3_loop_skew.jl",
+    # "./buckling/skew/fem_tri3_loop_shear_skew.jl",
+    # "./buckling/skew/fem_mix_tri3_loop_skew.jl",
+    # "./buckling/skew/mf_w_loop_skew.jl",
+    # "./buckling/skew/mf_w_loop2_skew.jl",
 ]
 
 # 切换到本脚本所在目录，确保相对路径正确

@@ -2,7 +2,7 @@ using ApproxOperator
 import ApproxOperator.GmshImport: getPhysicalGroups, get𝑿ᵢ, getElements
 import ApproxOperator.MindlinPlate: ∫κκdΩ, ∫∇w∇wdΩ, ∫φφdΩ, ∫φwdΩ, ∫wqdΩ, ∫φmdΩ, ∫wVdΓ, ∫φMdΓ, ∫αwwdΓ, ∫αφφdΓ, ∫∇wσ∇wdΩ, ∫∇φσ∇φdΩ, ∫ρwwdΩ, ∫ρφφdΩ
 
-using TimerOutputs, LinearAlgebra, WriteVTK
+using TimerOutputs, LinearAlgebra, WriteVTK, DelimitedFiles
 import Gmsh: gmsh
 
 E = 1.0
@@ -17,6 +17,8 @@ Dˢ = 5/6*E*h/(2*(1+ν))
 a = 1.0
 
 const to = TimerOutput()
+open("./date/new_vib/fem_tri3_SSSS.csv", "w") do io
+write(io, "lambda,lambda_real,k\n")
 
 integrationOrder = 2
 gmsh.initialize()
@@ -70,8 +72,16 @@ end
     @timeit to "calculate shape functions" set𝝭!(elements_2)
     @timeit to "calculate shape functions" set𝝭!(elements_3)
     @timeit to "calculate shape functions" set𝝭!(elements_4)
-    𝑎ʷ = ∫αwwdΓ=>elements_1∪elements_2∪elements_3∪elements_4
-    𝑎ᵠ = ∫αφφdΓ=>elements_1∪elements_2∪elements_3∪elements_4
+    𝑎ʷ = ∫αwwdΓ=>
+    elements_1∪
+    elements_2∪
+    elements_3∪
+    elements_4
+    𝑎ᵠ = ∫αφφdΓ=>
+    elements_1∪
+    elements_2∪
+    elements_3∪
+    elements_4
     @timeit to "assemble" 𝑎ʷ(kʷʷ)
     # @timeit to "assemble" 𝑎ᵠ(kᵠᵠ)
     # @timeit to "assemble" 𝑎ʷ(mʷʷ)
@@ -85,8 +95,8 @@ k = [kᵠᵠ kᵠʷ;kᵠʷ' kʷʷ]
 kᴳ = [kᴳᵠᵠ zeros(2nᵠ,nʷ);zeros(nʷ,2nᵠ) kᴳʷʷ]
 m = [mᵠᵠ zeros(2nᵠ,nʷ);zeros(nʷ,2nᵠ) mʷʷ]
 
-λ,v = eigen(k,kᴳ)
-# λ,v = eigen(k,m)
+# λ,v = eigen(k,kᴳ)
+λ,v = eigen(k,m)
 
 index = findfirst(real.(λ).>1e-8)
 
@@ -123,8 +133,8 @@ zs = [node.z for node in nodes]'
 points = [xs; ys; zs]
 cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE_STRIP, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements]
 
-vtk_grid("./vtk/fem2.vtu", points, cells;
-         ascii=true, append=false, compress=false) do vtk
+vtk_grid("./vtk/new_vib/fem_tri3_SSSS.vtu", points, cells;
+         ascii=false, append=false, compress=false) do vtk
 
     vtk["v₁"] = [node.d₁ for node in nodes]
     vtk["v₂"] = [node.d₂ for node in nodes]
@@ -140,12 +150,47 @@ vtk_grid("./vtk/fem2.vtu", points, cells;
     vtk["v₁₂"] = [node.d₁₂ for node in nodes]
 end
 
-# (λ.*ρ/Dˢ).^0.5
-λ[index]
-# v_ = 4*π^2*Dᵇ/a^2
+# k = (λ[index]*a^2/(π^2*Dᵇ)*h)
 
-println(λ[index])
+# println(λ[index]*a^2/(π^2*Dᵇ)*h)
 
-K_b = a^2 * (λ[index] * σ₁₁ * h) / (π^2 * Dᵇ)
+# k₁ = (λ[index]^0.5*a^2/π^2*(ρ*h/Dᵇ)^0.5)
+# k₂ = (λ[index+1]^0.5*a^2/π^2*(ρ*h/Dᵇ)^0.5)
+# k₃ = (λ[index+2]^0.5*a^2/π^2*(ρ*h/Dᵇ)^0.5)
+# k₄ = (λ[index+3]^0.5*a^2/π^2*(ρ*h/Dᵇ)^0.5)
+# k₅ = (λ[index+4]^0.5*a^2/π^2*(ρ*h/Dᵇ)^0.5)
+# k₆ = (λ[index+5]^0.5*a^2/π^2*(ρ*h/Dᵇ)^0.5)
+# k₇ = (λ[index+6]^0.5*a^2/π^2*(ρ*h/Dᵇ)^0.5)
+# k₈ = (λ[index+7]^0.5*a^2/π^2*(ρ*h/Dᵇ)^0.5)
+# k₉ = (λ[index+8]^0.5*a^2/π^2*(ρ*h/Dᵇ)^0.5)
+# k₁₀ = (λ[index+9]^0.5*a^2/π^2*(ρ*h/Dᵇ)^0.5)
 
-println(K_b)
+# println(λ[index]^0.5*a^2/π^2*(ρ*h/Dᵇ)^0.5)
+# println(λ[index+1]^0.5*a^2/π^2*(ρ*h/Dᵇ)^0.5)
+# println(λ[index+2]^0.5*a^2/π^2*(ρ*h/Dᵇ)^0.5)
+# println(λ[index+3]^0.5*a^2/π^2*(ρ*h/Dᵇ)^0.5)
+# println(λ[index+4]^0.5*a^2/π^2*(ρ*h/Dᵇ)^0.5)
+# println(λ[index+5]^0.5*a^2/π^2*(ρ*h/Dᵇ)^0.5)
+# println(λ[index+6]^0.5*a^2/π^2*(ρ*h/Dᵇ)^0.5)
+# println(λ[index+7]^0.5*a^2/π^2*(ρ*h/Dᵇ)^0.5)
+# println(λ[index+8]^0.5*a^2/π^2*(ρ*h/Dᵇ)^0.5)
+# println(λ[index+9]^0.5*a^2/π^2*(ρ*h/Dᵇ)^0.5)
+
+λ_all = real.(λ)
+
+mask = λ_all .> 1e-8
+
+λ_real = λ_all[mask]
+
+k_all = (λ_all.^0.5) .* (a^2/π^2) .* (ρ*h/Dᵇ)^0.5
+
+k_real = k_all[mask]
+
+λ_real = zeros(length(λ_all))
+λ_real[mask] = λ_real
+k = zeros(length(λ_all))
+k[mask] = k_real
+
+write(io, "lambda,lambda_real,k\n")
+writedlm(io, [λ_all λ_real k], ',')
+end
