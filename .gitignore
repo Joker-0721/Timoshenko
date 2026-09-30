@@ -8,3 +8,4 @@
 !.gitignore
 !*.jl
 !*.msh
+ai/

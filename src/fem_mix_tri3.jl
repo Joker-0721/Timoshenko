@@ -22,7 +22,7 @@ write(io, "lambda,lambda_real,k\n")
 
 integrationOrder = 2
 gmsh.initialize()
-@timeit to "open msh file" gmsh.open("./msh/patchtest_tri3_10.msh")
+@timeit to "open msh file" gmsh.open("./msh/patchtest_tri3_20.msh")
 @timeit to "get entities" entities = getPhysicalGroups()
 @timeit to "get nodes" nodes = get𝑿ᵢ()
 
@@ -171,7 +171,7 @@ vtk_grid("./vtk/new_vib/fem_mix_SSSS.vtu", points, cells;
     vtk["u₆"] = [sin(3π/a*node.x)*sin(π/a*node.y)+sin(π/a*node.x)*sin(3π/a*node.y) for node in nodes]
     vtk["u₇"] = [sin(3π/a*node.x)*sin(2π/a*node.y)-sin(2π/a*node.x)*sin(3π/a*node.y) for node in nodes]
     vtk["u₈"] = [sin(3π/a*node.x)*sin(2π/a*node.y)+sin(2π/a*node.x)*sin(3π/a*node.y) for node in nodes]
-    vtk["u₉"] = [sin(3π/a*node.x)*sin(3π/a*node.y) for node in nodes]
+    vtk["u₉"]  = [sin(1π/a*node.x)*sin(4π/a*node.y) - sin(4π/a*node.x)*sin(1π/a*node.y) for node in nodes]
 end
 
 # k = (λ[index]*a^2/(π^2*Dᵇ)*h)

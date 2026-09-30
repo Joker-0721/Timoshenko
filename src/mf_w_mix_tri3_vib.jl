@@ -20,19 +20,19 @@ a = 1.0
 αᵠ = 0e3
 
 const to = TimerOutput()
-open("./date/new_vib/mf_w_φ_SSSS.csv", "w") do io
+open("./date/new_vib/mf_w_φ_SSSS_2.csv", "w") do io
 write(io, "lambda,lambda_real,k\n")
 
-integrationOrder = 2
+integrationOrder = 4
 
 type_w = :(ReproducingKernel{:Linear2D,:□,:CubicSpline})
 type_φ = :(ReproducingKernel{:Linear2D,:□,:CubicSpline})
 type_Q = :tri3
 type_M = :(PiecewisePolynomial{:Linear2D})
 
-ndiv = 10
+ndiv = 20
 ndiv_φ = ndiv
-ndiv_w = ndiv-1
+ndiv_w = ndiv-2
 ndiv_q = ndiv
 
 gmsh.initialize()
@@ -287,7 +287,7 @@ zs = [node.z for node in nodes]'
 points = [xs; ys; zs]
 cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE_STRIP, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_q]
 
-vtk_grid("./vtk/new_vib/mf_w_φ_SSSS.vtu", points, cells;
+vtk_grid("./vtk/new_vib/mf_w_φ_SSSS_2.vtu", points, cells;
          ascii=false, append=false, compress=false) do vtk
 
     vtk["v₁"] = [node.d₁ for node in nodes]
@@ -302,16 +302,6 @@ vtk_grid("./vtk/new_vib/mf_w_φ_SSSS.vtu", points, cells;
     vtk["v₁₀"] = [node.d₁₀ for node in nodes]
     vtk["v₁₁"] = [node.d₁₁ for node in nodes]
     vtk["v₁₂"] = [node.d₁₂ for node in nodes]
-
-    vtk["u₁"] = [sin(π/a*node.x)*sin(π/a*node.y) for node in nodes]
-    vtk["u₂"] = [sin(2π/a*node.x)*sin(π/a*node.y)-sin(π/a*node.x)*sin(2π/a*node.y) for node in nodes]
-    vtk["u₃"] = [sin(2π/a*node.x)*sin(π/a*node.y)+sin(π/a*node.x)*sin(2π/a*node.y) for node in nodes]
-    vtk["u₄"] = [sin(2π/a*node.x)*sin(2π/a*node.y) for node in nodes]
-    vtk["u₅"] = [sin(3π/a*node.x)*sin(π/a*node.y)-sin(π/a*node.x)*sin(3π/a*node.y) for node in nodes]
-    vtk["u₆"] = [sin(3π/a*node.x)*sin(π/a*node.y)+sin(π/a*node.x)*sin(3π/a*node.y) for node in nodes]
-    vtk["u₇"] = [sin(3π/a*node.x)*sin(2π/a*node.y)-sin(2π/a*node.x)*sin(3π/a*node.y) for node in nodes]
-    vtk["u₈"] = [sin(3π/a*node.x)*sin(2π/a*node.y)+sin(2π/a*node.x)*sin(3π/a*node.y) for node in nodes]
-    vtk["u₉"] = [sin(3π/a*node.x)*sin(3π/a*node.y) for node in nodes]
 
 end
 

@@ -22,7 +22,7 @@ write(io, "lambda,lambda_real,k\n")
 
 integrationOrder = 2
 gmsh.initialize()
-@timeit to "open msh file" gmsh.open("./msh/patchtest_tri3_10.msh")
+@timeit to "open msh file" gmsh.open("./msh/patchtest_tri3_20.msh")
 @timeit to "get entities" entities = getPhysicalGroups()
 @timeit to "get nodes" nodes = get𝑿ᵢ()
 

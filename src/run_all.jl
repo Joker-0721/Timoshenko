@@ -1,50 +1,52 @@
 #!/usr/bin/env julia
 #=
-  run_all.jl
-  按顺序运行三个有限元分析脚本
-  用法: julia run_all.jl
-  注意: 本档案需与三个脚本放在同一目录下
+    run_all.jl
+    按顺序跑晒 plate/ 入面所有 case
+    用法: julia run_all.jl
+    注意: 本档案需放在 src/ 目录下（同 buckling/ 同级）
 =#
-
 using Dates
 
 # ---- 按顺序运行的档案列表 ----
 const FILES = [
-    # "fem_tri3_loop.jl",
-    # "fem_tri3_loop_shear.jl",
-    # "fem_mix_tri3_loop.jl",
-    # "mf_w_loop.jl",
-    # "mf_w_loop2.jl",
-#     "mf_w_loop_un.jl",
-#     "mf_w_loop_un_2.jl",
+    "./buckling/plate/CCCC_fem_mix_tri3.jl",
+    "./buckling/plate/CCCC_fem_tri3_shear.jl",
+    "./buckling/plate/CCCC_fem_tri3.jl",
+    "./buckling/plate/CCCC_mf_w_mix_tri3.jl",
+    "./buckling/plate/CCCC_mf1_w_mix_tri3.jl",
 
-    # "./vibration/plate/fem_tri3_loop.jl",
-    # "./vibration/plate/fem_tri3_loop_shear.jl",
-    # "./vibration/plate/fem_mix_tri3_loop.jl",
-    # "./vibration/plate/mf_w_loop.jl",
-    # "./vibration/plate/mf_w_loop2.jl",
+    # "./buckling/plate/CSCS_fem_mix_tri3.jl",
+    # "./buckling/plate/CSCS_fem_tri3_shear.jl",
+    # "./buckling/plate/CSCS_fem_tri3.jl",
+    # "./buckling/plate/CSCS_mf_w_mix_tri3.jl",
+    # "./buckling/plate/CSCS_mf1_w_mix_tri3.jl",
 
-    # "./vibration/skew/fem_tri3_loop_skew.jl",
-    # "./vibration/skew/fem_tri3_loop_shear_skew.jl",
-    # "./vibration/skew/fem_mix_tri3_loop_skew.jl",
-    # "./vibration/skew/mf_w_loop_skew.jl",
-    # "./vibration/skew/mf_w_loop2_skew.jl",
+    # "./buckling/plate/FSCS_fem_mix_tri3.jl",
+    # "./buckling/plate/FSCS_fem_tri3_shear.jl",
+    # "./buckling/plate/FSCS_fem_tri3.jl",
+    # "./buckling/plate/FSCS_mf_w_mix_tri3.jl",
+    # "./buckling/plate/FSCS_mf1_w_mix_tri3.jl",
 
-    # "./buckling/plate/fem_tri3_loop.jl",
-    "./buckling/plate/fem_tri3_loop_shear.jl",
-    "./buckling/plate/fem_mix_tri3_loop.jl",
-    "./buckling/plate/mf_w_loop.jl",
-    "./buckling/plate/mf_w_loop2.jl",
+    # "./buckling/plate/FSSS_fem_mix_tri3.jl",
+    # "./buckling/plate/FSSS_fem_tri3_shear.jl",
+    # "./buckling/plate/FSSS_fem_tri3.jl",
+    # "./buckling/plate/FSSS_mf_w_mix_tri3.jl",
+    # "./buckling/plate/FSSS_mf1_w_mix_tri3.jl",
 
+    # "./buckling/plate/SCSC_fem_mix_tri3.jl",
+    # "./buckling/plate/SCSC_fem_tri3_shear.jl",
+    # "./buckling/plate/SCSC_fem_tri3.jl",
+    # "./buckling/plate/SCSC_mf_w_mix_tri3.jl",
+    # "./buckling/plate/SCSC_mf1_w_mix_tri3.jl",
 
-    # "./buckling/skew/fem_tri3_loop_skew.jl",
-    # "./buckling/skew/fem_tri3_loop_shear_skew.jl",
-    # "./buckling/skew/fem_mix_tri3_loop_skew.jl",
-    # "./buckling/skew/mf_w_loop_skew.jl",
-    # "./buckling/skew/mf_w_loop2_skew.jl",
+    "./buckling/plate/SSSS_fem_mix_tri3.jl",
+    "./buckling/plate/SSSS_fem_tri3_shear.jl",
+    "./buckling/plate/SSSS_fem_tri3.jl",
+    "./buckling/plate/SSSS_mf_w_mix_tri3.jl",
+    "./buckling/plate/SSSS_mf1_w_mix_tri3.jl",
 ]
 
-# 切换到本脚本所在目录，确保相对路径正确
+# 切换到本脚本所在目录，确保相对路径正确（../msh/、../date/ 都解析到 project root）
 cd(@__DIR__)
 
 println("="^70)
@@ -56,16 +58,11 @@ for (i, f) in enumerate(FILES)
     println("\n", "─"^70)
     println("[$i/$(length(FILES))] $(now())  开始运行: $f")
     println("─"^70)
-
     if !isfile(f)
         error("档案不存在，终止运行: $f")
     end
-
-    # include: 同进程运行，包只需加载一次，速度快
-    # 如需完全隔离（避免变量冲突），可改为: run(`julia $f`)
     run(`julia $f`)
-
-    println("[$i/$(length(FILES))] $(now())  ✓ 完成: $f")
+    println("[$i/$(length(FILES))] $(now())  完成: $f")
 end
 
 println("\n", "="^70)
