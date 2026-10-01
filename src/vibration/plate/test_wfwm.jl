@@ -1,0 +1,325 @@
+using ApproxOperator
+import ApproxOperator.GmshImport: getPhysicalGroups, get𝑿ᵢ, getElements, getPiecewiseElements, getPiecewiseBoundaryElements
+import ApproxOperator.MindlinPlate: ∫κκdΩ, ∫∇w∇wdΩ, ∫φφdΩ, ∫φwdΩ, ∫wqdΩ, ∫φmdΩ, ∫QQdΩ, ∫∇QwdΩ, ∫QwdΓ, ∫QφdΩ, ∫MMdΩ, ∫∇MφdΩ, ∫MφdΓ, ∫wVdΓ, ∫φMdΓ, ∫αwwdΓ, ∫αφφdΓ, ∫∇wσ∇wdΩ, ∫∇φσ∇φdΩ, ∫ρwwdΩ, ∫ρφφdΩ
+
+using TimerOutputs, LinearAlgebra, WriteVTK, DelimitedFiles
+import Gmsh: gmsh
+
+include(joinpath(@__DIR__, "cal_area_support.jl"))
+
+E = 1.0
+ν = 0.3
+ρ = 1.0
+h = 1e-3
+Dᵇ = E*h^3/12/(1-ν^2)
+Dˢ = 5/6*E*h/(2*(1+ν))
+σ₁₁ = 1e0
+σ₂₂ = 0.0
+σ₁₂ = 0.0
+a = 1.0
+G = E/(2*(1+ν))
+α = 1.0
+b = a/α
+sfx = ""
+_msh(n) = "./msh/patchtest_tri3_$n.msh"
+αʷ = 0e6
+αᵠ = 0e3
+
+to = TimerOutput()
+
+io = open("./date/vibration/plate/mf1_wfem_SSSS_B.csv", "w")
+write(io, "ndiv,Omega1,Omega2,Omega3,Omega4,Omega5,Omega6,Omega7,Omega8,Omega9,Omega10,Omega11,Omega12,Omega13,Omega14,Omega15,Omega16,Omega17,Omega18,Omega19,Omega20
+")
+
+integrationOrder = 4
+
+type_w = :tri3
+type_φ = :tri3
+type_Q = :tri3
+type_M = :(PiecewisePolynomial{:Linear2D})
+
+ndivs = [8, 16]
+for ndiv in ndivs
+
+    ndiv_w = ndiv
+    ndiv_φ = ndiv
+    ndiv_q = ndiv
+
+    gmsh.initialize()
+    @timeit to "open msh file" gmsh.open("./msh/patchtest_tri3_$ndiv_w.msh")
+    @timeit to "get entities" entities = getPhysicalGroups()
+    @timeit to "get nodes" nodes_w = get𝑿ᵢ()
+    xʷ = nodes_w.x
+    yʷ = nodes_w.y
+    zʷ = nodes_w.z
+    sp_w = RegularGrid(xʷ,yʷ,zʷ,n = 3,γ = 5)
+    elements_support = getElements(nodes_w, entities["Ω"], 1)
+    s_w, var_A = cal_area_support(elements_support)
+    nʷ = length(nodes_w)
+    s₁ = 1.5*s_w*ones(nʷ)
+    s₂ = 1.5*s_w*ones(nʷ)
+    s₃ = 1.5*s_w*ones(nʷ)
+    push!(nodes_w,:s₁=>s₁,:s₂=>s₂,:s₃=>s₃)
+
+    @timeit to "open msh file" gmsh.open("./msh/patchtest_tri3_$ndiv_φ.msh")
+    @timeit to "get nodes" nodes_φ = get𝑿ᵢ()
+    @timeit to "get entities" entities = getPhysicalGroups()
+    nᵠ = length(nodes_φ)
+
+    @timeit to "open msh file" gmsh.open("./msh/patchtest_tri3_$ndiv_q.msh")
+    @timeit to "get nodes" nodes = get𝑿ᵢ()
+    @timeit to "get entities" entities = getPhysicalGroups()
+    nˢ = length(nodes)
+
+    elements_support = getElements(nodes, entities["Ω"], 1)
+    nₑ = length(elements_support)
+    nᵐ = nₑ*ApproxOperator.get𝑛𝑝(eval(type_M)(𝑿ᵢ[],𝑿ₛ[]))
+
+    kʷʷ = zeros(nʷ,nʷ)
+    kᵠᵠ = zeros(2*nᵠ,2*nᵠ)
+    kˢˢ = zeros(2*nˢ,2*nˢ)
+    kᴳʷʷ = zeros(nʷ,nʷ)
+    kᴳᵠᵠ = zeros(2*nᵠ,2*nᵠ)
+    mʷʷ = zeros(nʷ,nʷ)
+    mᵠᵠ = zeros(2*nᵠ,2*nᵠ)
+    kᵠʷ = zeros(2*nᵠ,nʷ)
+    kˢʷ = zeros(2*nˢ,nʷ)
+    kˢᵠ = zeros(2*nˢ,2*nᵠ)
+    # kᵐᵐ 唔再分配（見下面逐單元 9×9 區塊解）
+    kᵐᵠ = zeros(3*nᵐ,2*nᵠ)
+    kᵐʷ = zeros(3*nᵐ,nʷ)
+    kˢᵐ = zeros(2*nˢ,3*nᵐ)
+    fˢ = zeros(2*nˢ)
+    fᵐ = zeros(3*nᵐ)
+
+    @timeit to "calculate ∫κκdΩ, ∫wwdΩ, ∫φφdΩ, ∫wφdΩ" begin
+        @timeit to "get elements" elements_q = getElements(nodes, entities["Ω"],integrationOrder)
+        prescribe!(elements_q, :E=>E, :ν=>ν, :h=>h)
+        @timeit to "calculate shape functions" set∇𝝭!(elements_q)
+
+        @timeit to "get elements" elements_w = getElements(nodes_w, entities["Ω"], integrationOrder)
+        prescribe!(elements_w, :E=>E, :ν=>ν, :h=>h, :ρ=>ρ, :σ₁₁=>σ₁₁,:σ₂₂=>σ₂₂,:σ₁₂=>σ₁₂)
+        @timeit to "calculate shape functions" set∇𝝭!(elements_w)
+
+        @timeit to "get elements" elements_φ = getElements(nodes_φ, entities["Ω"], integrationOrder)
+        prescribe!(elements_φ, :E=>E, :ν=>ν, :h=>h, :ρ=>ρ, :σ₁₁=>σ₁₁,:σ₂₂=>σ₂₂,:σ₁₂=>σ₁₂)
+        @timeit to "calculate shape functions" set∇𝝭!(elements_φ)
+
+        @timeit to "get elements" elements_m = getPiecewiseElements(entities["Ω"], eval(type_M), integrationOrder)
+        prescribe!(elements_m, :E=>E, :ν=>ν, :h=>h)
+        @timeit to "calculate shape functions" set∇𝝭!(elements_m)
+
+        @timeit to "get elements" elements_w_Γ = getElements(nodes_w, entities["Γ"], integrationOrder, normal=true)
+        @timeit to "calculate shape functions" set𝝭!(elements_w_Γ)
+
+        @timeit to "get elements" elements_q_Γ = getElements(nodes, entities["Γ"], integrationOrder, normal=true)
+        @timeit to "calculate shape functions" set𝝭!(elements_q_Γ)
+
+        @timeit to "get elements" elements_φ_Γ = getElements(nodes_φ, entities["Γ"], integrationOrder, normal=true)
+        @timeit to "calculate shape functions" set𝝭!(elements_φ_Γ)
+
+        @timeit to "get elements" elements_m_Γ = getPiecewiseBoundaryElements(entities["Γ"], entities["Ω"], eval(type_M), integrationOrder)
+        @timeit to "calculate shape functions" set𝝭!(elements_m_Γ)
+
+        𝑎ˢˢ = ∫QQdΩ=>elements_q
+        𝑎ˢʷ = [
+            ∫∇QwdΩ=>(elements_q,elements_w),
+            ∫QwdΓ=>(elements_q_Γ,elements_w_Γ),
+        ]
+        𝑎ˢᵠ = ∫QφdΩ=>(elements_q,elements_φ)
+        𝑎ᵐᵐ = ∫MMdΩ=>elements_m
+        𝑎ᵐᵠ = [
+            ∫∇MφdΩ=>(elements_m,elements_φ),
+            ∫MφdΓ=>(elements_m_Γ,elements_φ_Γ),
+        ]
+        𝑎ᴳʷʷ = ∫∇wσ∇wdΩ=>elements_w
+        𝑎ᴳᵠᵠ = ∫∇φσ∇φdΩ=>elements_φ
+        𝑎ᵐʷʷ = ∫ρwwdΩ=>elements_w
+        𝑎ᵐᵠᵠ = ∫ρφφdΩ=>elements_φ
+        @timeit to "assemble" 𝑎ˢˢ(kˢˢ)
+        @timeit to "assemble" 𝑎ˢʷ(kˢʷ)
+        @timeit to "assemble" 𝑎ˢᵠ(kˢᵠ)
+        # @timeit to \"assemble\" 𝑎ᵐᵐ(kᵐᵐ)   # M 場改逐單元解
+        @timeit to "assemble" 𝑎ᵐᵠ(kᵐᵠ)
+        @timeit to "assemble" 𝑎ᴳʷʷ(kᴳʷʷ)
+        @timeit to "assemble" 𝑎ᴳᵠᵠ(kᴳᵠᵠ)
+        @timeit to "assemble" 𝑎ᵐʷʷ(mʷʷ)
+        @timeit to "assemble" 𝑎ᵐᵠᵠ(mᵠᵠ)
+    end
+
+    @timeit to "calculate  ∫QwdΓ" begin
+        @timeit to "get elements" elements_q_1 = getElements(nodes, entities["Γ¹"], integrationOrder, normal=true)
+        @timeit to "get elements" elements_q_2 = getElements(nodes, entities["Γ²"], integrationOrder, normal=true)
+        @timeit to "get elements" elements_q_3 = getElements(nodes, entities["Γ³"], integrationOrder, normal=true)
+        @timeit to "get elements" elements_q_4 = getElements(nodes, entities["Γ⁴"], integrationOrder, normal=true)
+        @timeit to "get elements" elements_w_1 = getElements(nodes_w, entities["Γ¹"], integrationOrder, normal=true)
+        @timeit to "get elements" elements_w_2 = getElements(nodes_w, entities["Γ²"], integrationOrder, normal=true)
+        @timeit to "get elements" elements_w_3 = getElements(nodes_w, entities["Γ³"], integrationOrder, normal=true)
+        @timeit to "get elements" elements_w_4 = getElements(nodes_w, entities["Γ⁴"], integrationOrder, normal=true)
+        prescribe!(elements_w_1, :α=>αʷ, :g=>0.0)
+        prescribe!(elements_w_2, :α=>αʷ, :g=>0.0)
+        prescribe!(elements_w_3, :α=>αʷ, :g=>0.0)
+        prescribe!(elements_w_4, :α=>αʷ, :g=>0.0)
+        @timeit to "calculate shape functions" set𝝭!(elements_q_1)
+        @timeit to "calculate shape functions" set𝝭!(elements_q_2)
+        @timeit to "calculate shape functions" set𝝭!(elements_q_3)
+        @timeit to "calculate shape functions" set𝝭!(elements_q_4)
+        @timeit to "calculate shape functions" set𝝭!(elements_w_1)
+        @timeit to "calculate shape functions" set𝝭!(elements_w_2)
+        @timeit to "calculate shape functions" set𝝭!(elements_w_3)
+        @timeit to "calculate shape functions" set𝝭!(elements_w_4)
+
+        𝑎_w  = ∫QwdΓ   => (elements_q_1 ∪ elements_q_2 ∪ elements_q_3 ∪ elements_q_4, elements_w_1 ∪ elements_w_2 ∪ elements_w_3 ∪ elements_w_4)
+        𝑎ʷ_w = ∫αwwdΓ => elements_w_1 ∪ elements_w_2 ∪ elements_w_3 ∪ elements_w_4
+        @timeit to "assemble" 𝑎_w(kˢʷ, fˢ)
+        @timeit to "assemble" 𝑎ʷ_w(kʷʷ)
+    end
+
+    @timeit to "calculate ∫MφdΓ" begin
+        @timeit to "get elements" elements_m_1 = getElements(entities["Γ¹"], entities["Γ"], elements_m_Γ)
+        @timeit to "get elements" elements_m_2 = getElements(entities["Γ²"], entities["Γ"], elements_m_Γ)
+        @timeit to "get elements" elements_m_3 = getElements(entities["Γ³"], entities["Γ"], elements_m_Γ)
+        @timeit to "get elements" elements_m_4 = getElements(entities["Γ⁴"], entities["Γ"], elements_m_Γ)
+        @timeit to "get elements" elements_φ_1 = getElements(nodes_φ, entities["Γ¹"], integrationOrder, normal=true)
+        @timeit to "get elements" elements_φ_2 = getElements(nodes_φ, entities["Γ²"], integrationOrder, normal=true)
+        @timeit to "get elements" elements_φ_3 = getElements(nodes_φ, entities["Γ³"], integrationOrder, normal=true)
+        @timeit to "get elements" elements_φ_4 = getElements(nodes_φ, entities["Γ⁴"], integrationOrder, normal=true)
+        prescribe!(elements_φ_1, :α=>αᵠ, :g₁=>0.0, :g₂=>0.0, :n₁₁=>1.0, :n₁₂=>0.0, :n₂₂=>1.0)
+        prescribe!(elements_φ_2, :α=>αᵠ, :g₁=>0.0, :g₂=>0.0, :n₁₁=>1.0, :n₁₂=>0.0, :n₂₂=>1.0)
+        prescribe!(elements_φ_3, :α=>αᵠ, :g₁=>0.0, :g₂=>0.0, :n₁₁=>1.0, :n₁₂=>0.0, :n₂₂=>1.0)
+        prescribe!(elements_φ_4, :α=>αᵠ, :g₁=>0.0, :g₂=>0.0, :n₁₁=>1.0, :n₁₂=>0.0, :n₂₂=>1.0)
+        @timeit to "calculate shape functions" set𝝭!(elements_φ_1)
+        @timeit to "calculate shape functions" set𝝭!(elements_φ_2)
+        @timeit to "calculate shape functions" set𝝭!(elements_φ_3)
+        @timeit to "calculate shape functions" set𝝭!(elements_φ_4)
+
+        𝑎_φ   = ∫MφdΓ   => (elements_m_1 ∪ elements_m_2 ∪ elements_m_3 ∪ elements_m_4, elements_φ_1 ∪ elements_φ_2 ∪ elements_φ_3 ∪ elements_φ_4)
+        𝑎ᵅ_φ  = ∫αφφdΓ => elements_φ_1 ∪ elements_φ_2 ∪ elements_φ_3 ∪ elements_φ_4
+        # @timeit to "assemble" 𝑎_φ(kᵐᵠ, fᵐ)
+        # @timeit to "assemble" 𝑎ᵅ_φ(kᵠᵠ)
+    end
+
+    gmsh.finalize()
+
+
+    xs = [node.x for node in nodes]'
+    ys = [node.y for node in nodes]'
+    zs = [node.z for node in nodes]'
+    points = [xs; ys; zs]
+    cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE_STRIP, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_q]
+
+    kᵠᵠ .+= - kˢᵠ'*(kˢˢ\kˢᵠ)
+    # M 場逐單元 9×9 區塊解（等價於 kᵐᵠ'*(kᵐᵐ\kᵐᵠ)：M 場分片、唔跨單元連續 → kᵐᵐ 區塊對角）
+    # 每行只有「配對 φ 單元」嘅自由度非零 → 用稀疏欄集，避免 8450² 稠密外積（64×64 由 ~17 min 降到 ~0）
+    # 9×9 區塊公式逐字對應 ApproxOperator.MindlinPlate.∫MMdΩ，只改用單元局部編號
+    let
+        _cols = [Set{Int}() for _ in 1:length(elements_m)]
+        for (i, _elφ) in enumerate(elements_φ)
+            i <= length(_cols) || break
+            for _x in _elφ.𝓒
+                push!(_cols[i], 2*_x.𝐼-1); push!(_cols[i], 2*_x.𝐼)
+            end
+        end
+        _mmap = Dict{Int,Int}()
+        for (i, _em) in enumerate(elements_m)
+            for _x in _em.𝓒
+                _mmap[3*_x.𝐼-2] = i
+            end
+        end
+        for (k, _emΓ) in enumerate(elements_m_Γ)
+            k <= length(elements_φ_Γ) || break
+            _i = 0
+            for _x in _emΓ.𝓒
+                _i = get(_mmap, 3*_x.𝐼-2, 0)
+                _i > 0 && break
+            end
+            _i == 0 && continue
+            for _x in elements_φ_Γ[k].𝓒
+                push!(_cols[_i], 2*_x.𝐼-1); push!(_cols[_i], 2*_x.𝐼)
+            end
+        end
+        for (i, _elm) in enumerate(elements_m)
+            isempty(_cols[i]) && continue
+            _B9 = zeros(9, 9)
+            for _ξ in _elm.𝓖
+                _N = _ξ[:𝝭]; _w = _ξ.𝑤; _E = _ξ.E; _ν = _ξ.ν
+                _c1 = 12 / _E; _c2 = -_ν * 12 / _E; _c3 = 2 * (1 + _ν) * 12 / _E
+                for (i2, _xi) in enumerate(_elm.𝓒), (j2, _xj) in enumerate(_elm.𝓒)
+                    _B9[3i2-2, 3j2-2] -= _N[i2] * _c1 * _N[j2] * _w
+                    _B9[3i2-2, 3j2-1] -= _N[i2] * _c2 * _N[j2] * _w
+                    _B9[3i2-1, 3j2-2] -= _N[i2] * _c2 * _N[j2] * _w
+                    _B9[3i2-1, 3j2-1] -= _N[i2] * _c1 * _N[j2] * _w
+                    _B9[3i2, 3j2]     -= _N[i2] * _c3 * _N[j2] * _w
+                end
+            end
+            _ids = [xᵢ.𝐼 for xᵢ in _elm.𝓒]
+            _rows = reduce(vcat, ([3*I-2, 3*I-1, 3*I] for I in _ids))
+            _cd = sort!(collect(_cols[i]))
+            _R = kᵐᵠ[_rows, _cd]
+            kᵠᵠ[_cd, _cd] .-= _R' * (_B9 \ _R)
+        end
+    end
+    kᵠʷ .+= - kˢᵠ'*(kˢˢ\kˢʷ)
+    kʷʷ .+= - kˢʷ'*(kˢˢ\kˢʷ)
+
+    k = [kᵠᵠ kᵠʷ;kᵠʷ' kʷʷ]
+    kᴳ = [kᴳᵠᵠ zeros(2nᵠ,nʷ);zeros(nʷ,2nᵠ) kᴳʷʷ]
+    m = [mᵠᵠ zeros(2nᵠ,nʷ);zeros(nʷ,2nᵠ) mʷʷ]
+
+    # λ,v = eigen(k,kᴳ)
+    λ,v = try eigen(Symmetric(k), Symmetric(m)) catch e; @warn "sygvd failed, fallback to eigen(k,m): " e; eigen(k, m) end
+
+    index = findfirst(real.(λ).>1e-8)
+
+    n_index = 20
+    d = zeros(nˢ, n_index)
+
+    for (i, xᵢ) in enumerate(nodes)
+        I = xᵢ.𝐼
+        for j in 1:n_index
+            d[i,j] = v[2nᵠ+I,index+j-1]
+        end
+    end
+
+    push!(nodes,
+        :d₁=>d[:,1]     , :d₂=>d[:,2]     , :d₃=>d[:,3]     , :d₄=>d[:,4],
+        :d₅=>d[:,5]     , :d₆=>d[:,6]     , :d₇=>d[:,7]     , :d₈=>d[:,8],
+        :d₉=>d[:,9]     , :d₁₀=>d[:,10]   , :d₁₁=>d[:,11]   , :d₁₂=>d[:,12],
+        :d₁₃=>d[:,13]   , :d₁₄=>d[:,14]   , :d₁₅=>d[:,15]   , :d₁₆=>d[:,16],
+        :d₁₇=>d[:,17]   , :d₁₈=>d[:,18]   , :d₁₉=>d[:,19]   , :d₂₀=>d[:,20]
+    )
+
+
+    vtk_grid("./vtk/vibration/plate/mf1_wfem_SSSS_B.vtu", points, cells;
+             ascii=false, append=false, compress=false) do vtk
+    vtk["v₁"] = [node.d₁ for node in nodes]
+    vtk["v₂"] = [node.d₂ for node in nodes]
+    vtk["v₃"] = [node.d₃ for node in nodes]
+    vtk["v₄"] = [node.d₄ for node in nodes]
+    vtk["v₅"] = [node.d₅ for node in nodes]
+    vtk["v₆"] = [node.d₆ for node in nodes]
+    vtk["v₇"] = [node.d₇ for node in nodes]
+    vtk["v₈"] = [node.d₈ for node in nodes]
+    vtk["v₉"] = [node.d₉ for node in nodes]
+    vtk["v₁₀"] = [node.d₁₀ for node in nodes]
+    vtk["v₁₁"] = [node.d₁₁ for node in nodes]
+    vtk["v₁₂"] = [node.d₁₂ for node in nodes]
+    vtk["v₁₃"] = [node.d₁₃ for node in nodes]
+    vtk["v₁₄"] = [node.d₁₄ for node in nodes]
+    vtk["v₁₅"] = [node.d₁₅ for node in nodes]
+    vtk["v₁₆"] = [node.d₁₆ for node in nodes]
+    vtk["v₁₇"] = [node.d₁₇ for node in nodes]
+    vtk["v₁₈"] = [node.d₁₈ for node in nodes]
+    vtk["v₁₉"] = [node.d₁₉ for node in nodes]
+    vtk["v₂₀"] = [node.d₂₀ for node in nodes]
+end
+
+# k = (λ[index]*a^2/(π^2*Dᵇ)*h)
+
+# println(λ[index]*a^2/(π^2*Dᵇ)*h)
+
+Ω = [(λ[index+j-1]^0.5*a*(ρ/G)^0.5) for j in 1:20]
+println("mf1_wfem_SSSS_B ndiv=$ndiv Ω: ", join(round.(Ω, digits=8), ", "))
+write(io, "$ndiv," * join(Ω, ",") * "\n")
+flush(io)
+end
