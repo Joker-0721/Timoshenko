@@ -85,7 +85,7 @@ for ndiv in ndivs
     kᵠʷ = zeros(2*nᵠ,nʷ)
     kˢʷ = zeros(2*nˢ,nʷ)
     kˢᵠ = zeros(2*nˢ,2*nᵠ)
-    # kᵐᵐ 唔再分配（見下面逐單元 9×9 區塊解）
+    kᵐᵐ = zeros(3*nᵐ,3*nᵐ)
     kᵐᵠ = zeros(3*nᵐ,2*nᵠ)
     kᵐʷ = zeros(3*nᵐ,nʷ)
     kˢᵐ = zeros(2*nˢ,3*nᵐ)
@@ -139,7 +139,7 @@ for ndiv in ndivs
         @timeit to "assemble" 𝑎ˢˢ(kˢˢ)
         @timeit to "assemble" 𝑎ˢʷ(kˢʷ)
         @timeit to "assemble" 𝑎ˢᵠ(kˢᵠ)
-        # @timeit to \"assemble\" 𝑎ᵐᵐ(kᵐᵐ)   # M 場改逐單元解
+        @timeit to "assemble" 𝑎ᵐᵐ(kᵐᵐ) 
         @timeit to "assemble" 𝑎ᵐᵠ(kᵐᵠ)
         @timeit to "assemble" 𝑎ᴳʷʷ(kᴳʷʷ)
         @timeit to "assemble" 𝑎ᴳᵠᵠ(kᴳᵠᵠ)
@@ -208,57 +208,7 @@ for ndiv in ndivs
     points = [xs; ys; zs]
     cells = [MeshCell(VTKCellTypes.VTK_TRIANGLE_STRIP, [xᵢ.𝐼 for xᵢ in elm.𝓒]) for elm in elements_q]
 
-    kᵠᵠ .+= - kˢᵠ'*(kˢˢ\kˢᵠ)
-    # M 場逐單元 9×9 區塊解（等價於 kᵐᵠ'*(kᵐᵐ\kᵐᵠ)：M 場分片、唔跨單元連續 → kᵐᵐ 區塊對角）
-    # 每行只有「配對 φ 單元」嘅自由度非零 → 用稀疏欄集，避免 8450² 稠密外積（64×64 由 ~17 min 降到 ~0）
-    # 9×9 區塊公式逐字對應 ApproxOperator.MindlinPlate.∫MMdΩ，只改用單元局部編號
-    let
-        _cols = [Set{Int}() for _ in 1:length(elements_m)]
-        for (i, _elφ) in enumerate(elements_φ)
-            i <= length(_cols) || break
-            for _x in _elφ.𝓒
-                push!(_cols[i], 2*_x.𝐼-1); push!(_cols[i], 2*_x.𝐼)
-            end
-        end
-        _mmap = Dict{Int,Int}()
-        for (i, _em) in enumerate(elements_m)
-            for _x in _em.𝓒
-                _mmap[3*_x.𝐼-2] = i
-            end
-        end
-        for (k, _emΓ) in enumerate(elements_m_Γ)
-            k <= length(elements_φ_Γ) || break
-            _i = 0
-            for _x in _emΓ.𝓒
-                _i = get(_mmap, 3*_x.𝐼-2, 0)
-                _i > 0 && break
-            end
-            _i == 0 && continue
-            for _x in elements_φ_Γ[k].𝓒
-                push!(_cols[_i], 2*_x.𝐼-1); push!(_cols[_i], 2*_x.𝐼)
-            end
-        end
-        for (i, _elm) in enumerate(elements_m)
-            isempty(_cols[i]) && continue
-            _B9 = zeros(9, 9)
-            for _ξ in _elm.𝓖
-                _N = _ξ[:𝝭]; _w = _ξ.𝑤; _E = _ξ.E; _ν = _ξ.ν
-                _c1 = 12 / _E; _c2 = -_ν * 12 / _E; _c3 = 2 * (1 + _ν) * 12 / _E
-                for (i2, _xi) in enumerate(_elm.𝓒), (j2, _xj) in enumerate(_elm.𝓒)
-                    _B9[3i2-2, 3j2-2] -= _N[i2] * _c1 * _N[j2] * _w
-                    _B9[3i2-2, 3j2-1] -= _N[i2] * _c2 * _N[j2] * _w
-                    _B9[3i2-1, 3j2-2] -= _N[i2] * _c2 * _N[j2] * _w
-                    _B9[3i2-1, 3j2-1] -= _N[i2] * _c1 * _N[j2] * _w
-                    _B9[3i2, 3j2]     -= _N[i2] * _c3 * _N[j2] * _w
-                end
-            end
-            _ids = [xᵢ.𝐼 for xᵢ in _elm.𝓒]
-            _rows = reduce(vcat, ([3*I-2, 3*I-1, 3*I] for I in _ids))
-            _cd = sort!(collect(_cols[i]))
-            _R = kᵐᵠ[_rows, _cd]
-            kᵠᵠ[_cd, _cd] .-= _R' * (_B9 \ _R)
-        end
-    end
+    kᵠᵠ .+= - kˢᵠ'*(kˢˢ\kˢᵠ) - kᵐᵠ'*(kᵐᵐ\kᵐᵠ)
     kᵠʷ .+= - kˢᵠ'*(kˢˢ\kˢʷ)
     kʷʷ .+= - kˢʷ'*(kˢˢ\kˢʷ)
 
